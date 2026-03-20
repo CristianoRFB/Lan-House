@@ -1,0 +1,344 @@
+Stack recomendada
+
+Front-end
+
+HTML5 + CSS3 + JavaScript
+
+De preferência Vue 3 para painel admin e tela do cliente
+
+Tema escuro/claro, gráficos, notificações e formulários ficam bem fáceis assim
+
+Renderização das telas
+
+WebView2 para abrir a interface HTML como aplicativo local no Windows
+
+Isso evita depender do navegador do usuário e deixa a experiência mais controlada
+
+Back-end
+
+Python 3.12/3.13
+
+FastAPI para API local e comunicação cliente-servidor
+
+WebSocket para comandos em tempo real, mensagens e atualização do painel
+
+Serviço do cliente
+
+Python como Windows Service
+
+Um segundo processo “watchdog” para relançar a interface se ela cair
+
+Empacotado com PyInstaller
+
+Banco de dados
+
+PostgreSQL no PC do admin como banco central
+
+SQLite em cada cliente para fila offline e cache local
+
+Relatórios
+
+PDF: ReportLab ou WeasyPrint
+
+Excel: openpyxl
+
+TXT/CSV: nativo
+
+Arquitetura que eu usaria
+1. Servidor central no PC do admin
+
+Esse é o coração do sistema.
+
+Módulos:
+
+cadastro de usuários, perfis e permissões
+
+saldo, tempo e anotações
+
+comandos remotos
+
+notificações
+
+relatórios e dashboard
+
+backup automático
+
+central de logs
+
+módulo separado para PlayStation
+
+2. Agente cliente em cada PC
+
+Instalado em toda máquina da lan house.
+
+Funções:
+
+login do usuário
+
+cronômetro local
+
+detecção de ociosidade
+
+fila offline
+
+monitoramento de processos
+
+receber bloqueio/logout/reinício/print
+
+exibir mensagens e alertas sonoros
+
+sincronizar com o servidor quando a rede voltar
+
+3. Interface visual do cliente
+
+Feita em HTML/CSS/JS, mas aberta por uma janela controlada localmente.
+
+Mostra:
+
+nome do usuário
+
+tempo restante
+
+saldo/anotação
+
+botão para pedir login
+
+botão para pedir mais tempo
+
+mensagens do admin
+
+aviso de bloqueio/fim do tempo
+
+4. Painel admin
+
+Também em HTML/CSS/JS.
+
+Telas:
+
+mapa das máquinas
+
+usuários online/offline
+
+tempo restante por máquina
+
+comandos rápidos
+
+fila de requisições
+
+relatórios
+
+calendário de promessas de pagamento
+
+área de configurações avançadas
+
+Como isso atende ao que você pediu
+Perfis
+
+Eu separaria assim:
+
+Admin: acesso total
+
+Ghost: máquina livre, sem contar tempo
+
+Usuário Especial: saldo negativo liberado, anotações sem limite, permissões ampliadas
+
+Usuário Comum: segue regras, limite de anotação, requisições passam por aprovação
+
+Isso fica em RBAC simples: roles, permissions, user_role_permissions.
+
+Tempo e pagamento
+
+Fluxo do usuário comum:
+
+login com usuário + PIN de 4 dígitos
+
+servidor libera sessão
+
+cliente começa a contar
+
+alerta em 10, 5 e 1 minuto
+
+zerou o tempo:
+
+encerra sessão
+
+bloqueia a interface
+
+exibe mensagem definida pelo admin
+
+Para o Usuário Especial, a sessão continua e o saldo pode ficar negativo.
+
+Offline
+
+Cada cliente mantém uma base local com:
+
+sessão atual
+
+eventos pendentes
+
+requisições
+
+logs locais
+
+Se a rede cair:
+
+o cronômetro continua localmente
+
+o cliente guarda tudo em fila
+
+quando a conexão volta, envia os eventos com event_id único para evitar duplicação
+
+Anotações
+
+Separaria em dois conceitos:
+
+saldo pré-pago
+
+anotações / dívida / promessa de pagamento
+
+Assim você consegue:
+
+registrar valor anotado
+
+limitar usuário comum
+
+deixar ilimitado para especial
+
+marcar “prometeu pagar no dia X”
+
+emitir relatório disso depois
+
+Processos e programas
+
+O agente cliente coleta:
+
+processos abertos
+
+executável
+
+horário
+
+usuário logado
+
+Com isso o admin pode:
+
+visualizar programas abertos
+
+criar lista branca/negra
+
+bloquear execução futura
+
+aprovar instalação por requisição
+
+Aqui tem uma limitação importante: bloqueio forte de aplicativos no Windows depende de endurecimento do próprio sistema, não só do seu app. O Windows 10 oferece recursos de experiência restrita/kiosk (Assigned Access) e controle de aplicações (App Control/AppLocker), o que ajuda bastante.
+
+Segurança realista
+
+O ponto mais importante: “impossível de contornar” eu não prometeria em Windows 10 geral. O correto é prometer muito difícil de burlar, usando:
+
+conta local sem privilégio de admin
+
+serviço Windows iniciando junto com o sistema
+
+watchdog
+
+interface em modo restrito
+
+bloqueio de atalhos e ferramentas administrativas
+
+shell controlado/quiosque nas máquinas de cliente
+
+O próprio Microsoft Learn documenta o Assigned Access para experiência restrita/kiosk no Windows 10.
+
+Banco de dados: estrutura base
+
+Tabelas principais:
+
+users
+
+roles
+
+machines
+
+sessions
+
+wallet_transactions
+
+notes_ledger
+
+payment_promises
+
+notifications
+
+commands
+
+command_results
+
+process_snapshots
+
+app_rules
+
+screenshots
+
+audit_logs
+
+machine_observations
+
+system_settings
+
+backups
+
+ps_sessions
+
+Atualização e backup
+Atualização
+
+Dois modos:
+
+manual: admin aprova quando aplicar
+
+automática: cliente verifica versão no servidor e atualiza fora de sessão ativa
+
+Backup
+
+No servidor admin:
+
+tarefa diária após 20:30
+
+também tentativa de backup ao evento de desligamento
+
+retenção de 60 dias
+
+backup do banco + logs + capturas + configurações
+
+O que eu não faria
+
+Eu não faria:
+
+sistema 100% browser
+
+banco compartilhado por pasta de rede
+
+SQLite central acessado diretamente pelos clientes
+
+Electron em todas as máquinas se os PCs forem modestos
+
+O mais sólido para sua ideia é:
+
+Front em HTML/CSS/JS + Python no back + serviço Windows no cliente + PostgreSQL no admin + SQLite local para offline.
+
+Decisão final
+
+Se fosse para começar hoje, eu escolheria exatamente isto:
+
+Frontend: HTML/CSS/JS + Vue 3
+
+Backend: Python + FastAPI
+
+Cliente: Python Windows Service + UI HTML em WebView2
+
+Banco central: PostgreSQL
+
+Offline local: SQLite
+
+Empacotamento: PyInstaller
