@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from shared.services.offline_queue import OfflineEventQueue
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+
+from app.services.offline_queue import OfflineEventQueue
 
 
 class OfflineEventQueueTests(unittest.TestCase):

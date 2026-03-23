@@ -1,1 +1,1 @@
-"""Compatibilidade para serviços legados."""
+"""Serviços centrais do backend."""

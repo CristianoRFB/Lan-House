@@ -1,1 +1,1 @@
-"""Compatibilidade para entidades legadas."""
+"""Modelos e enums de domínio."""

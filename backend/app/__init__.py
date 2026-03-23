@@ -1,1 +1,1 @@
-"""Camada de compatibilidade para o antigo namespace backend.app."""
+"""Pacote principal do backend da lan house."""

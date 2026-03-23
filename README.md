@@ -1,85 +1,83 @@
 # Lan House Manager
 
-Sistema organizado em três áreas principais para atender ao fluxo solicitado:
+Sistema base para gerenciamento de lan house com foco em operação **cliente/servidor no Windows 10**, suporte offline e painel administrativo centralizado.
 
-- `admin/`: servidor e painel web do administrador, iniciado pelo navegador.
-- `client/`: agente local e interface do cliente da máquina.
-- `shared/`: domínio e serviços reutilizados pelos dois lados.
+## Visão geral
 
-## Estrutura do projeto
+Esta base implementa o **núcleo inicial** do projeto solicitado:
+
+- API local em **FastAPI** para o servidor central do admin.
+- Modelos de domínio para usuários, máquinas, sessões, anotações, comandos, notificações e PlayStation.
+- Regras de negócio para perfis **Admin**, **Ghost**, **Usuário Especial** e **Usuário Comum**.
+- Motor de sessão com controle de tempo, alertas de 10/5/1 minuto, bloqueio por fim de saldo e exceções para perfis privilegiados.
+- Fila offline em **SQLite** para o agente cliente continuar operando sem rede e sincronizar depois.
+- Política de backup diário após **20:30** com retenção de **60 dias**.
+- Agregação de relatórios diários/semanais/mensais para PCs e consoles separadamente.
+- Estrutura preparada para empacotamento futuro com WebView2, PyInstaller e serviço Windows.
+
+## Estrutura
 
 ```text
-admin/
-  server.py          # FastAPI que expõe API + painel HTML/CSS/JS do admin
-  web/               # assets visuais do admin rodando no navegador
-client/
-  agent/             # runtime local e integrações offline do cliente
-  web/               # interface HTML/CSS da máquina cliente
-shared/
-  domain/            # entidades, enums e contratos comuns
-  services/          # regras de sessão, fila offline, relatórios e backup
+backend/
+  app/
+    api/
+    domain/
+    services/
 tests/
 ```
 
-## O que foi ajustado neste passo
+## Perfis suportados
 
-### Admin via navegador
+- **Admin**: acesso total.
+- **Ghost**: máquina livre, sem contagem de tempo.
+- **Especial**: uso liberado, saldo negativo permitido, sem limite de anotações.
+- **Comum**: usa saldo pré-pago, pode ser bloqueado ao fim do tempo e respeita limites de anotação.
 
-O admin agora foi estruturado para iniciar como **aplicação web**, servida por FastAPI, com:
+## Fluxo arquitetural previsto
 
-- dashboard visual em HTML/CSS/JS;
-- cards de resumo;
-- tabela de máquinas;
-- histórico de notificações;
-- envio de comandos remotos pelo navegador.
+### Servidor central (admin)
 
-### Separação admin / cliente / shared
+Responsável por:
 
-- O código compartilhado foi movido para `shared/`.
-- O servidor do admin foi concentrado em `admin/`.
-- O runtime do cliente e a interface da estação foram criados em `client/`.
-- Foi adicionada uma camada de compatibilidade em `backend/app/` para reduzir conflitos em PRs e manter imports antigos funcionando enquanto a migração acontece.
+- cadastro de usuários e máquinas;
+- gestão de saldo, sessões e anotações;
+- comandos remotos e notificações;
+- relatórios, calendário financeiro e estatísticas;
+- backups e trilha de auditoria.
 
-### Regras de negócio mantidas
+### Agente cliente (cada PC)
 
-Continuam disponíveis no módulo compartilhado:
+Responsável por:
 
-- controle de perfis `admin`, `ghost`, `special` e `regular`;
-- avaliação de sessão e bloqueio ao fim do tempo;
+- login local do usuário;
+- cronômetro e detecção de ociosidade;
 - fila offline em SQLite;
-- agregação de relatórios de PCs e PlayStation;
-- política de backup após 20:30 com retenção de 60 dias.
+- sincronização posterior com o servidor;
+- exibição de mensagens e bloqueios.
 
-## Como iniciar o admin
+## Endpoints iniciais
 
-Com as dependências instaladas, rode:
+Ao instalar dependências e iniciar a API, os endpoints iniciais ficam disponíveis em:
 
-```bash
-uvicorn admin.server:app --reload
-```
-
-Depois abra no navegador:
-
-```text
-http://127.0.0.1:8000/
-```
-
-## Endpoints principais do admin
-
-- `GET /`
 - `GET /health`
-- `GET /api/dashboard`
+- `GET /api/summary`
 - `POST /api/session/evaluate`
-- `POST /api/commands`
+- `POST /api/offline/events`
+- `GET /api/offline/events`
+- `GET /api/reports/usage`
 
-## Como usar a base do cliente
-
-O runtime local fica em `client/agent/runtime.py` e usa a fila offline compartilhada para guardar eventos quando o servidor central estiver indisponível.
-
-A interface HTML/CSS inicial do cliente está em `client/web/`.
-
-## Testes
+## Execução local
 
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+> Observação: a API FastAPI foi estruturada, mas a execução do servidor depende da instalação das dependências listadas em `pyproject.toml`.
+
+## Próximos passos sugeridos
+
+1. Persistir entidades no PostgreSQL do admin com SQLAlchemy/Alembic.
+2. Criar serviço Windows do cliente com watchdog.
+3. Implementar comunicação em WebSocket para comandos em tempo real.
+4. Criar painel Vue 3 para admin e tela bloqueada do cliente via WebView2.
+5. Adicionar exportação PDF/Excel/TXT e captura remota de tela.

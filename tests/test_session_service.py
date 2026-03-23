@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-import unittest
+import sys
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
+import unittest
 
-from shared.domain.enums import SessionStatus, UserRole
-from shared.domain.models import Session, User
-from shared.services.session_policy import SessionPolicyEngine
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+
+from app.domain.enums import SessionStatus, UserRole
+from app.domain.models import Session, User
+from app.services.session_service import SessionPolicyEngine
 
 
 class SessionPolicyEngineTests(unittest.TestCase):

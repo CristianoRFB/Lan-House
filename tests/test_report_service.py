@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 import unittest
 
-from shared.domain.enums import DeviceType, MachineStatus, SessionStatus
-from shared.domain.models import LedgerEntry, Machine, Session
-from shared.services.report_service import ReportAggregator
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+
+from app.domain.enums import DeviceType, MachineStatus, SessionStatus
+from app.domain.models import LedgerEntry, Machine, Session
+from app.services.report_service import ReportAggregator
 
 
 class ReportAggregatorTests(unittest.TestCase):
@@ -15,8 +19,8 @@ class ReportAggregatorTests(unittest.TestCase):
         pc = Machine(name="PC-01", ip_address="192.168.0.10", status=MachineStatus.ONLINE)
         ps = Machine(name="PS-01", ip_address="192.168.0.20", device_type=DeviceType.PLAYSTATION, status=MachineStatus.ONLINE)
         sessions = [
-            Session(user_id="u1", machine_id=pc.id, status=SessionStatus.ACTIVE, started_at=datetime.utcnow(), remaining_minutes=30, consumed_minutes=35),
-            Session(user_id="u2", machine_id=ps.id, status=SessionStatus.ENDED, started_at=datetime.utcnow(), remaining_minutes=60, consumed_minutes=60),
+            Session(user_id="u1", machine_id=pc.id, status=SessionStatus.ACTIVE, started_at=datetime.utcnow(), remaining_minutes=30, idle_minutes=5),
+            Session(user_id="u2", machine_id=ps.id, status=SessionStatus.ENDED, started_at=datetime.utcnow(), remaining_minutes=60, idle_minutes=0),
         ]
         ledger = [
             LedgerEntry(user_id="u1", amount=Decimal("10.00"), reason="Anotação", created_at=datetime.utcnow()),

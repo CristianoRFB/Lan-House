@@ -1,1 +1,1 @@
-"""Compatibilidade para rotas legadas."""
+"""Camada de rotas da API."""
