@@ -1,0 +1,19 @@
+[project]
+name = "lan-house-manager"
+version = "0.2.0"
+description = "Sistema de gerenciamento de lan house com áreas separadas para admin, cliente e código compartilhado"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "uvicorn>=0.34,<1.0",
+  "pydantic>=2.10,<3.0"
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["admin*", "backend*", "client*", "shared*"]
