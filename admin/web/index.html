@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lan House Manager - Admin</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Painel central</p>
+          <h1>Lan House Admin</h1>
+          <p class="muted">Controle máquinas, clientes, avisos, relatórios e comandos remotos diretamente do navegador.</p>
+        </div>
+        <nav>
+          <button class="nav-item active">Dashboard</button>
+          <button class="nav-item">Máquinas</button>
+          <button class="nav-item">Requisições</button>
+          <button class="nav-item">Relatórios</button>
+          <button class="nav-item">Configurações</button>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Status do servidor</p>
+            <h2>Admin web iniciado pelo navegador</h2>
+          </div>
+          <button id="refreshButton" class="primary">Atualizar painel</button>
+        </header>
+
+        <section class="cards" id="summaryCards"></section>
+
+        <section class="panel-grid">
+          <article class="panel wide">
+            <div class="panel-header">
+              <h3>Máquinas</h3>
+              <span class="pill">Tempo real</span>
+            </div>
+            <div id="machinesTable"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Notificações</h3>
+              <span class="pill">Histórico recente</span>
+            </div>
+            <ul id="notificationsList" class="list"></ul>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h3>Comandos rápidos</h3>
+              <span class="pill">Admin</span>
+            </div>
+            <form id="commandForm" class="command-form">
+              <label>
+                Máquina
+                <input name="machine_name" value="PC-01" required />
+              </label>
+              <label>
+                Comando
+                <select name="command" id="commandSelect"></select>
+              </label>
+              <label>
+                Mensagem
+                <textarea name="message" rows="3" placeholder="Opcional"></textarea>
+              </label>
+              <button type="submit" class="primary">Enviar comando</button>
+            </form>
+            <p id="commandResult" class="muted"></p>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>
