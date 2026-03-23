@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lan House Manager - Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <aside class="sidebar">
+        <div class="brand-card glass-card">
+          <div class="brand-mark">LH</div>
+          <div>
+            <p class="eyebrow">Central da Lan House</p>
+            <h1>Admin Control</h1>
+            <p class="muted">Painel moderno para comandar máquinas, usuários, alertas e relatórios em um único lugar.</p>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav glass-card">
+          <button class="nav-item active">
+            <span class="nav-icon">◉</span>
+            <span>Visão geral</span>
+          </button>
+          <button class="nav-item">
+            <span class="nav-icon">⌘</span>
+            <span>Máquinas</span>
+          </button>
+          <button class="nav-item">
+            <span class="nav-icon">✦</span>
+            <span>Clientes</span>
+          </button>
+          <button class="nav-item">
+            <span class="nav-icon">☰</span>
+            <span>Requisições</span>
+          </button>
+          <button class="nav-item">
+            <span class="nav-icon">▣</span>
+            <span>Relatórios</span>
+          </button>
+          <button class="nav-item">
+            <span class="nav-icon">⚙</span>
+            <span>Configurações</span>
+          </button>
+        </nav>
+
+        <section class="sidebar-status glass-card">
+          <div class="status-line">
+            <span class="status-dot"></span>
+            <span>Servidor online</span>
+          </div>
+          <strong>Sincronização e comandos em tempo real</strong>
+          <p class="muted">O painel foi pensado para rodar no navegador com visual premium e leitura rápida.</p>
+        </section>
+      </aside>
+
+      <main class="dashboard">
+        <header class="hero glass-card">
+          <div>
+            <p class="eyebrow">Painel operacional</p>
+            <h2>Controle total da lan house a partir do navegador</h2>
+            <p class="hero-copy">
+              Acompanhe máquinas, saldo, anotações, alertas e comandos remotos com uma interface escura,
+              limpa e pronta para crescer.
+            </p>
+            <div class="hero-badges">
+              <span class="badge">Tempo real</span>
+              <span class="badge">Modo escuro</span>
+              <span class="badge">Foco em operação rápida</span>
+            </div>
+          </div>
+          <div class="hero-actions">
+            <button id="refreshButton" class="primary">Atualizar painel</button>
+            <button class="secondary">Abrir mapa de máquinas</button>
+          </div>
+        </header>
+
+        <section class="summary-grid" id="summaryCards"></section>
+
+        <section class="content-grid">
+          <article class="panel panel-machines glass-card">
+            <div class="panel-top">
+              <div>
+                <p class="eyebrow">Mapa operacional</p>
+                <h3>Máquinas e consoles</h3>
+              </div>
+              <span class="pill">Atualização dinâmica</span>
+            </div>
+            <div id="machinesTable"></div>
+          </article>
+
+          <article class="panel glass-card">
+            <div class="panel-top">
+              <div>
+                <p class="eyebrow">Fluxo rápido</p>
+                <h3>Comandos do admin</h3>
+              </div>
+              <span class="pill">Envio imediato</span>
+            </div>
+            <form id="commandForm" class="command-form">
+              <label>
+                Máquina
+                <input name="machine_name" value="PC-01" required />
+              </label>
+              <label>
+                Comando
+                <select name="command" id="commandSelect"></select>
+              </label>
+              <label>
+                Mensagem
+                <textarea name="message" rows="4" placeholder="Ex.: Encerrando sessão para manutenção."></textarea>
+              </label>
+              <button type="submit" class="primary full">Enviar comando</button>
+            </form>
+            <div class="feedback-box">
+              <p class="eyebrow">Última ação</p>
+              <p id="commandResult" class="muted">Nenhum comando enviado ainda.</p>
+            </div>
+          </article>
+
+          <article class="panel glass-card">
+            <div class="panel-top">
+              <div>
+                <p class="eyebrow">Avisos</p>
+                <h3>Notificações recentes</h3>
+              </div>
+              <span class="pill">Histórico</span>
+            </div>
+            <ul id="notificationsList" class="notification-list"></ul>
+          </article>
+
+          <article class="panel glass-card accent-panel">
+            <div class="panel-top">
+              <div>
+                <p class="eyebrow">Destaque</p>
+                <h3>Resumo visual</h3>
+              </div>
+            </div>
+            <div class="mini-metrics">
+              <div>
+                <span class="mini-label">Uso médio</span>
+                <strong>2h 14m</strong>
+              </div>
+              <div>
+                <span class="mini-label">Pendências</span>
+                <strong>R$ 37,00</strong>
+              </div>
+              <div>
+                <span class="mini-label">PlayStation</span>
+                <strong>+18%</strong>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>
