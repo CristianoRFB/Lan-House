@@ -1,0 +1,40 @@
+@model LoginViewModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Adrenalina</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="login-body">
+    <main class="login-panel">
+        <div class="login-copy">
+            <p class="eyebrow">Administração</p>
+            <h1>Adrenalina Lan House</h1>
+            <p>Controle total de máquinas, clientes, sessões, anotações, relatórios, backups e comandos remotos.</p>
+        </div>
+        <form asp-action="Login" method="post" class="panel form-grid">
+            @Html.AntiForgeryToken()
+            <div>
+                <label asp-for="Login" class="form-label">Login</label>
+                <input asp-for="Login" class="form-control" />
+            </div>
+            <div>
+                <label asp-for="Password" class="form-label">Senha</label>
+                <input asp-for="Password" type="password" class="form-control" />
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger">@Model.ErrorMessage</div>
+            }
+            <button type="submit" class="btn btn-accent">Entrar</button>
+            <p class="small text-secondary">Conta inicial: <code>admin</code> / <code>adrenalina123</code></p>
+        </form>
+    </main>
+</body>
+</html>

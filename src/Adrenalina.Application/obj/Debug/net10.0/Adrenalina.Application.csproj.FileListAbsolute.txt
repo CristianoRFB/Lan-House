@@ -1,0 +1,15 @@
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\bin\Debug\net10.0\Adrenalina.Application.deps.json
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\bin\Debug\net10.0\Adrenalina.Application.dll
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\bin\Debug\net10.0\Adrenalina.Application.pdb
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\bin\Debug\net10.0\Adrenalina.Domain.dll
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\bin\Debug\net10.0\Adrenalina.Domain.pdb
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\Adrenalina.Application.csproj.AssemblyReference.cache
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\Adrenalina.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\Adrenalina.Application.AssemblyInfoInputs.cache
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\Adrenalina.Application.AssemblyInfo.cs
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\Adrenalina.Application.csproj.CoreCompileInputs.cache
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\Adrenali.2D79B76D.Up2Date
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\Adrenalina.Application.dll
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\refint\Adrenalina.Application.dll
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\Adrenalina.Application.pdb
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Application\obj\Debug\net10.0\ref\Adrenalina.Application.dll

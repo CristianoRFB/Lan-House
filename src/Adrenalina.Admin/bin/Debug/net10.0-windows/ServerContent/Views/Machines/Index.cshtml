@@ -1,0 +1,74 @@
+@model MachinesPageViewModel
+@{
+    ViewData["Title"] = "Máquinas";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Operação</p>
+        <h2>Máquinas e controle remoto</h2>
+        <p class="text-secondary">Monitoramento de PCs e consoles, processos recentes e envio de comandos remotos.</p>
+    </div>
+</section>
+
+<section class="machine-grid">
+    @foreach (var machine in Model.Machines)
+    {
+        <article class="panel machine-card">
+            <div class="machine-head">
+                <div>
+                    <h3>@machine.Name</h3>
+                    <p>@machine.Kind · @machine.Hostname · @machine.IpAddress</p>
+                </div>
+                <span class="status-pill">@machine.Status</span>
+            </div>
+            <p class="small text-secondary">@machine.Observations</p>
+            <p class="small">Proteção do serviço: @(machine.ServiceProtectionEnabled ? "Ativa" : "Inativa")</p>
+            <p class="small">Último comando: @(string.IsNullOrWhiteSpace(machine.LastCommandSummary) ? "Nenhum" : machine.LastCommandSummary)</p>
+
+            <div class="button-row">
+                @foreach (var commandType in new[] { RemoteCommandType.LockScreen, RemoteCommandType.Restart, RemoteCommandType.Logout, RemoteCommandType.CaptureScreenshot, RemoteCommandType.ClearTemporaryFiles })
+                {
+                    <form asp-action="Command" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="MachineId" value="@machine.Id" />
+                        <input type="hidden" name="Type" value="@commandType" />
+                        <input type="hidden" name="Title" value="@commandType" />
+                        <input type="hidden" name="Message" value="Comando enviado pelo administrador." />
+                        <button class="btn btn-outline-light btn-sm">@commandType</button>
+                    </form>
+                }
+            </div>
+
+            <form asp-action="Command" method="post" class="form-grid">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="MachineId" value="@machine.Id" />
+                <input type="hidden" name="Type" value="@RemoteCommandType.ShowMessage" />
+                <input type="hidden" name="Title" value="Aviso do administrador" />
+                <div>
+                    <label class="form-label">Mensagem personalizada</label>
+                    <input name="Message" class="form-control" placeholder="Digite um aviso para essa máquina" />
+                </div>
+                <button class="btn btn-accent">Enviar aviso</button>
+            </form>
+
+            <div class="process-list">
+                <h4>Processos recentes</h4>
+                @if (!machine.RecentProcesses.Any())
+                {
+                    <p class="small text-secondary">Sem processos reportados recentemente.</p>
+                }
+                else
+                {
+                    @foreach (var process in machine.RecentProcesses)
+                    {
+                        <div class="process-item">
+                            <span>@process.ProcessName</span>
+                            <small>@process.MemoryMb.ToString("N0") MB</small>
+                        </div>
+                    }
+                }
+            </div>
+        </article>
+    }
+</section>

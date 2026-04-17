@@ -1,0 +1,11 @@
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\bin\Debug\net10.0\Adrenalina.Domain.deps.json
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\bin\Debug\net10.0\Adrenalina.Domain.dll
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\bin\Debug\net10.0\Adrenalina.Domain.pdb
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.AssemblyInfoInputs.cache
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.AssemblyInfo.cs
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.csproj.CoreCompileInputs.cache
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.dll
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\refint\Adrenalina.Domain.dll
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.pdb
+C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\ref\Adrenalina.Domain.dll

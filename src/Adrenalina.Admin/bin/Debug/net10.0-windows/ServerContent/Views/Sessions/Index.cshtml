@@ -1,0 +1,112 @@
+@model SessionsPageViewModel
+@{
+    ViewData["Title"] = "Sessões";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Tempo e uso</p>
+        <h2>Sessões de PCs e consoles</h2>
+        <p class="text-secondary">Controle pré-pago, sessões comuns com bloqueio automático e consoles separados dos PCs.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <h3>Iniciar sessão</h3>
+    <form asp-action="Start" method="post" class="form-grid compact-grid">
+        @Html.AntiForgeryToken()
+        <div>
+            <label asp-for="StartForm.MachineId" class="form-label">Máquina</label>
+            <select asp-for="StartForm.MachineId" class="form-select">
+                @foreach (var machine in Model.Machines)
+                {
+                    <option value="@machine.Id">@machine.Name (@machine.Kind)</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label asp-for="StartForm.UserAccountId" class="form-label">Usuário</label>
+            <select asp-for="StartForm.UserAccountId" class="form-select">
+                <option value="">Uso livre / Ghost</option>
+                @foreach (var user in Model.Users)
+                {
+                    <option value="@user.Id">@user.DisplayName (@user.ProfileType)</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label asp-for="StartForm.UserDisplayName" class="form-label">Nome livre</label>
+            <input asp-for="StartForm.UserDisplayName" class="form-control" />
+        </div>
+        <div>
+            <label asp-for="StartForm.GrantedMinutes" class="form-label">Minutos</label>
+            <input asp-for="StartForm.GrantedMinutes" class="form-control" />
+        </div>
+        <div>
+            <label asp-for="StartForm.HourlyRate" class="form-label">Valor/hora</label>
+            <input asp-for="StartForm.HourlyRate" class="form-control" />
+        </div>
+        <div class="form-check align-self-end">
+            <input asp-for="StartForm.IsDemoMode" class="form-check-input" />
+            <label asp-for="StartForm.IsDemoMode" class="form-check-label">Modo demo</label>
+        </div>
+        <div class="form-check align-self-end">
+            <input asp-for="StartForm.HideTimerOnClient" class="form-check-input" />
+            <label asp-for="StartForm.HideTimerOnClient" class="form-check-label">Ocultar cronômetro</label>
+        </div>
+        <button class="btn btn-accent">Iniciar sessão</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h3>Sessões recentes</h3>
+    <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Máquina</th>
+                    <th>Usuário</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Tempo</th>
+                    <th>Valor</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var session in Model.Sessions)
+                {
+                    <tr>
+                        <td>@session.MachineName</td>
+                        <td>@session.UserDisplayName (@session.UserProfileType)</td>
+                        <td>@session.MachineKind</td>
+                        <td>@session.Status</td>
+                        <td>@session.ConsumedMinutes min / resta @session.RemainingMinutes</td>
+                        <td>R$ @session.TotalSpent.ToString("N2")</td>
+                        <td>
+                            @if (session.Status == SessionStatus.Active)
+                            {
+                                <div class="action-stack">
+                                    <form asp-action="Adjust" method="post" class="mini-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="SessionId" value="@session.Id" />
+                                        <input type="number" name="AdditionalMinutes" class="form-control form-control-sm" placeholder="+min" />
+                                        <input type="number" name="AdditionalAnnotationAmount" step="0.01" class="form-control form-control-sm" placeholder="+anotação" />
+                                        <input type="text" name="Reason" class="form-control form-control-sm" placeholder="Motivo" />
+                                        <button class="btn btn-sm btn-outline-light">Ajustar</button>
+                                    </form>
+                                    <form asp-action="End" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="sessionId" value="@session.Id" />
+                                        <input type="hidden" name="reason" value="Encerrada pelo administrador." />
+                                        <button class="btn btn-sm btn-outline-warning">Encerrar</button>
+                                    </form>
+                                </div>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>

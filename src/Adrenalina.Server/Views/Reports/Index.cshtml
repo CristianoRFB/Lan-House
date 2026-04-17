@@ -1,0 +1,75 @@
+@model ReportsPageViewModel
+@{
+    ViewData["Title"] = "Relatórios";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Auditoria</p>
+        <h2>Relatórios e exportações</h2>
+        <p class="text-secondary">Exporte TXT, Excel ou PDF com separação de sessões, consoles, anotações e promessas de pagamento.</p>
+    </div>
+</section>
+
+<section class="two-column">
+    <article class="panel">
+        <h3>Exportar relatório</h3>
+        <form asp-action="Export" method="post" class="form-grid compact-grid">
+            @Html.AntiForgeryToken()
+            <div>
+                <label asp-for="Filter.StartDate" class="form-label">Início</label>
+                <input asp-for="Filter.StartDate" type="date" class="form-control" />
+            </div>
+            <div>
+                <label asp-for="Filter.EndDate" class="form-label">Fim</label>
+                <input asp-for="Filter.EndDate" type="date" class="form-control" />
+            </div>
+            <div>
+                <label asp-for="Filter.Format" class="form-label">Formato</label>
+                <select asp-for="Filter.Format" class="form-select" asp-items="Html.GetEnumSelectList<ReportExportFormat>()"></select>
+            </div>
+            <button class="btn btn-accent">Gerar arquivo</button>
+        </form>
+    </article>
+    <article class="panel">
+        <h3>Solicitações em aberto</h3>
+        <div class="log-list">
+            @foreach (var request in Model.PendingRequests)
+            {
+                <div class="log-item">
+                    <strong>@request.Type</strong>
+                    <p>@request.MachineName · @request.RequestedDisplayName (@request.RequestedLogin)</p>
+                </div>
+            }
+        </div>
+    </article>
+</section>
+
+<section class="panel">
+    <h3>Log completo recente</h3>
+    <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Quando</th>
+                    <th>Categoria</th>
+                    <th>Evento</th>
+                    <th>Descrição</th>
+                    <th>IP</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Model.Logs)
+                {
+                    <tr>
+                        <td>@log.CreatedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                        <td>@log.Category</td>
+                        <td>@log.EventType</td>
+                        <td>@log.Description</td>
+                        <td>@log.IpAddress</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>

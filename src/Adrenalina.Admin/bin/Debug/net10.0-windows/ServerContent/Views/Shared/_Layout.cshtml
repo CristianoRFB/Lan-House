@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Adrenalina</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/Adrenalina.Server.styles.css" asp-append-version="true" />
+</head>
+<body class="app-body">
+    <div class="app-shell">
+        <aside class="app-sidebar">
+            <div>
+                <p class="eyebrow">Controle central</p>
+                <h1>Adrenalina</h1>
+                <p class="sidebar-copy">Servidor local, clientes instalados em cada máquina, relatórios, logs e comandos remotos.</p>
+            </div>
+            <nav class="nav-stack">
+                <a asp-controller="Dashboard" asp-action="Index">Painel</a>
+                <a asp-controller="Users" asp-action="Index">Usuários</a>
+                <a asp-controller="Machines" asp-action="Index">Máquinas</a>
+                <a asp-controller="Sessions" asp-action="Index">Sessões</a>
+                <a asp-controller="Reports" asp-action="Index">Relatórios</a>
+                <a asp-controller="Settings" asp-action="Index">Configurações</a>
+            </nav>
+            <form asp-controller="Auth" asp-action="Logout" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-outline-light w-100">Sair</button>
+            </form>
+        </aside>
+        <main class="app-main">
+            @if (TempData["StatusMessage"] is string message && !string.IsNullOrWhiteSpace(message))
+            {
+                <div class="status-banner">@message</div>
+            }
+            @RenderBody()
+        </main>
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

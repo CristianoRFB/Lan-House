@@ -1,0 +1,96 @@
+@model SettingsPageViewModel
+@{
+    ViewData["Title"] = "Configurações";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Avançado</p>
+        <h2>Configurações protegidas</h2>
+        <p class="text-secondary">Tema, updates, mensagens, bloqueio de apps, backup diário e personalização geral da lan house.</p>
+    </div>
+</section>
+
+<section class="panel">
+    <form asp-action="Save" method="post" class="form-grid compact-grid">
+        @Html.AntiForgeryToken()
+        <input asp-for="Form.Id" type="hidden" />
+        <div>
+            <label asp-for="Form.CafeName" class="form-label">Nome da lan house</label>
+            <input asp-for="Form.CafeName" class="form-control" />
+        </div>
+        <div>
+            <label asp-for="Form.DefaultTheme" class="form-label">Tema padrão</label>
+            <select asp-for="Form.DefaultTheme" class="form-select" asp-items="Html.GetEnumSelectList<ThemeMode>()"></select>
+        </div>
+        <div>
+            <label asp-for="Form.UpdateMode" class="form-label">Atualizações</label>
+            <select asp-for="Form.UpdateMode" class="form-select" asp-items="Html.GetEnumSelectList<UpdateMode>()"></select>
+        </div>
+        <div>
+            <label asp-for="Form.BackupCutoffLocalTime" class="form-label">Backup após</label>
+            <input asp-for="Form.BackupCutoffLocalTime" type="time" class="form-control" />
+        </div>
+        <div>
+            <label asp-for="Form.BackupRetentionDays" class="form-label">Retenção</label>
+            <input asp-for="Form.BackupRetentionDays" class="form-control" />
+        </div>
+        <div class="form-check align-self-end">
+            <input asp-for="Form.OfflineSyncEnabled" class="form-check-input" />
+            <label asp-for="Form.OfflineSyncEnabled" class="form-check-label">Sincronização offline</label>
+        </div>
+        <div class="form-check align-self-end">
+            <input asp-for="Form.ShowRemainingTimeByDefault" class="form-check-input" />
+            <label asp-for="Form.ShowRemainingTimeByDefault" class="form-check-label">Exibir tempo restante</label>
+        </div>
+        <div class="form-check align-self-end">
+            <input asp-for="Form.LimitBandwidthEnabledByDefault" class="form-check-input" />
+            <label asp-for="Form.LimitBandwidthEnabledByDefault" class="form-check-label">Limitar banda por padrão</label>
+        </div>
+        <div class="form-check align-self-end">
+            <input asp-for="Form.DemoModeEnabled" class="form-check-input" />
+            <label asp-for="Form.DemoModeEnabled" class="form-check-label">Modo demonstração</label>
+        </div>
+        <div>
+            <label asp-for="Form.DefaultCommonAnnotationLimit" class="form-label">Limite padrão de anotação</label>
+            <input asp-for="Form.DefaultCommonAnnotationLimit" class="form-control" />
+        </div>
+        <div>
+            <label asp-for="Form.DefaultPcHourlyRate" class="form-label">Valor/hora PC</label>
+            <input asp-for="Form.DefaultPcHourlyRate" class="form-control" />
+        </div>
+        <div>
+            <label asp-for="Form.DefaultConsoleHourlyRate" class="form-label">Valor/hora console</label>
+            <input asp-for="Form.DefaultConsoleHourlyRate" class="form-control" />
+        </div>
+        <div class="full-span">
+            <label asp-for="Form.WelcomeMessage" class="form-label">Mensagem de boas-vindas</label>
+            <input asp-for="Form.WelcomeMessage" class="form-control" />
+        </div>
+        <div class="full-span">
+            <label asp-for="Form.GoodbyeMessage" class="form-label">Mensagem de saída</label>
+            <input asp-for="Form.GoodbyeMessage" class="form-control" />
+        </div>
+        <div class="full-span">
+            <label asp-for="Form.LockMessage" class="form-label">Mensagem de bloqueio</label>
+            <textarea asp-for="Form.LockMessage" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="full-span">
+            <label asp-for="Form.AllowedProgramsCsv" class="form-label">Lista branca</label>
+            <input asp-for="Form.AllowedProgramsCsv" class="form-control" placeholder="steam.exe, chrome.exe" />
+        </div>
+        <div class="full-span">
+            <label asp-for="Form.BlockedProgramsCsv" class="form-label">Lista negra</label>
+            <input asp-for="Form.BlockedProgramsCsv" class="form-control" placeholder="taskmgr.exe, regedit.exe" />
+        </div>
+        <div>
+            <label asp-for="Form.BrandLogoPath" class="form-label">Logo</label>
+            <input asp-for="Form.BrandLogoPath" class="form-control" />
+        </div>
+        <div>
+            <label asp-for="Form.AlertSoundPath" class="form-label">Som de alerta</label>
+            <input asp-for="Form.AlertSoundPath" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-accent">Salvar configurações</button>
+    </form>
+</section>

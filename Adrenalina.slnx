@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Adrenalina.Admin/Adrenalina.Admin.csproj" />
+    <Project Path="src/Adrenalina.Application/Adrenalina.Application.csproj" />
+    <Project Path="src/Adrenalina.Client/Adrenalina.Client.csproj" />
+    <Project Path="src/Adrenalina.ClientAgent/Adrenalina.ClientAgent.csproj" />
+    <Project Path="src/Adrenalina.ClientShell/Adrenalina.ClientShell.csproj" />
+    <Project Path="src/Adrenalina.Domain/Adrenalina.Domain.csproj" />
+    <Project Path="src/Adrenalina.Infrastructure/Adrenalina.Infrastructure.csproj" />
+    <Project Path="src/Adrenalina.Server/Adrenalina.Server.csproj" />
+  </Folder>
+</Solution>

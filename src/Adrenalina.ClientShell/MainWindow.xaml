@@ -1,0 +1,108 @@
+<Window x:Class="Adrenalina.ClientShell.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Adrenalina Cliente"
+        Height="760"
+        Width="1180"
+        WindowStartupLocation="CenterScreen"
+        Background="#101319"
+        Foreground="#F1F4FF">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock x:Name="MachineTitleText" FontSize="30" FontWeight="Bold" Text="Adrenalina Cliente" />
+            <TextBlock x:Name="SessionStatusText" Margin="0,6,0,0" Foreground="#A9B6CF" Text="Aguardando sincronização..." />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,24,0,24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.4*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Margin="0,0,14,0" Padding="22" CornerRadius="18" Background="#1B2029" BorderBrush="#30394A" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Sessão atual" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock x:Name="CurrentUserText" Grid.Row="1" Margin="0,18,0,0" FontSize="18" Text="Usuário: aguardando" />
+                    <TextBlock x:Name="ProfileText" Grid.Row="2" Margin="0,8,0,0" Foreground="#A9B6CF" Text="Perfil: Ghost" />
+                    <WrapPanel Grid.Row="3" Margin="0,18,0,0">
+                        <Border Padding="16" Margin="0,0,12,0" CornerRadius="16" Background="#252C38">
+                            <StackPanel>
+                                <TextBlock Text="Tempo restante" Foreground="#A9B6CF" />
+                                <TextBlock x:Name="RemainingTimeText" FontSize="26" FontWeight="Bold" Text="--" />
+                            </StackPanel>
+                        </Border>
+                        <Border Padding="16" Margin="0,0,12,0" CornerRadius="16" Background="#252C38">
+                            <StackPanel>
+                                <TextBlock Text="Saldo" Foreground="#A9B6CF" />
+                                <TextBlock x:Name="BalanceText" FontSize="26" FontWeight="Bold" Text="R$ 0,00" />
+                            </StackPanel>
+                        </Border>
+                        <Border Padding="16" CornerRadius="16" Background="#252C38">
+                            <StackPanel>
+                                <TextBlock Text="Anotado" Foreground="#A9B6CF" />
+                                <TextBlock x:Name="AnnotationText" FontSize="26" FontWeight="Bold" Text="R$ 0,00" />
+                            </StackPanel>
+                        </Border>
+                    </WrapPanel>
+                    <TextBlock x:Name="NotesText" Grid.Row="4" Margin="0,22,0,0" TextWrapping="Wrap" Foreground="#A9B6CF" Text="Sem observações." />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Padding="22" CornerRadius="18" Background="#1B2029" BorderBrush="#30394A" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="Solicitações" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,6,0,18" Foreground="#A9B6CF" Text="O cliente pode pedir login, cadastro e mais tempo sem acessar o Windows." />
+
+                    <TextBlock Text="Login" />
+                    <TextBox x:Name="LoginTextBox" Margin="0,6,0,10" Padding="10" />
+
+                    <TextBlock Text="PIN de 4 dígitos" />
+                    <PasswordBox x:Name="PinBox" Margin="0,6,0,10" Padding="10" />
+
+                    <TextBlock Text="Nome para cadastro" />
+                    <TextBox x:Name="DisplayNameTextBox" Margin="0,6,0,10" Padding="10" />
+
+                    <TextBlock Text="Mensagem / pedido adicional" />
+                    <TextBox x:Name="MessageTextBox" Margin="0,6,0,18" Padding="10" Height="72" TextWrapping="Wrap" AcceptsReturn="True" />
+
+                    <WrapPanel>
+                        <Button Content="Solicitar login" Margin="0,0,10,10" Padding="14,10" Click="RequestLogin_Click" />
+                        <Button Content="Solicitar cadastro" Margin="0,0,10,10" Padding="14,10" Click="RequestRegistration_Click" />
+                        <Button Content="Pedir mais tempo" Margin="0,0,10,10" Padding="14,10" Click="RequestMoreTime_Click" />
+                        <Button Content="Ocultar/exibir tempo" Margin="0,0,10,10" Padding="14,10" Click="ToggleTimer_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2" Padding="18" CornerRadius="18" Background="#1B2029" BorderBrush="#30394A" BorderThickness="1">
+            <StackPanel>
+                <TextBlock Text="Avisos recentes" FontSize="20" FontWeight="SemiBold" />
+                <ListBox x:Name="NotificationsList" Margin="0,12,0,0" Background="Transparent" BorderThickness="0" Foreground="#F1F4FF" />
+            </StackPanel>
+        </Border>
+
+        <Grid x:Name="LockOverlay" Visibility="Collapsed" Background="#DD0B0D12">
+            <Border Width="720" Padding="28" CornerRadius="24" Background="#151922" BorderBrush="#FF6B35" BorderThickness="2">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="Tempo encerrado" FontSize="34" FontWeight="Bold" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="LockMessageText" Margin="0,14,0,0" FontSize="20" TextAlignment="Center" TextWrapping="Wrap" Text="Procure o administrador para continuar." />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

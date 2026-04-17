@@ -1,0 +1,103 @@
+@model DashboardPageViewModel
+@{
+    ViewData["Title"] = "Painel";
+    var maxDay = Math.Max(1m, Model.Dashboard.UsageByDay.Any() ? Model.Dashboard.UsageByDay.Max(point => point.Value) : 1m);
+    var maxMachine = Math.Max(1m, Model.Dashboard.UsageByMachine.Any() ? Model.Dashboard.UsageByMachine.Max(point => point.Value) : 1m);
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Visão geral</p>
+        <h2>@Model.Dashboard.CafeName</h2>
+        <p class="text-secondary">Servidor central, clientes por máquina, sessões de PC e console, histórico financeiro e auditoria em português.</p>
+    </div>
+</section>
+
+<section class="metric-grid">
+    <article class="metric-card"><span>Máquinas online</span><strong>@Model.Dashboard.OnlineMachines</strong></article>
+    <article class="metric-card"><span>Máquinas em uso</span><strong>@Model.Dashboard.ActiveMachines</strong></article>
+    <article class="metric-card"><span>Sessões ativas</span><strong>@Model.Dashboard.ActiveSessions</strong></article>
+    <article class="metric-card"><span>Solicitações</span><strong>@Model.Dashboard.PendingRequests</strong></article>
+    <article class="metric-card"><span>Anotações pendentes</span><strong>R$ @Model.Dashboard.PendingAnnotations.ToString("N2")</strong></article>
+    <article class="metric-card"><span>Promessas</span><strong>R$ @Model.Dashboard.PromisedPayments.ToString("N2")</strong></article>
+</section>
+
+<section class="two-column">
+    <article class="panel">
+        <h3>Uso por dia</h3>
+        <div class="bars">
+            @foreach (var point in Model.Dashboard.UsageByDay)
+            {
+                var height = (int)Math.Round((point.Value / maxDay) * 100m);
+                <div class="bar-column">
+                    <div class="bar" style="height:@Math.Max(height, 8)%"></div>
+                    <span>@point.Label</span>
+                </div>
+            }
+        </div>
+    </article>
+    <article class="panel">
+        <h3>Máquinas mais usadas</h3>
+        @foreach (var point in Model.Dashboard.UsageByMachine)
+        {
+            var width = (int)Math.Round((point.Value / maxMachine) * 100m);
+            <div class="usage-row">
+                <span>@point.Label</span>
+                <div class="usage-track"><div class="usage-fill" style="width:@Math.Max(width, 10)%"></div></div>
+                <strong>@point.Value</strong>
+            </div>
+        }
+    </article>
+</section>
+
+<section class="two-column">
+    <article class="panel">
+        <h3>Solicitações pendentes</h3>
+        @if (!Model.Dashboard.Requests.Any())
+        {
+            <p class="text-secondary">Nenhuma solicitação aguardando aprovação.</p>
+        }
+        else
+        {
+            @foreach (var request in Model.Dashboard.Requests)
+            {
+                <div class="request-card">
+                    <div>
+                        <strong>@request.Type</strong>
+                        <p>@request.MachineName · @request.RequestedDisplayName (@request.RequestedLogin)</p>
+                        <small>@request.RequestedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</small>
+                    </div>
+                    <div class="action-stack">
+                        <form asp-action="ResolveRequest" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="RequestId" value="@request.Id" />
+                            <input type="hidden" name="Approve" value="true" />
+                            <input type="hidden" name="ResponseMessage" value="Solicitação aprovada pelo administrador." />
+                            <button class="btn btn-success btn-sm">Aprovar</button>
+                        </form>
+                        <form asp-action="ResolveRequest" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="RequestId" value="@request.Id" />
+                            <input type="hidden" name="Approve" value="false" />
+                            <input type="hidden" name="ResponseMessage" value="Solicitação rejeitada pelo administrador." />
+                            <button class="btn btn-outline-warning btn-sm">Rejeitar</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        }
+    </article>
+    <article class="panel">
+        <h3>Logs recentes</h3>
+        <div class="log-list">
+            @foreach (var log in Model.Dashboard.Logs)
+            {
+                <div class="log-item">
+                    <strong>@log.Category / @log.EventType</strong>
+                    <p>@log.Description</p>
+                    <small>@log.CreatedAtUtc.ToLocalTime().ToString("dd/MM HH:mm") @if (!string.IsNullOrWhiteSpace(log.IpAddress)) { <text>· @log.IpAddress</text> }</small>
+                </div>
+            }
+        </div>
+    </article>
+</section>

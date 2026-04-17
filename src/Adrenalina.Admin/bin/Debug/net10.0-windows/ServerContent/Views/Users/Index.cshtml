@@ -1,0 +1,126 @@
+@model UsersPageViewModel
+@{
+    ViewData["Title"] = "Usuários";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Perfis</p>
+        <h2>Usuários e anotações</h2>
+        <p class="text-secondary">Admin, Ghost, Especial e Comum com regras específicas de tempo, saldo e anotação.</p>
+    </div>
+</section>
+
+<section class="two-column">
+    <article class="panel">
+        <h3>Salvar usuário</h3>
+        <form asp-action="Save" method="post" class="form-grid compact-grid">
+            @Html.AntiForgeryToken()
+            <input asp-for="Form.Id" type="hidden" />
+            <div>
+                <label asp-for="Form.DisplayName" class="form-label">Nome</label>
+                <input asp-for="Form.DisplayName" class="form-control" />
+            </div>
+            <div>
+                <label asp-for="Form.Login" class="form-label">Login</label>
+                <input asp-for="Form.Login" class="form-control" />
+            </div>
+            <div>
+                <label asp-for="Form.Pin" class="form-label">PIN</label>
+                <input asp-for="Form.Pin" class="form-control" />
+            </div>
+            <div>
+                <label asp-for="Form.Password" class="form-label">Senha do painel</label>
+                <input asp-for="Form.Password" class="form-control" />
+            </div>
+            <div>
+                <label asp-for="Form.ProfileType" class="form-label">Perfil</label>
+                <select asp-for="Form.ProfileType" class="form-select" asp-items="Html.GetEnumSelectList<UserProfileType>()"></select>
+            </div>
+            <div>
+                <label asp-for="Form.Balance" class="form-label">Saldo</label>
+                <input asp-for="Form.Balance" class="form-control" />
+            </div>
+            <div>
+                <label asp-for="Form.AnnotationLimit" class="form-label">Limite de anotação</label>
+                <input asp-for="Form.AnnotationLimit" class="form-control" />
+            </div>
+            <div class="form-check align-self-end">
+                <input asp-for="Form.IsTemporary" class="form-check-input" />
+                <label asp-for="Form.IsTemporary" class="form-check-label">Conta temporária</label>
+            </div>
+            <div class="full-span">
+                <label asp-for="Form.Notes" class="form-label">Observações</label>
+                <textarea asp-for="Form.Notes" class="form-control" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-accent">Salvar usuário</button>
+        </form>
+    </article>
+    <article class="panel">
+        <h3>Lançamento financeiro</h3>
+        <form asp-action="Ledger" method="post" class="form-grid compact-grid">
+            @Html.AntiForgeryToken()
+            <div>
+                <label asp-for="LedgerForm.UserAccountId" class="form-label">Usuário</label>
+                <select asp-for="LedgerForm.UserAccountId" class="form-select">
+                    @foreach (var user in Model.Users)
+                    {
+                        <option value="@user.Id">@user.DisplayName (@user.ProfileType)</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label asp-for="LedgerForm.Type" class="form-label">Tipo</label>
+                <select asp-for="LedgerForm.Type" class="form-select" asp-items="Html.GetEnumSelectList<LedgerEntryType>()"></select>
+            </div>
+            <div>
+                <label asp-for="LedgerForm.Amount" class="form-label">Valor</label>
+                <input asp-for="LedgerForm.Amount" class="form-control" />
+            </div>
+            <div class="full-span">
+                <label asp-for="LedgerForm.Description" class="form-label">Descrição</label>
+                <textarea asp-for="LedgerForm.Description" class="form-control" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-accent">Registrar</button>
+        </form>
+    </article>
+</section>
+
+<section class="panel">
+    <h3>Base de usuários</h3>
+    <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Login</th>
+                    <th>Perfil</th>
+                    <th>Saldo</th>
+                    <th>Anotado</th>
+                    <th>Limite</th>
+                    <th>Temporário</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in Model.Users)
+                {
+                    <tr>
+                        <td>
+                            <strong>@user.DisplayName</strong>
+                            @if (!string.IsNullOrWhiteSpace(user.Notes))
+                            {
+                                <div class="small text-secondary">@user.Notes</div>
+                            }
+                        </td>
+                        <td>@user.Login</td>
+                        <td>@user.ProfileType</td>
+                        <td>R$ @user.Balance.ToString("N2")</td>
+                        <td>R$ @user.PendingAnnotationAmount.ToString("N2")</td>
+                        <td>@(user.ProfileType == UserProfileType.Common ? $"R$ {user.AnnotationLimit:N2}" : "Ilimitado")</td>
+                        <td>@(user.IsTemporary ? "Sim" : "Não")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
