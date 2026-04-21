@@ -19,6 +19,8 @@ public sealed class ClientServerGateway(
     private readonly SemaphoreSlim _syncGate = new(1, 1);
 
     public string CurrentBlockedProgramsCsv { get; private set; } = "taskmgr.exe,regedit.exe,powershell.exe,cmd.exe";
+    public bool IsServerOnline { get; private set; }
+    public string ConnectionStatusText { get; private set; } = "Conexao aguardando a primeira sincronizacao.";
 
     public async Task SyncOnceAsync(CancellationToken cancellationToken = default)
     {
@@ -35,6 +37,17 @@ public sealed class ClientServerGateway(
 
     public async Task<ClientLoginResponse> LoginAsync(string login, string pin, CancellationToken cancellationToken = default)
     {
+        if (!IsRemoteServerConfigured())
+        {
+            SetConnectionStatus(false, "Informe o IP do ADMIN para concluir a configuracao do cliente.");
+            return new ClientLoginResponse
+            {
+                Success = false,
+                Message = "Informe o IP do ADMIN antes de tentar entrar.",
+                RuntimeState = await runtimeStore.LoadStateAsync(cancellationToken)
+            };
+        }
+
         var client = httpClientFactory.CreateClient("adrenalina-server");
 
         try
@@ -55,8 +68,10 @@ public sealed class ClientServerGateway(
                           ?? new ClientLoginResponse
                           {
                               Success = false,
-                              Message = "O servidor não retornou uma resposta de login válida."
+                              Message = "O servidor nao retornou uma resposta de login valida."
                           };
+
+            SetConnectionStatus(true, $"Conectado ao servidor em {options.ServerBaseUrl}");
 
             if (payload.Success)
             {
@@ -64,7 +79,7 @@ public sealed class ClientServerGateway(
                     AppendNotifications(
                         payload.RuntimeState,
                         [
-                            new NotificationEnvelope(Guid.NewGuid(), "Sessão iniciada", payload.Message, NotificationSeverity.Success, true)
+                            new NotificationEnvelope(Guid.NewGuid(), "Sessao iniciada", payload.Message, NotificationSeverity.Success, true)
                         ]),
                     cancellationToken);
             }
@@ -73,7 +88,8 @@ public sealed class ClientServerGateway(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Login online indisponível. Solicitação será enfileirada.");
+            logger.LogWarning(exception, "Login online indisponivel. Solicitacao sera enfileirada.");
+            SetConnectionStatus(false, "Servidor offline. O login foi colocado na fila para sincronizar depois.");
 
             await runtimeStore.EnqueueRequestAsync(
                 new ClientShellRequest
@@ -89,11 +105,11 @@ public sealed class ClientServerGateway(
             await runtimeStore.SaveStateAsync(
                 CloneState(
                     state,
-                    sessionMessage: "Servidor offline. O pedido de login foi enfileirado para aprovação.",
+                    sessionMessage: "Servidor offline. O pedido de login foi enfileirado para aprovacao.",
                     notifications: state.Notifications
                         .Concat(
                         [
-                            new NotificationEnvelope(Guid.NewGuid(), "Login pendente", "O servidor está offline. Seu login foi colocado na fila.", NotificationSeverity.Warning, true)
+                            new NotificationEnvelope(Guid.NewGuid(), "Login pendente", "O servidor esta offline. Seu login foi colocado na fila.", NotificationSeverity.Warning, true)
                         ])
                         .TakeLast(12)
                         .ToList()),
@@ -113,6 +129,12 @@ public sealed class ClientServerGateway(
 
     private async Task SyncCoreAsync(CancellationToken cancellationToken)
     {
+        if (!IsRemoteServerConfigured())
+        {
+            SetConnectionStatus(false, "Informe o IP do ADMIN para concluir a configuracao.");
+            return;
+        }
+
         var client = httpClientFactory.CreateClient("adrenalina-server");
         var queuedRequests = await runtimeStore.DrainRequestsAsync(cancellationToken);
 
@@ -150,6 +172,7 @@ public sealed class ClientServerGateway(
                           ?? new ClientHeartbeatResponse();
 
             CurrentBlockedProgramsCsv = payload.Settings.BlockedProgramsCsv;
+            SetConnectionStatus(true, $"Servidor online em {options.ServerBaseUrl}");
 
             var updatedState = await ApplyCommandsAsync(payload.RuntimeState, payload.Commands, cancellationToken);
             updatedState = AppendNotifications(updatedState, payload.Notifications);
@@ -159,7 +182,9 @@ public sealed class ClientServerGateway(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Servidor indisponível. Cliente seguirá no modo offline.");
+            logger.LogWarning(exception, "Servidor indisponivel. Cliente seguira no modo offline.");
+            SetConnectionStatus(false, "Servidor offline. O cliente continua operando e vai tentar sincronizar novamente.");
+
             foreach (var item in queuedRequests)
             {
                 await runtimeStore.EnqueueRequestAsync(item, cancellationToken);
@@ -167,7 +192,7 @@ public sealed class ClientServerGateway(
 
             var current = await runtimeStore.LoadStateAsync(cancellationToken);
             await runtimeStore.SaveStateAsync(
-                CloneState(current, sessionMessage: "Servidor offline. O cliente segue operando e tentará sincronizar novamente."),
+                CloneState(current, sessionMessage: "Servidor offline. O cliente segue operando e tentara sincronizar novamente."),
                 cancellationToken);
         }
     }
@@ -252,7 +277,7 @@ public sealed class ClientServerGateway(
                     }
                     else
                     {
-                        working = CloneState(working, isLocked: true, sessionMessage: "Reinício solicitado pelo administrador.");
+                        working = CloneState(working, isLocked: true, sessionMessage: "Reinicio solicitado pelo administrador.");
                     }
 
                     break;
@@ -279,7 +304,7 @@ public sealed class ClientServerGateway(
                     new NotificationEnvelope(
                         command.Id,
                         string.IsNullOrWhiteSpace(command.Title) ? "Comando do administrador" : command.Title,
-                        string.IsNullOrWhiteSpace(command.Message) ? "Uma ação remota foi recebida." : command.Message,
+                        string.IsNullOrWhiteSpace(command.Message) ? "Uma acao remota foi recebida." : command.Message,
                         NotificationSeverity.Info,
                         true)
                 ]);
@@ -322,7 +347,7 @@ public sealed class ClientServerGateway(
             }
             catch
             {
-                // O bloqueio roda em background e ignora processos críticos/negados pelo sistema.
+                // O bloqueio roda em background e ignora processos criticos/negados pelo sistema.
             }
         }
 
@@ -381,6 +406,17 @@ public sealed class ClientServerGateway(
         }
     }
 
+    private bool IsRemoteServerConfigured()
+    {
+        if (!options.SetupCompleted)
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(options.ServerBaseUrl?.Trim(), UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
     private static ClientRuntimeState AppendNotifications(ClientRuntimeState state, IReadOnlyList<NotificationEnvelope> notifications)
     {
         if (notifications.Count == 0)
@@ -427,5 +463,11 @@ public sealed class ClientServerGateway(
             LastUpdatedAtUtc = DateTime.UtcNow,
             Notifications = notifications ?? state.Notifications
         };
+    }
+
+    private void SetConnectionStatus(bool isOnline, string message)
+    {
+        IsServerOnline = isOnline;
+        ConnectionStatusText = message;
     }
 }

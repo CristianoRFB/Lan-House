@@ -82,7 +82,8 @@ body {
 
 .status-banner,
 .panel,
-.metric-card {
+.metric-card,
+.callout-card {
   border: 1px solid var(--line);
   background: rgba(29, 33, 43, 0.92);
   border-radius: 20px;
@@ -96,6 +97,17 @@ body {
 
 .panel {
   padding: 22px;
+}
+
+.callout-card {
+  padding: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background:
+    linear-gradient(135deg, rgba(255, 107, 53, 0.16), rgba(46, 196, 182, 0.10)),
+    rgba(29, 33, 43, 0.92);
 }
 
 .page-header {
@@ -115,7 +127,8 @@ body {
 
 .metric-grid,
 .two-column,
-.machine-grid {
+.machine-grid,
+.tutorial-grid {
   display: grid;
   gap: 18px;
 }
@@ -224,6 +237,48 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
 }
 
+.tutorial-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.tutorial-step {
+  position: relative;
+  overflow: hidden;
+}
+
+.tutorial-step h3 {
+  margin-bottom: 12px;
+  padding-right: 48px;
+}
+
+.tutorial-step-number {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #0f1115;
+  background: linear-gradient(135deg, var(--accent), #ff946b);
+}
+
+.tutorial-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.tutorial-list li {
+  margin-bottom: 10px;
+}
+
+.tutorial-list li:last-child {
+  margin-bottom: 0;
+}
+
 .machine-head {
   display: flex;
   justify-content: space-between;
@@ -291,5 +346,10 @@ code {
 
   .app-main {
     padding: 20px;
+  }
+
+  .callout-card {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

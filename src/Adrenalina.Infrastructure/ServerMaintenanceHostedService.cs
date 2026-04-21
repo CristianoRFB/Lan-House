@@ -11,8 +11,6 @@ public sealed class ServerMaintenanceHostedService(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await RunScopedAsync(service => service.EnsureInitializedAsync(stoppingToken), stoppingToken);
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try

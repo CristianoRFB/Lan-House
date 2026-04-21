@@ -13,8 +13,7 @@
           "Adrenalina.Server": "1.0.0",
           "Microsoft.Web.WebView2": "1.0.3179.45",
           "Microsoft.Web.WebView2.Core": "1.0.3179.45",
-          "Microsoft.Web.WebView2.WinForms": "1.0.3179.45",
-          "Microsoft.Web.WebView2.Wpf": "1.0.3179.45"
+          "Microsoft.Web.WebView2.WinForms": "1.0.3179.45"
         },
         "runtime": {
           "Adrenalina.Admin.dll": {}
@@ -904,14 +903,6 @@
             "fileVersion": "1.0.3179.45"
           }
         }
-      },
-      "Microsoft.Web.WebView2.Wpf/1.0.3179.45": {
-        "runtime": {
-          "Microsoft.Web.WebView2.Wpf.dll": {
-            "assemblyVersion": "1.0.3179.45",
-            "fileVersion": "1.0.3179.45"
-          }
-        }
       }
     }
   },
@@ -1290,11 +1281,6 @@
       "sha512": ""
     },
     "Microsoft.Web.WebView2.WinForms/1.0.3179.45": {
-      "type": "reference",
-      "serviceable": false,
-      "sha512": ""
-    },
-    "Microsoft.Web.WebView2.Wpf/1.0.3179.45": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""

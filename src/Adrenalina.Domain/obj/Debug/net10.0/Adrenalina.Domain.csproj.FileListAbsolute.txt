@@ -9,3 +9,18 @@ C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\Adre
 C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\refint\Adrenalina.Domain.dll
 C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.pdb
 C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Domain\obj\Debug\net10.0\ref\Adrenalina.Domain.dll
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\bin\Debug\net10.0\Adrenalina.Domain.deps.json
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\bin\Debug\net10.0\Adrenalina.Domain.dll
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\bin\Debug\net10.0\Adrenalina.Domain.pdb
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.AssemblyInfoInputs.cache
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.AssemblyInfo.cs
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.csproj.CoreCompileInputs.cache
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.sourcelink.json
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.dll
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\obj\Debug\net10.0\refint\Adrenalina.Domain.dll
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\obj\Debug\net10.0\Adrenalina.Domain.pdb
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Domain\obj\Debug\net10.0\ref\Adrenalina.Domain.dll
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\artifacts\admin-output\Adrenalina.Domain.deps.json
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\artifacts\admin-output\Adrenalina.Domain.dll
+C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\artifacts\admin-output\Adrenalina.Domain.pdb

@@ -15,7 +15,7 @@ public static class ServiceCollectionExtensions
     {
         var rootDirectory = configuration["Adrenalina:RootDirectory"];
         var baseDirectory = string.IsNullOrWhiteSpace(rootDirectory)
-            ? Path.Combine(environment.ContentRootPath, "data")
+            ? AdrenalinaPaths.GetAdminDataRoot()
             : rootDirectory;
 
         var paths = new AdrenalinaStoragePaths
@@ -23,10 +23,7 @@ public static class ServiceCollectionExtensions
             DatabaseFilePath = Path.Combine(baseDirectory, "adrenalina.db"),
             BackupDirectory = Path.Combine(baseDirectory, "backups"),
             LogDirectory = Path.Combine(baseDirectory, "logs"),
-            ClientRuntimeDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "Adrenalina",
-                "runtime")
+            ClientRuntimeDirectory = AdrenalinaPaths.GetClientRuntimeRoot()
         };
 
         Directory.CreateDirectory(baseDirectory);
@@ -49,7 +46,7 @@ public static class ServiceCollectionExtensions
     {
         var runtimeDirectory = configuration["Adrenalina:ClientRuntimeDirectory"];
         var baseDirectory = string.IsNullOrWhiteSpace(runtimeDirectory)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Adrenalina", "runtime")
+            ? AdrenalinaPaths.GetClientRuntimeRoot()
             : runtimeDirectory;
 
         var machineDirectory = Path.Combine(baseDirectory, Environment.MachineName);

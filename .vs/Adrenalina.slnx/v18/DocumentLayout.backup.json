@@ -1,12 +1,53 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "C:\\Users\\Aluno\\Downloads\\Adrenalina\\",
-  "Documents": [],
+  "WorkspaceRootPath": "C:\\Users\\MICRO-10\\Downloads\\Svekte\\77\\\u00C9 algo mais s\u00E9rio\\Lan house project\\Lan-House\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{9FB5FA6E-F835-C2DA-356D-E5D135DB707C}|src\\Adrenalina.Infrastructure\\Adrenalina.Infrastructure.csproj|c:\\users\\micro-10\\downloads\\svekte\\77\\\u00E9 algo mais s\u00E9rio\\lan house project\\lan-house\\src\\adrenalina.infrastructure\\cafemanagementservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{9FB5FA6E-F835-C2DA-356D-E5D135DB707C}|src\\Adrenalina.Infrastructure\\Adrenalina.Infrastructure.csproj|solutionrelative:src\\adrenalina.infrastructure\\cafemanagementservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1135E72F-5E55-5167-F1E5-243ACC28D6E5}|src\\Adrenalina.Client\\Adrenalina.Client.csproj|c:\\users\\micro-10\\downloads\\svekte\\77\\\u00E9 algo mais s\u00E9rio\\lan house project\\lan-house\\src\\adrenalina.client\\windowskioskmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1135E72F-5E55-5167-F1E5-243ACC28D6E5}|src\\Adrenalina.Client\\Adrenalina.Client.csproj|solutionrelative:src\\adrenalina.client\\windowskioskmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": []
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "CafeManagementService.cs",
+              "DocumentMoniker": "C:\\Users\\MICRO-10\\Downloads\\Svekte\\77\\\u00C9 algo mais s\u00E9rio\\Lan house project\\Lan-House\\src\\Adrenalina.Infrastructure\\CafeManagementService.cs",
+              "RelativeDocumentMoniker": "src\\Adrenalina.Infrastructure\\CafeManagementService.cs",
+              "ToolTip": "C:\\Users\\MICRO-10\\Downloads\\Svekte\\77\\\u00C9 algo mais s\u00E9rio\\Lan house project\\Lan-House\\src\\Adrenalina.Infrastructure\\CafeManagementService.cs",
+              "RelativeToolTip": "src\\Adrenalina.Infrastructure\\CafeManagementService.cs",
+              "ViewState": "AgIAAHAAAAAAAAAAAAASwH8AAAAIAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-17T20:22:44.883Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "WindowsKioskManager.cs",
+              "DocumentMoniker": "C:\\Users\\MICRO-10\\Downloads\\Svekte\\77\\\u00C9 algo mais s\u00E9rio\\Lan house project\\Lan-House\\src\\Adrenalina.Client\\WindowsKioskManager.cs",
+              "RelativeDocumentMoniker": "src\\Adrenalina.Client\\WindowsKioskManager.cs",
+              "ToolTip": "C:\\Users\\MICRO-10\\Downloads\\Svekte\\77\\\u00C9 algo mais s\u00E9rio\\Lan house project\\Lan-House\\src\\Adrenalina.Client\\WindowsKioskManager.cs",
+              "RelativeToolTip": "src\\Adrenalina.Client\\WindowsKioskManager.cs",
+              "ViewState": "AgIAALYAAAAAAAAAAAAqwMkAAAAIAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-17T20:22:11.866Z"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

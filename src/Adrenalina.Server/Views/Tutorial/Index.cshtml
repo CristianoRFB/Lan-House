@@ -1,0 +1,142 @@
+@{
+    ViewData["Title"] = "Tutorial";
+}
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Guia completo</p>
+        <h2>Tutorial do administrador</h2>
+        <p class="text-secondary">Este passo a passo cobre o app desktop do ADMIN, o painel web e a forma correta de conectar os clientes usando o IP do administrador.</p>
+    </div>
+    <div class="button-row">
+        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-light">Voltar ao painel</a>
+        <a asp-controller="Settings" asp-action="Index" class="btn btn-accent">Abrir configuracoes</a>
+    </div>
+</section>
+
+<section class="callout-card">
+    <div>
+        <p class="eyebrow mb-2">Fluxo recomendado</p>
+        <h3 class="mb-2">Ordem ideal para colocar a lan house para funcionar</h3>
+        <ol class="tutorial-list mb-0">
+            <li>Abra o aplicativo desktop <strong>Adrenalina.Admin</strong>.</li>
+            <li>Clique em <strong>Iniciar servidor e abrir painel</strong>.</li>
+            <li>Veja o endereco mostrado em <strong>Clientes na rede</strong> e use esse IP nas maquinas cliente.</li>
+            <li>Entre no painel web com a conta inicial ou com sua conta administrativa.</li>
+            <li>Revise configuracoes, cadastre usuarios e acompanhe maquinas e sessoes pelo painel.</li>
+        </ol>
+    </div>
+</section>
+
+<section class="tutorial-grid">
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">1</span>
+        <h3>Comecando pelo desktop do ADMIN</h3>
+        <ul class="tutorial-list">
+            <li><strong>Iniciar servidor e abrir painel</strong> inicia servidor, banco local e painel.</li>
+            <li><strong>Painel local</strong> mostra onde o administrador entra no sistema.</li>
+            <li><strong>Clientes na rede</strong> mostra o endereco que deve ser usado nas maquinas cliente.</li>
+            <li><strong>Abrir painel no navegador</strong> funciona mesmo sem WebView2.</li>
+            <li><strong>Copiar acesso inicial</strong> copia login inicial e endereco dos clientes.</li>
+            <li><strong>Backup manual</strong> gera backup do banco local.</li>
+        </ul>
+    </article>
+
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">2</span>
+        <h3>Login inicial e seguranca</h3>
+        <ul class="tutorial-list">
+            <li>Conta inicial do sistema: <code>admin</code> / <code>adrenalina123</code>.</li>
+            <li>PIN inicial padrao do seed administrativo: <code>1234</code>.</li>
+            <li>Depois do primeiro acesso, mantenha os dados administrativos revisados na base de usuarios.</li>
+            <li>Se precisar de ajuda depois, o tutorial pode ser reaberto tanto no app desktop quanto neste painel.</li>
+        </ul>
+    </article>
+
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">3</span>
+        <h3>Painel</h3>
+        <ul class="tutorial-list">
+            <li>Acompanhe maquinas online, maquinas em uso, sessoes ativas e solicitacoes pendentes.</li>
+            <li>Use os graficos para entender uso por dia e por maquina.</li>
+            <li>Aprove ou rejeite pedidos de cadastro e mais tempo.</li>
+            <li>Consulte os logs recentes para ver o que aconteceu no sistema.</li>
+        </ul>
+    </article>
+
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">4</span>
+        <h3>Usuarios</h3>
+        <ul class="tutorial-list">
+            <li>Cadastre e atualize usuarios com nome, login, PIN, senha do painel e perfil.</li>
+            <li>Perfis disponiveis: Admin, Especial, Ghost e Comum.</li>
+            <li>Defina saldo, limite de anotacao, conta temporaria e observacoes.</li>
+            <li>Use <strong>Lancamento financeiro</strong> para creditos, debitos, anotacoes e promessas.</li>
+        </ul>
+    </article>
+
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">5</span>
+        <h3>Maquinas</h3>
+        <ul class="tutorial-list">
+            <li>Veja nome, hostname, IP, tipo da maquina e estado atual.</li>
+            <li>Consulte processos recentes enviados pelo cliente.</li>
+            <li>Envie comandos como bloquear tela, reiniciar, logout, limpar temporarios e mensagens personalizadas.</li>
+            <li>Use essa tela para controlar os computadores conectados ao administrador.</li>
+        </ul>
+    </article>
+
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">6</span>
+        <h3>Sessoes</h3>
+        <ul class="tutorial-list">
+            <li>Inicie sessoes escolhendo maquina, usuario, minutos e valor por hora.</li>
+            <li>Use <strong>Nome livre</strong> para atendimentos sem conta formal.</li>
+            <li>Ative <strong>Modo demo</strong> quando necessario.</li>
+            <li>Durante uma sessao ativa, ajuste minutos ou anotacao e encerre quando precisar.</li>
+        </ul>
+    </article>
+
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">7</span>
+        <h3>Relatorios</h3>
+        <ul class="tutorial-list">
+            <li>Escolha periodo e formato de exportacao.</li>
+            <li>Gere arquivos em TXT, Excel ou PDF.</li>
+            <li>Revise solicitacoes em aberto e o log completo recente para auditoria.</li>
+        </ul>
+    </article>
+
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">8</span>
+        <h3>Configuracoes</h3>
+        <ul class="tutorial-list">
+            <li>Defina nome da lan house, tema, atualizacoes e horario de backup.</li>
+            <li>Configure valores padrao de PC e console.</li>
+            <li>Edite mensagens de boas-vindas, saida e bloqueio.</li>
+            <li>Revise lista branca, lista negra e opcoes de sincronizacao.</li>
+        </ul>
+    </article>
+
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">9</span>
+        <h3>Como preparar os clientes</h3>
+        <ul class="tutorial-list">
+            <li>Abra o <strong>Adrenalina.Client</strong> em cada maquina cliente.</li>
+            <li>Informe exatamente o endereco mostrado no ADMIN em <strong>Clientes na rede</strong>.</li>
+            <li>Salve a configuracao da maquina e teste o login com usuario e PIN.</li>
+            <li>Pedidos de cadastro e mais tempo aparecem no painel do administrador para aprovacao.</li>
+        </ul>
+    </article>
+
+    <article class="panel tutorial-step">
+        <span class="tutorial-step-number">10</span>
+        <h3>Rotina diaria do administrador</h3>
+        <ul class="tutorial-list">
+            <li>Comece pelo Painel para ver o estado geral.</li>
+            <li>Use Maquinas e Sessoes para controlar operacao em tempo real.</li>
+            <li>Use Usuarios para manter contas e financeiro organizados.</li>
+            <li>Use Relatorios e backup manual no fechamento ou conferencias.</li>
+        </ul>
+    </article>
+</section>

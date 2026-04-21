@@ -14,9 +14,9 @@
 <body class="login-body">
     <main class="login-panel">
         <div class="login-copy">
-            <p class="eyebrow">Administração</p>
+            <p class="eyebrow">Administracao</p>
             <h1>Adrenalina Lan House</h1>
-            <p>Controle total de máquinas, clientes, sessões, anotações, relatórios, backups e comandos remotos.</p>
+            <p>Controle total de maquinas, clientes, sessoes, anotacoes, relatorios, backups e comandos remotos.</p>
         </div>
         <form asp-action="Login" method="post" class="panel form-grid">
             @Html.AntiForgeryToken()
@@ -34,6 +34,7 @@
             }
             <button type="submit" class="btn btn-accent">Entrar</button>
             <p class="small text-secondary">Conta inicial: <code>admin</code> / <code>adrenalina123</code></p>
+            <p class="small text-secondary">Depois de entrar, use o menu <strong>Tutorial</strong> para ver o passo a passo completo do sistema.</p>
         </form>
     </main>
 </body>

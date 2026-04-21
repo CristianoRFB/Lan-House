@@ -103,10 +103,20 @@ public sealed class CafeManagementService(
 
     public async Task<DashboardDto> GetDashboardAsync(CancellationToken cancellationToken = default)
     {
+        var nowUtc = DateTime.UtcNow;
         var settings = await GetSettingsEntityAsync(cancellationToken);
         var machines = await db.Machines.AsNoTracking().OrderBy(entry => entry.Name).ToListAsync(cancellationToken);
         var users = await db.Users.AsNoTracking().OrderBy(entry => entry.DisplayName).ToListAsync(cancellationToken);
         var sessions = await db.Sessions.AsNoTracking().OrderByDescending(entry => entry.StartedAtUtc).Take(20).ToListAsync(cancellationToken);
+        var recentUsageSessions = await db.Sessions.AsNoTracking()
+            .Where(entry => entry.StartedAtUtc >= nowUtc.AddDays(-30))
+            .Select(entry => new
+            {
+                entry.MachineId,
+                entry.StartedAtUtc,
+                entry.ConsumedMinutes
+            })
+            .ToListAsync(cancellationToken);
         var requests = await db.ClientRequests.AsNoTracking()
             .Where(entry => entry.Status == ClientRequestStatus.Pending)
             .OrderByDescending(entry => entry.RequestedAtUtc)
@@ -118,23 +128,27 @@ public sealed class CafeManagementService(
                 .ToListAsync(cancellationToken))
             .Select(MapAudit)
             .ToList();
-
-        var usageByDay = await db.Sessions.AsNoTracking()
-            .Where(entry => entry.StartedAtUtc >= DateTime.UtcNow.AddDays(-7))
-            .GroupBy(entry => entry.StartedAtUtc.Date)
-            .Select(group => new ChartPointDto(group.Key.ToString("dd/MM"), group.Sum(entry => entry.ConsumedMinutes)))
-            .ToListAsync(cancellationToken);
-
-        var usageByMachine = await db.Sessions.AsNoTracking()
-            .Where(entry => entry.StartedAtUtc >= DateTime.UtcNow.AddDays(-30))
-            .Join(db.Machines.AsNoTracking(), session => session.MachineId, machine => machine.Id, (session, machine) => new { session, machine })
-            .GroupBy(entry => entry.machine.Name)
-            .Select(group => new ChartPointDto(group.Key, group.Sum(entry => entry.session.ConsumedMinutes)))
-            .OrderByDescending(point => point.Value)
-            .Take(6)
-            .ToListAsync(cancellationToken);
+        var promisedPayments = (await db.LedgerEntries.AsNoTracking()
+                .Where(entry => entry.Type == LedgerEntryType.PaymentPromise)
+                .Select(entry => entry.Amount)
+                .ToListAsync(cancellationToken))
+            .Sum();
 
         var machineLookup = machines.ToDictionary(entry => entry.Id);
+
+        var usageByDay = recentUsageSessions
+            .Where(entry => entry.StartedAtUtc >= nowUtc.AddDays(-7))
+            .GroupBy(entry => entry.StartedAtUtc.Date)
+            .Select(group => new ChartPointDto(group.Key.ToString("dd/MM"), group.Sum(entry => entry.ConsumedMinutes)))
+            .OrderBy(point => point.Label)
+            .ToList();
+
+        var usageByMachine = recentUsageSessions
+            .GroupBy(entry => machineLookup.TryGetValue(entry.MachineId, out var machine) ? machine.Name : "Desconhecida")
+            .Select(group => new ChartPointDto(group.Key, group.Sum(entry => entry.ConsumedMinutes)))
+            .OrderByDescending(point => point.Value)
+            .Take(6)
+            .ToList();
 
         return new DashboardDto
         {
@@ -144,9 +158,7 @@ public sealed class CafeManagementService(
             ActiveSessions = sessions.Count(entry => entry.Status == SessionStatus.Active),
             PendingRequests = requests.Count,
             PendingAnnotations = users.Sum(entry => entry.PendingAnnotationAmount),
-            PromisedPayments = await db.LedgerEntries.AsNoTracking()
-                .Where(entry => entry.Type == LedgerEntryType.PaymentPromise)
-                .SumAsync(entry => entry.Amount, cancellationToken),
+            PromisedPayments = promisedPayments,
             Machines = await GetMachinesAsync(cancellationToken),
             Users = users.Take(8).Select(MapUser).ToList(),
             Sessions = sessions.Select(entry => MapSession(entry, machineLookup.TryGetValue(entry.MachineId, out var machine) ? machine.Name : "Desconhecida")).ToList(),
@@ -1157,7 +1169,19 @@ public sealed class CafeManagementService(
 
     private async Task<AdminSettings> GetSettingsEntityAsync(CancellationToken cancellationToken)
     {
-        return await db.Settings.FirstAsync(cancellationToken);
+        var settings = await db.Settings
+            .OrderBy(entry => entry.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (settings is not null)
+        {
+            return settings;
+        }
+
+        settings = new AdminSettings();
+        db.Settings.Add(settings);
+        await db.SaveChangesAsync(cancellationToken);
+        return settings;
     }
 
     private async Task LogAsync(

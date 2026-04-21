@@ -7,18 +7,30 @@
 
 <section class="page-header">
     <div>
-        <p class="eyebrow">Visão geral</p>
+        <p class="eyebrow">Visao geral</p>
         <h2>@Model.Dashboard.CafeName</h2>
-        <p class="text-secondary">Servidor central, clientes por máquina, sessões de PC e console, histórico financeiro e auditoria em português.</p>
+        <p class="text-secondary">Servidor central, clientes por maquina, sessoes de PC e console, historico financeiro e auditoria em portugues.</p>
+    </div>
+    <div class="button-row">
+        <a asp-controller="Tutorial" asp-action="Index" class="btn btn-outline-light">Abrir tutorial completo</a>
     </div>
 </section>
 
+<section class="callout-card">
+    <div>
+        <p class="eyebrow mb-2">Primeiro uso</p>
+        <h3 class="mb-2">Use o tutorial completo para configurar e operar o sistema sem perder passos.</h3>
+        <p class="text-secondary mb-0">O guia dentro do painel explica a ordem recomendada, como informar o IP do ADMIN nos clientes e o que fazer em cada menu do sistema.</p>
+    </div>
+    <a asp-controller="Tutorial" asp-action="Index" class="btn btn-accent">Ver tutorial</a>
+</section>
+
 <section class="metric-grid">
-    <article class="metric-card"><span>Máquinas online</span><strong>@Model.Dashboard.OnlineMachines</strong></article>
-    <article class="metric-card"><span>Máquinas em uso</span><strong>@Model.Dashboard.ActiveMachines</strong></article>
-    <article class="metric-card"><span>Sessões ativas</span><strong>@Model.Dashboard.ActiveSessions</strong></article>
-    <article class="metric-card"><span>Solicitações</span><strong>@Model.Dashboard.PendingRequests</strong></article>
-    <article class="metric-card"><span>Anotações pendentes</span><strong>R$ @Model.Dashboard.PendingAnnotations.ToString("N2")</strong></article>
+    <article class="metric-card"><span>Maquinas online</span><strong>@Model.Dashboard.OnlineMachines</strong></article>
+    <article class="metric-card"><span>Maquinas em uso</span><strong>@Model.Dashboard.ActiveMachines</strong></article>
+    <article class="metric-card"><span>Sessoes ativas</span><strong>@Model.Dashboard.ActiveSessions</strong></article>
+    <article class="metric-card"><span>Solicitacoes</span><strong>@Model.Dashboard.PendingRequests</strong></article>
+    <article class="metric-card"><span>Anotacoes pendentes</span><strong>R$ @Model.Dashboard.PendingAnnotations.ToString("N2")</strong></article>
     <article class="metric-card"><span>Promessas</span><strong>R$ @Model.Dashboard.PromisedPayments.ToString("N2")</strong></article>
 </section>
 
@@ -37,7 +49,7 @@
         </div>
     </article>
     <article class="panel">
-        <h3>Máquinas mais usadas</h3>
+        <h3>Maquinas mais usadas</h3>
         @foreach (var point in Model.Dashboard.UsageByMachine)
         {
             var width = (int)Math.Round((point.Value / maxMachine) * 100m);
@@ -52,10 +64,10 @@
 
 <section class="two-column">
     <article class="panel">
-        <h3>Solicitações pendentes</h3>
+        <h3>Solicitacoes pendentes</h3>
         @if (!Model.Dashboard.Requests.Any())
         {
-            <p class="text-secondary">Nenhuma solicitação aguardando aprovação.</p>
+            <p class="text-secondary">Nenhuma solicitacao aguardando aprovacao.</p>
         }
         else
         {
@@ -72,14 +84,14 @@
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="RequestId" value="@request.Id" />
                             <input type="hidden" name="Approve" value="true" />
-                            <input type="hidden" name="ResponseMessage" value="Solicitação aprovada pelo administrador." />
+                            <input type="hidden" name="ResponseMessage" value="Solicitacao aprovada pelo administrador." />
                             <button class="btn btn-success btn-sm">Aprovar</button>
                         </form>
                         <form asp-action="ResolveRequest" method="post">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="RequestId" value="@request.Id" />
                             <input type="hidden" name="Approve" value="false" />
-                            <input type="hidden" name="ResponseMessage" value="Solicitação rejeitada pelo administrador." />
+                            <input type="hidden" name="ResponseMessage" value="Solicitacao rejeitada pelo administrador." />
                             <button class="btn btn-outline-warning btn-sm">Rejeitar</button>
                         </form>
                     </div>

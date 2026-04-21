@@ -15,15 +15,16 @@
             <div>
                 <p class="eyebrow">Controle central</p>
                 <h1>Adrenalina</h1>
-                <p class="sidebar-copy">Servidor local, clientes instalados em cada máquina, relatórios, logs e comandos remotos.</p>
+                <p class="sidebar-copy">Servidor local, clientes instalados em cada maquina, relatorios, logs e comandos remotos.</p>
             </div>
             <nav class="nav-stack">
                 <a asp-controller="Dashboard" asp-action="Index">Painel</a>
-                <a asp-controller="Users" asp-action="Index">Usuários</a>
-                <a asp-controller="Machines" asp-action="Index">Máquinas</a>
-                <a asp-controller="Sessions" asp-action="Index">Sessões</a>
-                <a asp-controller="Reports" asp-action="Index">Relatórios</a>
-                <a asp-controller="Settings" asp-action="Index">Configurações</a>
+                <a asp-controller="Tutorial" asp-action="Index">Tutorial</a>
+                <a asp-controller="Users" asp-action="Index">Usuarios</a>
+                <a asp-controller="Machines" asp-action="Index">Maquinas</a>
+                <a asp-controller="Sessions" asp-action="Index">Sessoes</a>
+                <a asp-controller="Reports" asp-action="Index">Relatorios</a>
+                <a asp-controller="Settings" asp-action="Index">Configuracoes</a>
             </nav>
             <form asp-controller="Auth" asp-action="Logout" method="post">
                 @Html.AntiForgeryToken()

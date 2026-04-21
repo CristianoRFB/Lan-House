@@ -1,198 +1,341 @@
 # Adrenalina
 
-Sistema de gerenciamento de lan house em C#/.NET, evoluído a partir da arquitetura já existente e seguindo como referência principal a documentação do HandyCafe.
+Sistema de gerenciamento de lan house com dois aplicativos desktop principais:
 
-## Apps principais
+- `Adrenalina.Admin`: ambiente do administrador
+- `Adrenalina.Client`: ambiente do cliente
+
+O foco deste projeto e deixar o uso simples para pessoas comuns:
+
+- o ADMIN e o app principal que deve ser iniciado primeiro
+- o ADMIN concentra o bootstrap e sobe o servidor local com um unico botao principal
+- o CLIENTE pode ser preparado por uma tela inicial guiada
+- os dois apps possuem tutorial inicial
+- o tutorial aparece uma vez no primeiro uso
+- o tutorial pode ser aberto novamente nas configuracoes
+- o sistema evita depender de plugins, extensoes ou ajustes manuais no computador do usuario final
+
+## O que cada app faz
+
+### ADMIN
+
+O app do administrador:
+
+- abre rapidamente e deixa claro o proximo passo
+- inicia o servidor local quando voce manda
+- prepara o banco local SQLite no primeiro start
+- abre o painel do sistema sem depender do WebView2
+- mostra status rapido da operacao
+- mostra o IP/endereco que os clientes devem usar na rede
+- evita abrir duas instancias ao mesmo tempo
+- tenta usar a porta padrao e cai para uma porta livre quando ela ja estiver ocupada
+- permite backup manual
+- fecha com confirmacao e encerramento limpo do servidor local
+- permite reabrir tutorial e ajustar preferencias do app
+
+Se o `WebView2` nao estiver disponivel na maquina, o ADMIN continua funcionando:
+
+- o app sobe o ambiente normalmente
+- o painel e aberto no navegador padrao
+- nao e preciso instalar plugin ou extensao para continuar usando o sistema
+
+### CLIENTE
+
+O app do cliente:
+
+- mostra o estado atual da maquina
+- pede o IP do ADMIN logo no primeiro uso
+- permite login com usuario e PIN
+- mostra tempo, saldo, anotacoes e avisos
+- permite pedir cadastro ou mais tempo
+- tem uma tela inicial de preparacao para o primeiro uso
+- permite reabrir tutorial e editar configuracoes da maquina
+
+## Estrutura principal
 
 - `src/Adrenalina.Admin`
-  - executável Windows com painel nativo
-  - sobe o backend local automaticamente
-  - embute o painel admin em `WebView2`
-  - roda offline com SQLite local
-  - minimiza para a bandeja
-  - oferece start/stop do servidor, indicador de clientes online e backup manual
-
 - `src/Adrenalina.Client`
-  - executável Windows para modo quiosque
-  - trava a máquina até login válido
-  - usa fullscreen, hook global de teclado, ocultação da barra de tarefas, política do Gerenciador de Tarefas e bloqueio do Explorer
-  - inclui modo `--service` para watchdog via Windows Service
-  - inclui watchdog local `--watchdog` para reiniciar a UI se ela for encerrada
-
-## Camadas reaproveitadas
-
-- `src/Adrenalina.Domain`
-- `src/Adrenalina.Application`
-- `src/Adrenalina.Infrastructure`
 - `src/Adrenalina.Server`
+- `src/Adrenalina.Application`
+- `src/Adrenalina.Domain`
+- `src/Adrenalina.Infrastructure`
 
-Os projetos antigos `Adrenalina.ClientAgent` e `Adrenalina.ClientShell` continuam no repositório como referência/legado, mas o fluxo principal agora é `Adrenalina.Admin` + `Adrenalina.Client`.
+Projetos legados que continuam no repositorio:
 
-## Build
+- `src/Adrenalina.ClientShell`
+- `src/Adrenalina.ClientAgent`
 
-### Compilar solução
+O fluxo principal hoje e:
+
+- `Adrenalina.Admin`
+- `Adrenalina.Client`
+
+Esses sao os dois apps independentes do fluxo principal. Os projetos legados ficaram fora da solucao principal para reduzir confusao de entrada.
+
+## Requisitos para desenvolvimento
+
+Para compilar o projeto:
+
+- Windows
+- .NET SDK `10.0.202`
+
+O repositório ja foi ajustado para usar essa versao pelo `global.json`.
+
+Para o usuario final usar os executaveis publicados, o ideal e:
+
+- abrir o `Adrenalina.Admin.exe` no computador do administrador
+- abrir o `Adrenalina.Client.exe` em cada maquina cliente
+
+Nao ha exigencia de extensoes, plugins ou runtime .NET separado quando os apps forem publicados em modo self-contained.
+
+## Dependencias
+
+### Obrigatorias para desenvolver/compilar
+
+- .NET SDK `10.0.202`
+- pacotes NuGet do projeto
+
+### Para o usuario final
+
+- nenhuma extensao ou plugin extra e obrigatorio para usar o fluxo principal
+
+### Observacao sobre WebView2 no ADMIN
+
+O ADMIN tenta abrir o painel dentro do proprio app. Se o `WebView2` nao estiver instalado:
+
+- o app nao trava
+- o servidor continua iniciando normalmente
+- o painel abre no navegador padrao
+
+Em outras palavras: o `WebView2` virou opcional para o uso do ADMIN.
+
+## Como compilar
+
+Use os comandos abaixo na raiz do projeto.
+
+### Restaurar pacotes
 
 ```powershell
-dotnet build Adrenalina.slnx
+dotnet restore Adrenalina.slnx -m:1
 ```
+
+### Compilar tudo
+
+```powershell
+dotnet build Adrenalina.slnx --no-restore -m:1
+```
+
+O parametro `-m:1` foi mantido para deixar a compilacao mais estavel neste ambiente.
+
+## Como executar em desenvolvimento
+
+### ADMIN
+
+```powershell
+dotnet run --project src/Adrenalina.Admin
+```
+
+### CLIENTE
+
+```powershell
+dotnet run --project src/Adrenalina.Client
+```
+
+## Como publicar
 
 ### Publicar ADMIN
 
 ```powershell
-dotnet publish src/Adrenalina.Admin -c Release -r win-x64 --self-contained false
+dotnet publish src/Adrenalina.Admin -c Release -r win-x64 --self-contained true -m:1
 ```
 
-Saída principal:
+Saida principal:
 
-- `src\Adrenalina.Admin\bin\Release\net10.0-windows\win-x64\publish\Adrenalina.Admin.exe`
+- `src\Adrenalina.Admin\bin\Release\net8.0-windows\win-x64\publish\Adrenalina.Admin.exe`
 
 ### Publicar CLIENTE
 
 ```powershell
-dotnet publish src/Adrenalina.Client -c Release -r win-x64 --self-contained false
+dotnet publish src/Adrenalina.Client -c Release -r win-x64 --self-contained true -m:1
 ```
 
-Saída principal:
+Saida principal:
 
-- `src\Adrenalina.Client\bin\Release\net10.0-windows\win-x64\publish\Adrenalina.Client.exe`
+- `src\Adrenalina.Client\bin\Release\net8.0-windows\win-x64\publish\Adrenalina.Client.exe`
 
-## Uso do ADMIN
+## Como usar o ADMIN
 
-### Execução simples
+### Fluxo normal
 
-Abra:
+1. Abra `Adrenalina.Admin.exe`.
+2. Clique em `Iniciar servidor e abrir painel`.
+3. Veja no topo do app o endereco que os clientes devem usar na rede.
+4. Use o botao principal para abrir ou atualizar o painel.
+5. Entre com suas credenciais no painel.
 
-- `Adrenalina.Admin.exe`
+### Primeiro acesso
 
-Ao abrir, ele:
-
-- sobe a API local
-- garante a inicialização do banco
-- inicia o ciclo de manutenção/sincronização
-- carrega o painel MVC dentro do próprio app
-
-### URL interna
-
-- `http://127.0.0.1:5076/auth/login`
-
-### Credenciais iniciais
+Credenciais iniciais padrao:
 
 - login: `admin`
 - senha: `adrenalina123`
-- PIN do admin seed: `1234`
+- PIN inicial do admin seed: `1234`
 
-### Dados do ADMIN
+### Onde ficam as opcoes principais
 
-Quando o app nativo é usado:
+No app do ADMIN voce encontra com facilidade:
 
-- banco SQLite: `%ProgramData%\Adrenalina\admin-data\adrenalina.db`
-- backups: `%ProgramData%\Adrenalina\admin-data\backups`
+- botao principal para iniciar servidor e abrir painel
+- endereco local do painel
+- endereco/IP para os clientes na rede
+- backup manual
+- abertura do painel no navegador
+- configuracoes do app
+- tutorial
+- confirmacao ao sair com opcao de encerrar tambem o ambiente do dia
 
-Quando o projeto web `Adrenalina.Server` é executado isoladamente:
+### Onde ficam os dados do ADMIN
 
-- banco SQLite: `src\Adrenalina.Server\data\adrenalina.db`
+Quando o ADMIN desktop e usado:
 
-## Uso do CLIENTE
+- banco SQLite: `%LocalAppData%\Adrenalina\Admin\adrenalina.db`
+- backups: `%LocalAppData%\Adrenalina\Admin\backups`
+- preferencias locais do app: `%LocalAppData%\Adrenalina\Admin\admin-app.json`
 
-### Configuração
+Se existir base antiga em `%ProgramData%\Adrenalina\admin-data`, o ADMIN tenta migrar os dados automaticamente para o caminho novo no primeiro start.
 
-O cliente lê e cria sua configuração em:
+## Como usar o CLIENTE
 
-- `%ProgramData%\Adrenalina\client\clientsettings.json`
+### Primeiro uso
 
-Campos principais:
+No primeiro uso, o CLIENTE abre a tela `Preparar cliente`.
+
+Nela basta informar:
+
+- URL/IP do servidor do ADMIN
+- nome da maquina
+- chave da maquina
+- tipo da maquina
+
+Depois clique em:
+
+- `Salvar e iniciar cliente`
+
+Com isso:
+
+- a configuracao fica salva localmente
+- o cliente comeca a sincronizar sozinho
+- o tutorial inicial pode ser exibido logo em seguida
+
+### Fluxo normal do cliente
+
+1. Abra `Adrenalina.Client.exe`.
+2. Se for o primeiro uso, informe o IP mostrado no app do administrador e conclua a preparacao inicial.
+3. Para liberar a maquina, informe usuario e PIN.
+4. Se precisar, use `Outras opcoes` para:
+   - solicitar cadastro
+   - pedir mais tempo
+
+### Onde ficam as configuracoes do CLIENTE
+
+Arquivo principal:
+
+- `%LocalAppData%\Adrenalina\Client\clientsettings.json`
+
+Campos mais importantes:
 
 - `ServerBaseUrl`
 - `MachineKey`
 - `MachineName`
 - `MachineKind`
 - `SyncIntervalSeconds`
-- `EnableDestructiveCommands`
-- `LaunchLocalWatchdog`
-- `UiScheduledTaskName`
+- `SetupCompleted`
+- `ShowTutorialOnNextLaunch`
 
-### Modos de execução
+### Runtime do CLIENTE
 
-- modo normal: `Adrenalina.Client.exe`
-- modo serviço: `Adrenalina.Client.exe --service`
-- modo watchdog local: `Adrenalina.Client.exe --watchdog --pid <PID>`
+- `%LocalAppData%\Adrenalina\Runtime\<NOME-DA-MAQUINA>\client-state.json`
+- `%LocalAppData%\Adrenalina\Runtime\<NOME-DA-MAQUINA>\client-requests.json`
 
-### Runtime local
+Se existirem arquivos antigos em `%ProgramData%\Adrenalina`, o CLIENTE tenta reaproveitar esses dados automaticamente.
 
-- `%ProgramData%\Adrenalina\runtime\<NOME-DA-MAQUINA>\client-state.json`
-- `%ProgramData%\Adrenalina\runtime\<NOME-DA-MAQUINA>\client-requests.json`
+## Como funciona o tutorial inicial
 
-## Instalação do CLIENTE
+### ADMIN
 
-### Instalação recomendada
+O tutorial do ADMIN:
 
-1. Publique ou copie `Adrenalina.Client.exe` para a máquina cliente.
-2. Execute PowerShell como Administrador.
-3. Rode:
+- aparece uma vez no primeiro uso
+- explica o fluxo de abrir o app, iniciar o servidor e entrar no painel
+- cobre as funcoes do app desktop e o uso do painel web
+- explica o fallback para navegador quando o modo embutido nao estiver disponivel
+- agora tambem existe no painel web pelo menu `Tutorial`
 
-```powershell
-.\scripts\install-client.ps1 `
-  -ClientExePath "C:\LanHouse\Adrenalina.Client.exe" `
-  -ServerBaseUrl "http://IP-DO-ADMIN:5076/" `
-  -MachineKind Pc `
-  -InteractiveUser "NOMEPC\UsuarioDaLan"
-```
+### CLIENTE
 
-Esse script:
+O tutorial do CLIENTE:
 
-- grava `clientsettings.json` em `%ProgramData%`
-- registra a tarefa agendada `Adrenalina Client UI` no logon
-- registra o serviço `AdrenalinaClientService`
-- configura reinício automático do serviço
+- aparece uma vez no primeiro uso
+- explica como entrar na maquina
+- explica onde pedir cadastro ou mais tempo
+- explica onde encontrar as configuracoes e como reabrir o proprio tutorial
 
-### Endurecimento máximo de quiosque
+## Como reexibir o tutorial
 
-Para shell replacement no Windows:
+### No ADMIN
 
-```powershell
-.\scripts\install-client.ps1 `
-  -ClientExePath "C:\LanHouse\Adrenalina.Client.exe" `
-  -ServerBaseUrl "http://IP-DO-ADMIN:5076/" `
-  -InteractiveUser "NOMEPC\UsuarioDaLan" `
-  -UseShellReplacement
-```
+Abra:
 
-Isso troca o `Shell` do Winlogon para o executável do cliente e exige privilégios de administrador. O script salva o shell anterior em `AdrenalinaShellBackup`.
+- `Configuracoes`
 
-### Remoção
+Depois:
 
-```powershell
-.\scripts\uninstall-client.ps1 -RestoreShell
-```
+- marque a opcao para mostrar o tutorial novamente na proxima abertura
 
-## O que foi implementado nesta evolução
+Ou:
 
-- separação clara entre `Adrenalina.Admin` e `Adrenalina.Client`
-- host reutilizável do `Adrenalina.Server` para execução embutida
-- `WebView2` no admin
-- start/stop do backend dentro do app admin
-- indicador de clientes online no admin
-- botão de backup manual no admin
-- login do cliente via API própria
-- sessão aberta pelo backend central sem duplicar regra no cliente
-- cliente com fullscreen, topmost, hook global de teclado e watchdog
-- bloqueio de `ALT+TAB`, `ALT+ESC`, `CTRL+ESC`, `CTRL+SHIFT+ESC`, tecla Windows e `ALT+F4` enquanto travado
-- ocultação da barra de tarefas
-- política de desativação do Gerenciador de Tarefas no usuário atual
-- interrupção e retomada do Explorer conforme estado travado/liberado
-- Windows Service de watchdog do cliente
-- tarefa agendada para auto-start interativo no logon
-- backup manual e automático
-- persistência de sessão/estado offline
+- clique em `Abrir tutorial agora`
 
-## Limitações conhecidas
+### No CLIENTE
 
-- `CTRL+ALT+DEL` e a Secure Attention Sequence não podem ser bloqueados por app de usuário; isso é uma limitação do próprio Windows.
-- O bloqueio do Gerenciador de Tarefas foi implementado em `HKCU`; para endurecimento em toda a máquina, a instalação deve aplicar política equivalente com privilégios administrativos.
-- O watchdog do serviço depende da tarefa agendada interativa para reabrir a UI na sessão do usuário.
-- O warning de build do `WebView2` sobre `WindowsBase` não impede a compilação nem o funcionamento observado no smoke test.
+Abra:
 
-## Verificação feita
+- `Configuracoes`
 
-- `dotnet build Adrenalina.slnx`
-- smoke test do `Adrenalina.Admin.exe` com resposta `200` em `http://127.0.0.1:5076/auth/login`
+Depois:
+
+- marque a opcao para mostrar o tutorial novamente na proxima abertura
+
+Ou:
+
+- clique em `Abrir tutorial agora`
+
+## Instalacao avancada do CLIENTE (opcional)
+
+Os scripts abaixo continuam existindo para cenarios mais travados de quiosque, servico e tarefa agendada:
+
+- `scripts/install-client.ps1`
+- `scripts/uninstall-client.ps1`
+
+Esses scripts sao opcionais.
+
+O fluxo principal do projeto nao depende deles para:
+
+- abrir o app
+- preparar o cliente
+- fazer login
+- usar o tutorial
+
+## Validacao feita
+
+Validacoes executadas neste ajuste:
+
+- `dotnet build Adrenalina.slnx -m:1 /p:UseSharedCompilation=false`
+- `dotnet publish src/Adrenalina.Admin -c Release -r win-x64 --self-contained true -m:1 /p:UseSharedCompilation=false`
+- `dotnet publish src/Adrenalina.Client -c Release -r win-x64 --self-contained true -m:1 /p:UseSharedCompilation=false`
+
+Observacao:
+
+- os executaveis `Release` de ADMIN e CLIENTE foram publicados com sucesso em modo self-contained
+- o app agora possui fallback para navegador, entao o uso do ADMIN nao fica preso ao `WebView2`
+- o repositorio passou a ignorar `bin`, `obj`, `artifacts` e cache do Visual Studio para reduzir ruido estrutural

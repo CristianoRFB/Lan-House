@@ -8,25 +8,31 @@ namespace Adrenalina.Admin;
 
 public sealed class EmbeddedAdminServer : IAsyncDisposable
 {
+    private const int DefaultPort = 5076;
+    private const int MaxFallbackPortOffset = 19;
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly string _contentRootPath;
     private readonly string _dataRootPath;
     private WebApplication? _app;
+    private int _currentPort = DefaultPort;
 
     public EmbeddedAdminServer()
     {
-        var commonDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "Adrenalina");
-
         _contentRootPath = Path.Combine(AppContext.BaseDirectory, "ServerContent");
-        _dataRootPath = Path.Combine(commonDataPath, "admin-data");
-        BaseAddress = new Uri("http://127.0.0.1:5076/");
+        _dataRootPath = AdrenalinaPaths.GetAdminDataRoot();
     }
 
-    public Uri BaseAddress { get; }
+    public Uri BaseAddress => new($"http://127.0.0.1:{_currentPort}/");
+
+    public string ListenUrl => $"http://0.0.0.0:{_currentPort}";
+
+    public int Port => BaseAddress.Port;
 
     public bool IsRunning => _app is not null;
+
+    public bool UsedFallbackPort { get; private set; }
+
+    public string StartupMessage { get; private set; } = "Servidor local pronto.";
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -39,24 +45,58 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
             }
 
             Directory.CreateDirectory(_contentRootPath);
+            EnsureAdminDataMigrated();
             Directory.CreateDirectory(_dataRootPath);
+            _currentPort = DefaultPort;
+            UsedFallbackPort = false;
+            StartupMessage = "Inicializando servidor local...";
 
-            var app = AdrenalinaServerBootstrap.BuildApplication(new AdrenalinaServerHostOptions
+            Exception? lastAddressInUseException = null;
+
+            foreach (var candidatePort in AdminPortResolver.GetCandidatePorts(DefaultPort, MaxFallbackPortOffset))
             {
-                ContentRootPath = _contentRootPath,
-                WebRootPath = Path.Combine(_contentRootPath, "wwwroot"),
-                DataRootPath = _dataRootPath,
-                Urls = BaseAddress.GetLeftPart(UriPartial.Authority),
-                UseHttpsRedirection = false
-            });
+                if (!AdminPortResolver.IsPortAvailable(candidatePort))
+                {
+                    continue;
+                }
 
-            await app.StartAsync(cancellationToken);
+                _currentPort = candidatePort;
+                var app = AdrenalinaServerBootstrap.BuildApplication(new AdrenalinaServerHostOptions
+                {
+                    ContentRootPath = _contentRootPath,
+                    WebRootPath = Path.Combine(_contentRootPath, "wwwroot"),
+                    DataRootPath = _dataRootPath,
+                    Urls = ListenUrl,
+                    UseHttpsRedirection = false
+                });
 
-            using var scope = app.Services.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<ICafeManagementService>();
-            await service.EnsureInitializedAsync(cancellationToken);
+                try
+                {
+                    await AdrenalinaServerBootstrap.InitializeAsync(app, cancellationToken);
+                    await app.StartAsync(cancellationToken);
 
-            _app = app;
+                    _app = app;
+                    UsedFallbackPort = candidatePort != DefaultPort;
+                    StartupMessage = UsedFallbackPort
+                        ? $"A porta {DefaultPort} estava ocupada. O ADMIN iniciou na porta {_currentPort} nesta execucao."
+                        : $"Servidor local iniciado na porta {_currentPort}.";
+                    return;
+                }
+                catch (Exception exception) when (AdminPortResolver.IsAddressInUse(exception))
+                {
+                    lastAddressInUseException = exception;
+                    await app.DisposeAsync();
+                }
+                catch
+                {
+                    await app.DisposeAsync();
+                    throw;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Nao foi possivel iniciar o servidor local. As portas entre {DefaultPort} e {DefaultPort + MaxFallbackPortOffset} estao ocupadas.",
+                lastAddressInUseException);
         }
         finally
         {
@@ -77,6 +117,9 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
             await _app.StopAsync(cancellationToken);
             await _app.DisposeAsync();
             _app = null;
+            _currentPort = DefaultPort;
+            UsedFallbackPort = false;
+            StartupMessage = "Servidor local parado.";
         }
         finally
         {
@@ -94,7 +137,7 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
         return await RunScopedAsync(
                    async service => await service.CreateManualBackupAsync(await ResolveAuditActorAsync(service, cancellationToken), cancellationToken),
                    cancellationToken)
-               ?? new OperationResult(false, "O servidor não está em execução.");
+               ?? new OperationResult(false, "O servidor nao esta em execucao.");
     }
 
     public async Task<SettingsDto?> TryGetSettingsAsync(CancellationToken cancellationToken = default)
@@ -126,5 +169,43 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
     {
         await StopAsync();
         _lifecycleGate.Dispose();
+    }
+
+    private void EnsureAdminDataMigrated()
+    {
+        var currentDatabasePath = Path.Combine(_dataRootPath, "adrenalina.db");
+        if (File.Exists(currentDatabasePath))
+        {
+            return;
+        }
+
+        var legacyRoot = AdrenalinaPaths.GetLegacyAdminDataRoot();
+        var legacyDatabasePath = Path.Combine(legacyRoot, "adrenalina.db");
+        if (!File.Exists(legacyDatabasePath))
+        {
+            return;
+        }
+
+        CopyDirectory(legacyRoot, _dataRootPath);
+    }
+
+    private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
+    {
+        Directory.CreateDirectory(destinationDirectory);
+
+        foreach (var file in Directory.GetFiles(sourceDirectory))
+        {
+            var destinationPath = Path.Combine(destinationDirectory, Path.GetFileName(file));
+            if (!File.Exists(destinationPath))
+            {
+                File.Copy(file, destinationPath);
+            }
+        }
+
+        foreach (var directory in Directory.GetDirectories(sourceDirectory))
+        {
+            var destinationPath = Path.Combine(destinationDirectory, Path.GetFileName(directory));
+            CopyDirectory(directory, destinationPath);
+        }
     }
 }

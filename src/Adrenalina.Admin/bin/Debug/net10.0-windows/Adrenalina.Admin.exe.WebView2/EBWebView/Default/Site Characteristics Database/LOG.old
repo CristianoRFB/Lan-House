@@ -1,2 +1,5 @@
-2026/04/17-14:39:21.433 2dbc Creating DB C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Admin\bin\Debug\net10.0-windows\Adrenalina.Admin.exe.WebView2\EBWebView\Default\Site Characteristics Database since it was missing.
-2026/04/17-14:39:21.469 2dbc Reusing MANIFEST C:\Users\Aluno\Downloads\Adrenalina\src\Adrenalina.Admin\bin\Debug\net10.0-windows\Adrenalina.Admin.exe.WebView2\EBWebView\Default\Site Characteristics Database/MANIFEST-000001
+2026/04/20-13:34:05.479 22d0 Log #3: 1 ops saved to Table #4 OK
+2026/04/20-13:34:05.494 22d0 Archiving C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Admin\bin\Debug\net10.0-windows\Adrenalina.Admin.exe.WebView2\EBWebView\Default\Site Characteristics Database/000003.log: OK
+2026/04/20-13:34:05.494 22d0 Table #4: 1 entries OK
+2026/04/20-13:34:05.496 22d0 Archiving C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Admin\bin\Debug\net10.0-windows\Adrenalina.Admin.exe.WebView2\EBWebView\Default\Site Characteristics Database/MANIFEST-000001: OK
+2026/04/20-13:34:05.505 22d0 **** Repaired leveldb C:\Users\MICRO-10\Downloads\Svekte\77\É algo mais sério\Lan house project\Lan-House\src\Adrenalina.Admin\bin\Debug\net10.0-windows\Adrenalina.Admin.exe.WebView2\EBWebView\Default\Site Characteristics Database; recovered 1 files; 130 bytes. Some data may have been lost. ****

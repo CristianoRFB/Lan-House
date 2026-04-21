@@ -5,4 +5,5 @@ var app = AdrenalinaServerBootstrap.BuildApplication(new AdrenalinaServerHostOpt
     Args = args
 });
 
-app.Run();
+await AdrenalinaServerBootstrap.InitializeAsync(app);
+await app.RunAsync();

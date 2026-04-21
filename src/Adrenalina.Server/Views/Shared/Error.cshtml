@@ -1,25 +1,32 @@
-﻿@model ErrorViewModel
+@model ErrorViewModel
 @{
-    ViewData["Title"] = "Error";
+    ViewData["Title"] = "Erro";
 }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Falha tratada</p>
+        <h2>O painel encontrou um erro inesperado</h2>
+        <p class="text-secondary">O servidor continuou respondendo, mas esta tela precisou ser interrompida para evitar uma falha em cascata.</p>
+    </div>
+    <div class="button-row">
+        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-accent">Tentar novamente</a>
+        <a asp-controller="Auth" asp-action="Login" class="btn btn-outline-light">Voltar ao login</a>
+    </div>
+</section>
 
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>Request ID:</strong> <code>@Model.RequestId</code>
-    </p>
-}
+<section class="panel">
+    <h3>O que fazer agora</h3>
+    <ul class="tutorial-list">
+        <li>Tente abrir o painel novamente.</li>
+        <li>Se o erro persistir, feche e abra o ADMIN para reiniciar o servidor local.</li>
+        <li>Se estiver em manutencao ou primeiro uso, confira se o banco local foi criado corretamente.</li>
+    </ul>
 
-<h3>Development Mode</h3>
-<p>
-    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
-</p>
+    @if (Model.ShowRequestId)
+    {
+        <p class="text-secondary mb-0">
+            Codigo da requisicao: <code>@Model.RequestId</code>
+        </p>
+    }
+</section>

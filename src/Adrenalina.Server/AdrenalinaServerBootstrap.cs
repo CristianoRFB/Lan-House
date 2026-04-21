@@ -1,5 +1,8 @@
+using Adrenalina.Application;
 using Adrenalina.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Adrenalina.Server;
 
@@ -18,6 +21,11 @@ public static class AdrenalinaServerBootstrap
         };
 
         var builder = WebApplication.CreateBuilder(builderOptions);
+
+        // O servidor embutido precisa rodar sem depender de acesso ao Event Log do Windows.
+        builder.Logging.ClearProviders();
+        builder.Logging.AddSimpleConsole();
+        builder.Logging.AddDebug();
 
         if (!string.IsNullOrWhiteSpace(options.DataRootPath))
         {
@@ -46,7 +54,7 @@ public static class AdrenalinaServerBootstrap
 
         if (!app.Environment.IsDevelopment())
         {
-            app.UseExceptionHandler("/dashboard");
+            app.UseExceptionHandler("/error");
             app.UseHsts();
         }
 
@@ -65,5 +73,12 @@ public static class AdrenalinaServerBootstrap
             pattern: "{controller=Dashboard}/{action=Index}/{id?}");
 
         return app;
+    }
+
+    public static async Task InitializeAsync(WebApplication app, CancellationToken cancellationToken = default)
+    {
+        using var scope = app.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<ICafeManagementService>();
+        await service.EnsureInitializedAsync(cancellationToken);
     }
 }
