@@ -19,19 +19,21 @@
             <input asp-for="Form.Id" type="hidden" />
             <div>
                 <label asp-for="Form.DisplayName" class="form-label">Nome</label>
-                <input asp-for="Form.DisplayName" class="form-control" />
+                <input asp-for="Form.DisplayName" class="form-control" maxlength="100" required />
             </div>
             <div>
                 <label asp-for="Form.Login" class="form-label">Login</label>
-                <input asp-for="Form.Login" class="form-control" />
+                <input asp-for="Form.Login" class="form-control" maxlength="64" autocomplete="off" required />
             </div>
             <div>
                 <label asp-for="Form.Pin" class="form-label">PIN</label>
-                <input asp-for="Form.Pin" class="form-control" />
+                <input asp-for="Form.Pin" type="password" class="form-control" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" />
+                <div class="form-hint">Quatro dígitos. Ao editar, deixe vazio para manter o PIN atual.</div>
             </div>
             <div>
                 <label asp-for="Form.Password" class="form-label">Senha do painel</label>
-                <input asp-for="Form.Password" class="form-control" />
+                <input asp-for="Form.Password" type="password" class="form-control" minlength="12" maxlength="256" autocomplete="new-password" />
+                <div class="form-hint">Necessária apenas para perfis com acesso ao painel.</div>
             </div>
             <div>
                 <label asp-for="Form.ProfileType" class="form-label">Perfil</label>
@@ -49,9 +51,17 @@
                 <input asp-for="Form.IsTemporary" class="form-check-input" />
                 <label asp-for="Form.IsTemporary" class="form-check-label">Conta temporária</label>
             </div>
+            <div>
+                <label asp-for="Form.TemporaryUntilUtc" class="form-label">Válida até</label>
+                <input asp-for="Form.TemporaryUntilUtc" type="datetime-local" class="form-control" />
+            </div>
+            <div class="form-check align-self-end">
+                <input asp-for="Form.IsBlocked" class="form-check-input" />
+                <label asp-for="Form.IsBlocked" class="form-check-label">Conta bloqueada</label>
+            </div>
             <div class="full-span">
                 <label asp-for="Form.Notes" class="form-label">Observações</label>
-                <textarea asp-for="Form.Notes" class="form-control" rows="3"></textarea>
+                <textarea asp-for="Form.Notes" class="form-control" rows="3" maxlength="1000"></textarea>
             </div>
             <button type="submit" class="btn btn-accent">Salvar usuário</button>
         </form>
@@ -99,6 +109,8 @@
                     <th>Anotado</th>
                     <th>Limite</th>
                     <th>Temporário</th>
+                    <th>Bloqueado</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -118,6 +130,8 @@
                         <td>R$ @user.PendingAnnotationAmount.ToString("N2")</td>
                         <td>@(user.ProfileType == UserProfileType.Common ? $"R$ {user.AnnotationLimit:N2}" : "Ilimitado")</td>
                         <td>@(user.IsTemporary ? "Sim" : "Não")</td>
+                        <td>@(user.IsBlocked ? "Sim" : "Não")</td>
+                        <td><a asp-action="Index" asp-route-editId="@user.Id" class="btn btn-outline-light btn-sm">Editar</a></td>
                     </tr>
                 }
             </tbody>

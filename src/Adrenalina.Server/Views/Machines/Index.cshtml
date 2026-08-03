@@ -6,12 +6,48 @@
 <section class="page-header">
     <div>
         <p class="eyebrow">Operação</p>
-        <h2>Máquinas e controle remoto</h2>
-        <p class="text-secondary">Monitoramento de PCs e consoles, processos recentes e envio de comandos remotos.</p>
+        <h2>Máquinas</h2>
+        <p class="text-secondary">Cadastro e monitoramento seguro de PCs e consoles.</p>
     </div>
 </section>
 
+<section class="panel mb-4">
+    <h3>Cadastrar ou editar máquina</h3>
+    <form asp-action="Save" method="post" class="form-grid compact-grid">
+        @Html.AntiForgeryToken()
+        <input asp-for="Form.Id" type="hidden" />
+        <div>
+            <label asp-for="Form.Name" class="form-label">Nome</label>
+            <input asp-for="Form.Name" class="form-control" placeholder="PC-01" />
+        </div>
+        <div>
+            <label asp-for="Form.MachineKey" class="form-label">Chave</label>
+            <input asp-for="Form.MachineKey" class="form-control" placeholder="pc-01-chave" />
+        </div>
+        <div>
+            <label asp-for="Form.Kind" class="form-label">Tipo</label>
+            <select asp-for="Form.Kind" class="form-select" asp-items="Html.GetEnumSelectList<MachineKind>()"></select>
+        </div>
+        <div>
+            <label asp-for="Form.GroupName" class="form-label">Grupo</label>
+            <input asp-for="Form.GroupName" class="form-control" />
+        </div>
+        <div class="full-span">
+            <label asp-for="Form.Observations" class="form-label">Observações</label>
+            <textarea asp-for="Form.Observations" class="form-control" rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn btn-accent">Salvar máquina</button>
+    </form>
+</section>
+
 <section class="machine-grid">
+    @if (!Model.Machines.Any())
+    {
+        <div class="panel empty-state">
+            <h3>Nenhuma máquina cadastrada</h3>
+            <p>Cadastre a primeira máquina acima e use a mesma chave ao preparar o Client.</p>
+        </div>
+    }
     @foreach (var machine in Model.Machines)
     {
         <article class="panel machine-card">
@@ -23,11 +59,12 @@
                 <span class="status-pill">@machine.Status</span>
             </div>
             <p class="small text-secondary">@machine.Observations</p>
-            <p class="small">Proteção do serviço: @(machine.ServiceProtectionEnabled ? "Ativa" : "Inativa")</p>
-            <p class="small">Último comando: @(string.IsNullOrWhiteSpace(machine.LastCommandSummary) ? "Nenhum" : machine.LastCommandSummary)</p>
+            <p class="small">Chave do cliente: <code>@machine.MachineKey</code></p>
+            <p class="small">Último contato: @(machine.LastSeenUtc.HasValue ? machine.LastSeenUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") : "ainda não conectado")</p>
+            <a asp-action="Index" asp-route-editId="@machine.Id" class="btn btn-outline-light btn-sm mb-3">Editar cadastro</a>
 
             <div class="button-row">
-                @foreach (var commandType in new[] { RemoteCommandType.LockScreen, RemoteCommandType.Restart, RemoteCommandType.Logout, RemoteCommandType.CaptureScreenshot, RemoteCommandType.ClearTemporaryFiles })
+                @foreach (var commandType in new[] { RemoteCommandType.ToggleTimerVisibility })
                 {
                     <form asp-action="Command" method="post">
                         @Html.AntiForgeryToken()
@@ -35,7 +72,7 @@
                         <input type="hidden" name="Type" value="@commandType" />
                         <input type="hidden" name="Title" value="@commandType" />
                         <input type="hidden" name="Message" value="Comando enviado pelo administrador." />
-                        <button class="btn btn-outline-light btn-sm">@commandType</button>
+                        <button class="btn btn-outline-light btn-sm">Alternar exibição do tempo</button>
                     </form>
                 }
             </div>
@@ -47,28 +84,11 @@
                 <input type="hidden" name="Title" value="Aviso do administrador" />
                 <div>
                     <label class="form-label">Mensagem personalizada</label>
-                    <input name="Message" class="form-control" placeholder="Digite um aviso para essa máquina" />
+                    <input name="Message" class="form-control" maxlength="500" required placeholder="Digite um aviso claro para essa máquina" />
                 </div>
                 <button class="btn btn-accent">Enviar aviso</button>
             </form>
 
-            <div class="process-list">
-                <h4>Processos recentes</h4>
-                @if (!machine.RecentProcesses.Any())
-                {
-                    <p class="small text-secondary">Sem processos reportados recentemente.</p>
-                }
-                else
-                {
-                    @foreach (var process in machine.RecentProcesses)
-                    {
-                        <div class="process-item">
-                            <span>@process.ProcessName</span>
-                            <small>@process.MemoryMb.ToString("N0") MB</small>
-                        </div>
-                    }
-                }
-            </div>
         </article>
     }
 </section>

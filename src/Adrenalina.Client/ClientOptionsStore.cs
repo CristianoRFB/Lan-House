@@ -5,9 +5,9 @@ namespace Adrenalina.Client;
 
 public static class ClientOptionsStore
 {
-    public static ClientConnectionOptions LoadOrCreate()
+    public static ClientConnectionOptions LoadOrCreate(string? settingsPath = null)
     {
-        var path = GetSettingsPath();
+        var path = settingsPath ?? GetSettingsPath();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
         if (!File.Exists(path))
@@ -18,25 +18,41 @@ public static class ClientOptionsStore
                 ShowTutorialOnNextLaunch = true
             };
 
-            Save(defaults);
+            Save(defaults, path);
             return defaults;
         }
 
-        var json = File.ReadAllText(path);
-        var options = JsonSerializer.Deserialize<ClientConnectionOptions>(json, Adrenalina.Application.JsonDefaults.Options)
+        ClientConnectionOptions options;
+        try
+        {
+            var json = File.ReadAllText(path);
+            options = JsonSerializer.Deserialize<ClientConnectionOptions>(json, Adrenalina.Application.JsonDefaults.Options)
                       ?? new ClientConnectionOptions();
+        }
+        catch (JsonException)
+        {
+            File.Move(path, $"{path}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmssfff}");
+            options = new ClientConnectionOptions
+            {
+                SetupCompleted = false,
+                ShowTutorialOnNextLaunch = true
+            };
+            Save(options, path);
+        }
 
         NormalizeForInteractiveSetup(options);
         return options;
     }
 
-    public static void Save(ClientConnectionOptions options)
+    public static void Save(ClientConnectionOptions options, string? settingsPath = null)
     {
-        var path = GetSettingsPath();
+        var path = settingsPath ?? GetSettingsPath();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
         var payload = JsonSerializer.Serialize(options, Adrenalina.Application.JsonDefaults.Options);
-        File.WriteAllText(path, payload);
+        var temporaryPath = path + ".tmp";
+        File.WriteAllText(temporaryPath, payload);
+        File.Move(temporaryPath, path, overwrite: true);
     }
 
     public static string GetSettingsPath()

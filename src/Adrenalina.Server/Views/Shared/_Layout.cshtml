@@ -1,3 +1,7 @@
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    string NavClass(string controller) => string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty;
+}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -10,31 +14,35 @@
     <link rel="stylesheet" href="~/Adrenalina.Server.styles.css" asp-append-version="true" />
 </head>
 <body class="app-body">
+    <a class="skip-link" href="#conteudo-principal">Ir para o conteúdo</a>
     <div class="app-shell">
         <aside class="app-sidebar">
             <div>
                 <p class="eyebrow">Controle central</p>
                 <h1>Adrenalina</h1>
-                <p class="sidebar-copy">Servidor local, clientes instalados em cada maquina, relatorios, logs e comandos remotos.</p>
+                <p class="sidebar-copy">Operação local de máquinas, clientes, sessões, financeiro e auditoria.</p>
             </div>
-            <nav class="nav-stack">
-                <a asp-controller="Dashboard" asp-action="Index">Painel</a>
-                <a asp-controller="Tutorial" asp-action="Index">Tutorial</a>
-                <a asp-controller="Users" asp-action="Index">Usuarios</a>
-                <a asp-controller="Machines" asp-action="Index">Maquinas</a>
-                <a asp-controller="Sessions" asp-action="Index">Sessoes</a>
-                <a asp-controller="Reports" asp-action="Index">Relatorios</a>
-                <a asp-controller="Settings" asp-action="Index">Configuracoes</a>
+            <nav class="nav-stack" aria-label="Navegação principal">
+                <a class="@NavClass("Dashboard")" asp-controller="Dashboard" asp-action="Index">Painel</a>
+                <a class="@NavClass("Machines")" asp-controller="Machines" asp-action="Index">Máquinas</a>
+                <a class="@NavClass("Sessions")" asp-controller="Sessions" asp-action="Index">Sessões</a>
+                @if (User.IsInRole("Admin"))
+                {
+                    <a class="@NavClass("Users")" asp-controller="Users" asp-action="Index">Usuários</a>
+                    <a class="@NavClass("Reports")" asp-controller="Reports" asp-action="Index">Relatórios</a>
+                    <a class="@NavClass("Settings")" asp-controller="Settings" asp-action="Index">Configurações</a>
+                }
+                <a class="@NavClass("Tutorial")" asp-controller="Tutorial" asp-action="Index">Ajuda</a>
             </nav>
             <form asp-controller="Auth" asp-action="Logout" method="post">
                 @Html.AntiForgeryToken()
                 <button type="submit" class="btn btn-outline-light w-100">Sair</button>
             </form>
         </aside>
-        <main class="app-main">
+        <main class="app-main" id="conteudo-principal" tabindex="-1">
             @if (TempData["StatusMessage"] is string message && !string.IsNullOrWhiteSpace(message))
             {
-                <div class="status-banner">@message</div>
+                <div class="status-banner" role="status">@message</div>
             }
             @RenderBody()
         </main>

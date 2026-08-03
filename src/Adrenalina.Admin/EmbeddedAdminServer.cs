@@ -13,18 +13,24 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly string _contentRootPath;
     private readonly string _dataRootPath;
+    private readonly bool _listenOnLocalNetwork;
     private WebApplication? _app;
     private int _currentPort = DefaultPort;
 
-    public EmbeddedAdminServer()
+    public EmbeddedAdminServer(bool listenOnLocalNetwork = false)
     {
         _contentRootPath = Path.Combine(AppContext.BaseDirectory, "ServerContent");
         _dataRootPath = AdrenalinaPaths.GetAdminDataRoot();
+        _listenOnLocalNetwork = listenOnLocalNetwork;
     }
 
     public Uri BaseAddress => new($"http://127.0.0.1:{_currentPort}/");
 
-    public string ListenUrl => $"http://0.0.0.0:{_currentPort}";
+    public string ListenUrl => _listenOnLocalNetwork
+        ? $"http://0.0.0.0:{_currentPort}"
+        : $"http://127.0.0.1:{_currentPort}";
+
+    public bool ListenOnLocalNetwork => _listenOnLocalNetwork;
 
     public int Port => BaseAddress.Port;
 

@@ -4,4 +4,5 @@ public sealed class AdminDesktopOptions
 {
     public bool ShowTutorialOnNextLaunch { get; set; }
     public bool PreferExternalBrowser { get; set; }
+    public bool ListenOnLocalNetwork { get; set; }
 }

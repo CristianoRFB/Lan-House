@@ -32,8 +32,10 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(paths);
         services.AddDbContext<AdrenalinaDbContext>(options =>
-            options.UseSqlite($"Data Source={paths.DatabaseFilePath}"));
+            options.UseSqlite($"Data Source={paths.DatabaseFilePath};Pooling=False;Foreign Keys=True;Default Timeout=5"));
 
+        services.AddScoped<AdrenalinaDatabaseInitializer>();
+        services.AddSingleton<AdrenalinaReportExporter>();
         services.AddScoped<CafeManagementService>();
         services.AddScoped<ICafeManagementService>(provider => provider.GetRequiredService<CafeManagementService>());
         services.AddScoped<IAdminAuthService>(provider => provider.GetRequiredService<CafeManagementService>());

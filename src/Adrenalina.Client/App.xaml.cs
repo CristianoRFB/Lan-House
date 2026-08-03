@@ -1,5 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Adrenalina.Application;
+using Adrenalina.Infrastructure;
+using System.IO;
+using System.Windows;
 
 namespace Adrenalina.Client;
 
@@ -11,23 +16,17 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(System.Windows.StartupEventArgs e)
     {
         base.OnStartup(e);
-
-        if (e.Args.Contains("--watchdog", StringComparer.OrdinalIgnoreCase))
+        DispatcherUnhandledException += (_, eventArgs) =>
         {
-            ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
-            await ClientWatchdogRunner.RunAsync(e.Args);
-            Shutdown();
-            return;
-        }
-
-        if (e.Args.Contains("--service", StringComparer.OrdinalIgnoreCase))
-        {
-            ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
-            using var serviceHost = ClientHostFactory.BuildServiceHost(e.Args);
-            await serviceHost.RunAsync();
-            Shutdown();
-            return;
-        }
+            var logPath = Path.Combine(AdrenalinaPaths.GetClientSettingsRoot(), "logs", "Client.log");
+            AdrenalinaFileLog.Write(logPath, LogLevel.Error, "UI", "Erro não tratado na interface do cliente.", eventArgs.Exception);
+            MessageBox.Show(
+                "Ocorreu um erro inesperado. O cliente continuará tentando se recuperar.",
+                "Adrenalina Client",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            eventArgs.Handled = true;
+        };
 
         _singleInstance = SingleInstanceGuard.TryAcquire("Global\\Adrenalina.Client.UI");
         if (_singleInstance is null)

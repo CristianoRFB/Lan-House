@@ -6,15 +6,30 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Adrenalina.Server.Controllers;
 
-[Authorize]
+[Authorize(Roles = "Admin")]
 public sealed class UsersController(ICafeManagementService cafeService) : Controller
 {
     [HttpGet("/usuarios")]
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(Guid? editId, CancellationToken cancellationToken)
     {
+        var users = await cafeService.GetUsersAsync(cancellationToken);
+        var selected = editId.HasValue ? users.FirstOrDefault(user => user.Id == editId.Value) : null;
         return View(new UsersPageViewModel
         {
-            Users = await cafeService.GetUsersAsync(cancellationToken)
+            Users = users,
+            Form = selected is null ? new UserUpsertRequest() : new UserUpsertRequest
+            {
+                Id = selected.Id,
+                DisplayName = selected.DisplayName,
+                Login = selected.Login,
+                ProfileType = selected.ProfileType,
+                Balance = selected.Balance,
+                AnnotationLimit = selected.AnnotationLimit,
+                IsTemporary = selected.IsTemporary,
+                TemporaryUntilUtc = selected.TemporaryUntilUtc,
+                Notes = selected.Notes,
+                IsBlocked = selected.IsBlocked
+            }
         });
     }
 

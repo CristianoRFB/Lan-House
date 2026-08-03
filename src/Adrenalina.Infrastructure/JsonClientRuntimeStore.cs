@@ -28,8 +28,18 @@ public sealed class JsonClientRuntimeStore(LocalClientStoragePaths paths) : ICli
                 return state;
             }
 
-            var json = await File.ReadAllTextAsync(paths.StateFilePath, cancellationToken);
-            return JsonSerializer.Deserialize<ClientRuntimeState>(json, JsonDefaults.Options) ?? new ClientRuntimeState();
+            try
+            {
+                var json = await File.ReadAllTextAsync(paths.StateFilePath, cancellationToken);
+                return JsonSerializer.Deserialize<ClientRuntimeState>(json, JsonDefaults.Options) ?? CreateDefaultState();
+            }
+            catch (JsonException)
+            {
+                PreserveCorruptFile(paths.StateFilePath);
+                var state = CreateDefaultState();
+                await SaveStateInternalAsync(state, cancellationToken);
+                return state;
+            }
         }
         finally
         {
@@ -63,9 +73,19 @@ public sealed class JsonClientRuntimeStore(LocalClientStoragePaths paths) : ICli
                 return [];
             }
 
-            var json = await File.ReadAllTextAsync(paths.RequestQueueFilePath, cancellationToken);
-            var items = JsonSerializer.Deserialize<List<ClientShellRequest>>(json, JsonDefaults.Options) ?? [];
-            await File.WriteAllTextAsync(paths.RequestQueueFilePath, "[]", cancellationToken);
+            List<ClientShellRequest> items;
+            try
+            {
+                var json = await File.ReadAllTextAsync(paths.RequestQueueFilePath, cancellationToken);
+                items = JsonSerializer.Deserialize<List<ClientShellRequest>>(json, JsonDefaults.Options) ?? [];
+            }
+            catch (JsonException)
+            {
+                PreserveCorruptFile(paths.RequestQueueFilePath);
+                items = [];
+            }
+
+            await WriteAtomicallyAsync(paths.RequestQueueFilePath, "[]", cancellationToken);
             return items;
         }
         finally
@@ -90,7 +110,7 @@ public sealed class JsonClientRuntimeStore(LocalClientStoragePaths paths) : ICli
 
             items.Add(request);
             var payload = JsonSerializer.Serialize(items, JsonDefaults.Options);
-            await File.WriteAllTextAsync(paths.RequestQueueFilePath, payload, cancellationToken);
+            await WriteAtomicallyAsync(paths.RequestQueueFilePath, payload, cancellationToken);
         }
         finally
         {
@@ -107,6 +127,32 @@ public sealed class JsonClientRuntimeStore(LocalClientStoragePaths paths) : ICli
     private async Task SaveStateInternalAsync(ClientRuntimeState state, CancellationToken cancellationToken)
     {
         var payload = JsonSerializer.Serialize(state, JsonDefaults.Options);
-        await File.WriteAllTextAsync(paths.StateFilePath, payload, cancellationToken);
+        await WriteAtomicallyAsync(paths.StateFilePath, payload, cancellationToken);
     }
+
+    private static async Task WriteAtomicallyAsync(string targetPath, string payload, CancellationToken cancellationToken)
+    {
+        var temporaryPath = targetPath + ".tmp";
+        await File.WriteAllTextAsync(temporaryPath, payload, cancellationToken);
+        File.Move(temporaryPath, targetPath, overwrite: true);
+    }
+
+    private static void PreserveCorruptFile(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        var preservedPath = $"{path}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmssfff}";
+        File.Move(path, preservedPath);
+    }
+
+    private static ClientRuntimeState CreateDefaultState() => new()
+    {
+        MachineName = Environment.MachineName,
+        IsLocked = true,
+        LockMessage = "Faça login para liberar a máquina.",
+        SessionMessage = "Máquina aguardando sincronização com o servidor."
+    };
 }

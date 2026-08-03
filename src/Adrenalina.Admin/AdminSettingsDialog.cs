@@ -4,13 +4,15 @@ public sealed class AdminSettingsDialog : Form
 {
     private readonly CheckBox _repeatTutorialCheckBox = new();
     private readonly CheckBox _preferBrowserCheckBox = new();
+    private readonly CheckBox _listenOnLocalNetworkCheckBox = new();
 
     public AdminSettingsDialog(AdminDesktopOptions currentOptions)
     {
         ResultOptions = new AdminDesktopOptions
         {
             ShowTutorialOnNextLaunch = currentOptions.ShowTutorialOnNextLaunch,
-            PreferExternalBrowser = currentOptions.PreferExternalBrowser
+            PreferExternalBrowser = currentOptions.PreferExternalBrowser,
+            ListenOnLocalNetwork = currentOptions.ListenOnLocalNetwork
         };
 
         Text = "Configuracoes do ADMIN";
@@ -29,7 +31,7 @@ public sealed class AdminSettingsDialog : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(24),
             ColumnCount = 1,
-            RowCount = 5
+            RowCount = 6
         };
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -52,6 +54,12 @@ public sealed class AdminSettingsDialog : Form
         _preferBrowserCheckBox.Checked = currentOptions.PreferExternalBrowser;
         _preferBrowserCheckBox.Margin = new Padding(0, 0, 0, 10);
         layout.Controls.Add(_preferBrowserCheckBox);
+
+        _listenOnLocalNetworkCheckBox.Text = "Permitir conexoes de clientes na rede local (requer reiniciar o ADMIN)";
+        _listenOnLocalNetworkCheckBox.AutoSize = true;
+        _listenOnLocalNetworkCheckBox.Checked = currentOptions.ListenOnLocalNetwork;
+        _listenOnLocalNetworkCheckBox.Margin = new Padding(0, 0, 0, 10);
+        layout.Controls.Add(_listenOnLocalNetworkCheckBox);
 
         _repeatTutorialCheckBox.Text = "Mostrar o tutorial novamente na proxima abertura";
         _repeatTutorialCheckBox.AutoSize = true;
@@ -117,7 +125,8 @@ public sealed class AdminSettingsDialog : Form
         return new AdminDesktopOptions
         {
             ShowTutorialOnNextLaunch = _repeatTutorialCheckBox.Checked,
-            PreferExternalBrowser = _preferBrowserCheckBox.Checked
+            PreferExternalBrowser = _preferBrowserCheckBox.Checked,
+            ListenOnLocalNetwork = _listenOnLocalNetworkCheckBox.Checked
         };
     }
 

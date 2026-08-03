@@ -16,7 +16,6 @@ public sealed class AdrenalinaDbContext(DbContextOptions<AdrenalinaDbContext> op
     public DbSet<ClientRequestRecord> ClientRequests => Set<ClientRequestRecord>();
     public DbSet<BackupSnapshot> Backups => Set<BackupSnapshot>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
-    public DbSet<MachineProcessSnapshot> ProcessSnapshots => Set<MachineProcessSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +38,9 @@ public sealed class AdrenalinaDbContext(DbContextOptions<AdrenalinaDbContext> op
         modelBuilder.Entity<Machine>()
             .HasIndex(entity => entity.Name)
             .IsUnique();
+
+        modelBuilder.Entity<Machine>()
+            .HasIndex(entity => entity.LastSeenUtc);
 
         modelBuilder.Entity<LedgerEntry>()
             .Property(property => property.Amount)
@@ -86,7 +88,68 @@ public sealed class AdrenalinaDbContext(DbContextOptions<AdrenalinaDbContext> op
         modelBuilder.Entity<SessionRecord>()
             .HasIndex(entity => entity.Status);
 
+        modelBuilder.Entity<SessionRecord>()
+            .HasIndex(entity => new { entity.MachineId, entity.Status });
+
+        modelBuilder.Entity<SessionRecord>()
+            .HasIndex(entity => entity.MachineId)
+            .HasFilter("Status = 1")
+            .IsUnique()
+            .HasDatabaseName("IX_Sessions_OneActivePerMachine");
+
+        modelBuilder.Entity<SessionRecord>()
+            .HasIndex(entity => entity.UserAccountId);
+
+        modelBuilder.Entity<LedgerEntry>()
+            .HasIndex(entity => new { entity.UserAccountId, entity.CreatedAtUtc });
+
+        modelBuilder.Entity<RemoteCommand>()
+            .HasIndex(entity => new { entity.MachineId, entity.Status });
+
+        modelBuilder.Entity<NotificationRecord>()
+            .HasIndex(entity => new { entity.MachineId, entity.IsReadByClient });
+
         modelBuilder.Entity<ClientRequestRecord>()
             .HasIndex(entity => entity.Status);
+
+        modelBuilder.Entity<ClientRequestRecord>()
+            .HasIndex(entity => new { entity.MachineId, entity.Status });
+
+        modelBuilder.Entity<SessionRecord>()
+            .HasOne<Machine>()
+            .WithMany()
+            .HasForeignKey(entity => entity.MachineId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SessionRecord>()
+            .HasOne<UserAccount>()
+            .WithMany()
+            .HasForeignKey(entity => entity.UserAccountId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<LedgerEntry>()
+            .HasOne<UserAccount>()
+            .WithMany()
+            .HasForeignKey(entity => entity.UserAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RemoteCommand>()
+            .HasOne<Machine>()
+            .WithMany()
+            .HasForeignKey(entity => entity.MachineId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<NotificationRecord>()
+            .HasOne<Machine>()
+            .WithMany()
+            .HasForeignKey(entity => entity.MachineId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ClientRequestRecord>()
+            .HasOne<Machine>()
+            .WithMany()
+            .HasForeignKey(entity => entity.MachineId)
+            .OnDelete(DeleteBehavior.Cascade);
+
     }
 }

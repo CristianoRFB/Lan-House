@@ -5,9 +5,9 @@
 
 <section class="page-header">
     <div>
-        <p class="eyebrow">Avançado</p>
-        <h2>Configurações protegidas</h2>
-        <p class="text-secondary">Tema, updates, mensagens, bloqueio de apps, backup diário e personalização geral da lan house.</p>
+        <p class="eyebrow">Operação</p>
+        <h2>Configurações</h2>
+        <p class="text-secondary">Identidade, valores padrão, mensagens do Client e retenção dos backups manuais.</p>
     </div>
 </section>
 
@@ -15,41 +15,27 @@
     <form asp-action="Save" method="post" class="form-grid compact-grid">
         @Html.AntiForgeryToken()
         <input asp-for="Form.Id" type="hidden" />
+        <input asp-for="Form.DefaultTheme" type="hidden" />
+        <input asp-for="Form.UpdateMode" type="hidden" />
+        <input asp-for="Form.BackupCutoffLocalTime" type="hidden" />
+        <input asp-for="Form.OfflineSyncEnabled" type="hidden" />
+        <input asp-for="Form.LimitBandwidthEnabledByDefault" type="hidden" />
+        <input asp-for="Form.DemoModeEnabled" type="hidden" />
+        <input asp-for="Form.AllowedProgramsCsv" type="hidden" />
+        <input asp-for="Form.BlockedProgramsCsv" type="hidden" />
+        <input asp-for="Form.BrandLogoPath" type="hidden" />
+        <input asp-for="Form.AlertSoundPath" type="hidden" />
         <div>
             <label asp-for="Form.CafeName" class="form-label">Nome da lan house</label>
             <input asp-for="Form.CafeName" class="form-control" />
         </div>
         <div>
-            <label asp-for="Form.DefaultTheme" class="form-label">Tema padrão</label>
-            <select asp-for="Form.DefaultTheme" class="form-select" asp-items="Html.GetEnumSelectList<ThemeMode>()"></select>
-        </div>
-        <div>
-            <label asp-for="Form.UpdateMode" class="form-label">Atualizações</label>
-            <select asp-for="Form.UpdateMode" class="form-select" asp-items="Html.GetEnumSelectList<UpdateMode>()"></select>
-        </div>
-        <div>
-            <label asp-for="Form.BackupCutoffLocalTime" class="form-label">Backup após</label>
-            <input asp-for="Form.BackupCutoffLocalTime" type="time" class="form-control" />
-        </div>
-        <div>
-            <label asp-for="Form.BackupRetentionDays" class="form-label">Retenção</label>
-            <input asp-for="Form.BackupRetentionDays" class="form-control" />
-        </div>
-        <div class="form-check align-self-end">
-            <input asp-for="Form.OfflineSyncEnabled" class="form-check-input" />
-            <label asp-for="Form.OfflineSyncEnabled" class="form-check-label">Sincronização offline</label>
+            <label asp-for="Form.BackupRetentionDays" class="form-label">Retenção de backups manuais (dias)</label>
+            <input asp-for="Form.BackupRetentionDays" type="number" min="1" max="3650" class="form-control" />
         </div>
         <div class="form-check align-self-end">
             <input asp-for="Form.ShowRemainingTimeByDefault" class="form-check-input" />
             <label asp-for="Form.ShowRemainingTimeByDefault" class="form-check-label">Exibir tempo restante</label>
-        </div>
-        <div class="form-check align-self-end">
-            <input asp-for="Form.LimitBandwidthEnabledByDefault" class="form-check-input" />
-            <label asp-for="Form.LimitBandwidthEnabledByDefault" class="form-check-label">Limitar banda por padrão</label>
-        </div>
-        <div class="form-check align-self-end">
-            <input asp-for="Form.DemoModeEnabled" class="form-check-input" />
-            <label asp-for="Form.DemoModeEnabled" class="form-check-label">Modo demonstração</label>
         </div>
         <div>
             <label asp-for="Form.DefaultCommonAnnotationLimit" class="form-label">Limite padrão de anotação</label>
@@ -74,22 +60,6 @@
         <div class="full-span">
             <label asp-for="Form.LockMessage" class="form-label">Mensagem de bloqueio</label>
             <textarea asp-for="Form.LockMessage" class="form-control" rows="3"></textarea>
-        </div>
-        <div class="full-span">
-            <label asp-for="Form.AllowedProgramsCsv" class="form-label">Lista branca</label>
-            <input asp-for="Form.AllowedProgramsCsv" class="form-control" placeholder="steam.exe, chrome.exe" />
-        </div>
-        <div class="full-span">
-            <label asp-for="Form.BlockedProgramsCsv" class="form-label">Lista negra</label>
-            <input asp-for="Form.BlockedProgramsCsv" class="form-control" placeholder="taskmgr.exe, regedit.exe" />
-        </div>
-        <div>
-            <label asp-for="Form.BrandLogoPath" class="form-label">Logo</label>
-            <input asp-for="Form.BrandLogoPath" class="form-control" />
-        </div>
-        <div>
-            <label asp-for="Form.AlertSoundPath" class="form-label">Som de alerta</label>
-            <input asp-for="Form.AlertSoundPath" class="form-control" />
         </div>
         <button type="submit" class="btn btn-accent">Salvar configurações</button>
     </form>

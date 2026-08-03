@@ -9,4 +9,7 @@
     <Project Path="src/Adrenalina.Infrastructure/Adrenalina.Infrastructure.csproj" />
     <Project Path="src/Adrenalina.Server/Adrenalina.Server.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Adrenalina.Tests/Adrenalina.Tests.csproj" />
+  </Folder>
 </Solution>

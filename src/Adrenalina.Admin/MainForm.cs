@@ -6,8 +6,8 @@ namespace Adrenalina.Admin;
 
 public sealed class MainForm : Form
 {
-    private readonly EmbeddedAdminServer _server = new();
     private readonly AdminDesktopOptions _desktopOptions = AdminDesktopOptionsStore.LoadOrCreate();
+    private readonly EmbeddedAdminServer _server;
     private readonly WebView2 _webView = new();
     private readonly Button _primaryActionButton = new();
     private readonly Button _serverToggleButton = new();
@@ -44,6 +44,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
+        _server = new EmbeddedAdminServer(_desktopOptions.ListenOnLocalNetwork);
         Text = "Adrenalina ADMIN";
         Width = 1500;
         Height = 920;
@@ -267,18 +268,14 @@ public sealed class MainForm : Form
         statusCard.Controls.Add(CreateSpacer(8));
         statusCard.Controls.Add(_panelModeLabel);
 
-        ConfigureButton(_copyCredentialsButton, "Copiar acesso inicial", Color.FromArgb(65, 83, 112));
+        ConfigureButton(_copyCredentialsButton, "Copiar endereços", Color.FromArgb(65, 83, 112));
         ConfigureButton(_openBrowserButton, "Abrir painel no navegador", Color.FromArgb(46, 119, 124));
         ConfigureButton(_sidebarPrimaryActionButton, "Iniciar servidor e abrir painel", Color.FromArgb(57, 96, 168));
         ConfigureButton(_sidebarSettingsButton, "Configuracoes", Color.FromArgb(70, 84, 106));
         ConfigureButton(_sidebarTutorialButton, "Tutorial", Color.FromArgb(84, 101, 61));
 
-        var credentialsCard = CreateCard("Primeiro acesso");
-        credentialsCard.Controls.Add(CreateTextLabel("Login inicial: admin"));
-        credentialsCard.Controls.Add(CreateSpacer(6));
-        credentialsCard.Controls.Add(CreateTextLabel("Senha inicial: adrenalina123"));
-        credentialsCard.Controls.Add(CreateSpacer(6));
-        credentialsCard.Controls.Add(CreateTextLabel("PIN inicial: 1234"));
+        var credentialsCard = CreateCard("Conexão");
+        credentialsCard.Controls.Add(CreateTextLabel("No primeiro uso, abra initial-admin-access.txt na pasta de dados do Admin. Troque a senha imediatamente."));
         credentialsCard.Controls.Add(CreateSpacer());
         credentialsCard.Controls.Add(_copyCredentialsButton);
         credentialsCard.Controls.Add(CreateSpacer(10));
@@ -628,6 +625,7 @@ public sealed class MainForm : Form
 
         _desktopOptions.PreferExternalBrowser = dialog.ResultOptions.PreferExternalBrowser;
         _desktopOptions.ShowTutorialOnNextLaunch = dialog.ResultOptions.ShowTutorialOnNextLaunch;
+        _desktopOptions.ListenOnLocalNetwork = dialog.ResultOptions.ListenOnLocalNetwork;
         AdminDesktopOptionsStore.Save(_desktopOptions);
 
         if (_server.IsRunning)
@@ -662,17 +660,14 @@ public sealed class MainForm : Form
         var loginUrl = new Uri(_server.BaseAddress, "auth/login").ToString();
         var payload =
             $"Painel local do admin: {loginUrl}{Environment.NewLine}" +
-            $"URL para clientes: {clientUrl}{Environment.NewLine}" +
-            "Login inicial: admin" + Environment.NewLine +
-            "Senha inicial: adrenalina123" + Environment.NewLine +
-            "PIN inicial: 1234";
+            $"URL para clientes: {clientUrl}";
 
         try
         {
             Clipboard.SetText(payload);
             MessageBox.Show(
-                "As informacoes de primeiro acesso foram copiadas para a area de transferencia.",
-                "Acesso inicial",
+                "Os endereços de conexão foram copiados para a área de transferência.",
+                "Endereços copiados",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
@@ -680,7 +675,7 @@ public sealed class MainForm : Form
         {
             MessageBox.Show(
                 $"Nao foi possivel copiar o acesso inicial.\n\n{exception.Message}",
-                "Acesso inicial",
+                "Endereços de conexão",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -763,12 +758,16 @@ public sealed class MainForm : Form
     private void UpdateConnectionHints()
     {
         _urlStatusLabel.Text = $"Painel local: {_server.BaseAddress}";
-        _clientConnectionLabel.Text = $"Clientes na rede: {GetClientConnectionUrl()}";
+        _clientConnectionLabel.Text = _server.ListenOnLocalNetwork
+            ? $"Clientes na rede: {GetClientConnectionUrl()}"
+            : "Clientes na rede: desativado (habilite nas configuracoes e reinicie o ADMIN)";
     }
 
     private string GetClientConnectionUrl()
     {
-        return AdminNetworkLocator.GetPreferredBaseUrl(_server.Port);
+        return _server.ListenOnLocalNetwork
+            ? AdminNetworkLocator.GetPreferredBaseUrl(_server.Port)
+            : _server.BaseAddress.ToString();
     }
 
     private async Task RequestCloseAsync()

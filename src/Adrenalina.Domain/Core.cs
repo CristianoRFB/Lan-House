@@ -59,10 +59,6 @@ public enum NotificationSeverity
 public enum RemoteCommandType
 {
     LockScreen = 1,
-    Restart = 2,
-    Logout = 3,
-    CaptureScreenshot = 4,
-    ClearTemporaryFiles = 5,
     RefreshConfiguration = 6,
     ShowMessage = 7,
     ToggleTimerVisibility = 8
@@ -149,6 +145,7 @@ public sealed class UserAccount : Entity
     public bool IsTemporary { get; set; }
     public DateTime? TemporaryUntilUtc { get; set; }
     public string Notes { get; set; } = string.Empty;
+    public bool IsBlocked { get; set; }
     public bool CanSeeOwnBalance { get; set; } = true;
     public bool CanSeeOwnAnnotations { get; set; } = true;
 
@@ -276,13 +273,4 @@ public sealed class AuditLog : Entity
     public string Description { get; set; } = string.Empty;
     public string MetadataJson { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;
-}
-
-public sealed class MachineProcessSnapshot : Entity
-{
-    public Guid MachineId { get; set; }
-    public string ProcessName { get; set; } = string.Empty;
-    public string WindowTitle { get; set; } = string.Empty;
-    public double MemoryMb { get; set; }
-    public DateTime RecordedAtUtc { get; set; } = DateTime.UtcNow;
 }

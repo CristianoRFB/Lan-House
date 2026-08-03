@@ -18,11 +18,11 @@
             @Html.AntiForgeryToken()
             <div>
                 <label asp-for="Filter.StartDate" class="form-label">Início</label>
-                <input asp-for="Filter.StartDate" type="date" class="form-control" />
+                <input asp-for="Filter.StartDate" type="date" class="form-control" required />
             </div>
             <div>
                 <label asp-for="Filter.EndDate" class="form-label">Fim</label>
-                <input asp-for="Filter.EndDate" type="date" class="form-control" />
+                <input asp-for="Filter.EndDate" type="date" class="form-control" required />
             </div>
             <div>
                 <label asp-for="Filter.Format" class="form-label">Formato</label>
@@ -34,6 +34,10 @@
     <article class="panel">
         <h3>Solicitações em aberto</h3>
         <div class="log-list">
+            @if (!Model.PendingRequests.Any())
+            {
+                <p class="text-secondary">Nenhuma solicitação aguardando análise.</p>
+            }
             @foreach (var request in Model.PendingRequests)
             {
                 <div class="log-item">
@@ -59,6 +63,10 @@
                 </tr>
             </thead>
             <tbody>
+                @if (!Model.Logs.Any())
+                {
+                    <tr><td colspan="5" class="text-center text-secondary py-4">Nenhum evento registrado.</td></tr>
+                }
                 @foreach (var log in Model.Logs)
                 {
                     <tr>

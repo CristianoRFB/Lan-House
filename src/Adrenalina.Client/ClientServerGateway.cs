@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -17,10 +16,11 @@ public sealed class ClientServerGateway(
     ILogger<ClientServerGateway> logger)
 {
     private readonly SemaphoreSlim _syncGate = new(1, 1);
+    private readonly HashSet<Guid> _commandAcknowledgements = [];
+    private readonly HashSet<Guid> _notificationAcknowledgements = [];
 
-    public string CurrentBlockedProgramsCsv { get; private set; } = "taskmgr.exe,regedit.exe,powershell.exe,cmd.exe";
     public bool IsServerOnline { get; private set; }
-    public string ConnectionStatusText { get; private set; } = "Conexao aguardando a primeira sincronizacao.";
+    public string ConnectionStatusText { get; private set; } = "Conexão aguardando a primeira sincronização.";
 
     public async Task SyncOnceAsync(CancellationToken cancellationToken = default)
     {
@@ -39,7 +39,7 @@ public sealed class ClientServerGateway(
     {
         if (!IsRemoteServerConfigured())
         {
-            SetConnectionStatus(false, "Informe o IP do ADMIN para concluir a configuracao do cliente.");
+            SetConnectionStatus(false, "Informe o endereço do ADMIN para concluir a configuração do Client.");
             return new ClientLoginResponse
             {
                 Success = false,
@@ -68,7 +68,7 @@ public sealed class ClientServerGateway(
                           ?? new ClientLoginResponse
                           {
                               Success = false,
-                              Message = "O servidor nao retornou uma resposta de login valida."
+                              Message = "O servidor não retornou uma resposta de login válida."
                           };
 
             SetConnectionStatus(true, $"Conectado ao servidor em {options.ServerBaseUrl}");
@@ -79,7 +79,7 @@ public sealed class ClientServerGateway(
                     AppendNotifications(
                         payload.RuntimeState,
                         [
-                            new NotificationEnvelope(Guid.NewGuid(), "Sessao iniciada", payload.Message, NotificationSeverity.Success, true)
+                            new NotificationEnvelope(Guid.NewGuid(), "Sessão iniciada", payload.Message, NotificationSeverity.Success, true)
                         ]),
                     cancellationToken);
             }
@@ -88,28 +88,18 @@ public sealed class ClientServerGateway(
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Login online indisponivel. Solicitacao sera enfileirada.");
-            SetConnectionStatus(false, "Servidor offline. O login foi colocado na fila para sincronizar depois.");
-
-            await runtimeStore.EnqueueRequestAsync(
-                new ClientShellRequest
-                {
-                    Type = ClientRequestType.Login,
-                    Login = login,
-                    Pin = pin,
-                    OccurredAtUtc = DateTime.UtcNow
-                },
-                cancellationToken);
+            logger.LogWarning(exception, "Login online indisponivel.");
+            SetConnectionStatus(false, "Servidor offline. O login não pode ser validado agora.");
 
             var state = await runtimeStore.LoadStateAsync(cancellationToken);
             await runtimeStore.SaveStateAsync(
                 CloneState(
                     state,
-                    sessionMessage: "Servidor offline. O pedido de login foi enfileirado para aprovacao.",
+                    sessionMessage: "Servidor offline. Aguarde a reconexão para entrar.",
                     notifications: state.Notifications
                         .Concat(
                         [
-                            new NotificationEnvelope(Guid.NewGuid(), "Login pendente", "O servidor esta offline. Seu login foi colocado na fila.", NotificationSeverity.Warning, true)
+                            new NotificationEnvelope(Guid.NewGuid(), "Servidor offline", "O login não foi enviado nem armazenado. Tente novamente quando o servidor voltar.", NotificationSeverity.Warning, true)
                         ])
                         .TakeLast(12)
                         .ToList()),
@@ -118,25 +108,72 @@ public sealed class ClientServerGateway(
             return new ClientLoginResponse
             {
                 Success = false,
-                Message = "Servidor offline. O pedido foi enfileirado.",
+                Message = "Servidor offline. Não foi possível validar o login.",
                 RuntimeState = await runtimeStore.LoadStateAsync(cancellationToken)
             };
         }
     }
 
-    public Task QueueRequestAsync(ClientShellRequest request, CancellationToken cancellationToken = default) =>
-        runtimeStore.EnqueueRequestAsync(request, cancellationToken);
+    public Task QueueRequestAsync(ClientShellRequest request, CancellationToken cancellationToken = default)
+    {
+        var safeRequest = request.Type == ClientRequestType.Registration && LoginRules.LooksLikeFourDigitPin(request.Pin)
+            ? new ClientShellRequest
+            {
+                RequestId = request.RequestId == Guid.Empty ? Guid.NewGuid() : request.RequestId,
+                Type = request.Type,
+                Login = request.Login,
+                PinHash = PasswordHasher.Hash(request.Pin),
+                DisplayName = request.DisplayName,
+                Message = request.Message,
+                Amount = request.Amount,
+                OccurredAtUtc = request.OccurredAtUtc
+            }
+            : NormalizeRequestId(request);
+        return runtimeStore.EnqueueRequestAsync(safeRequest, cancellationToken);
+    }
+
+    public async Task<OperationResult> TestConnectionAsync(string serverBaseUrl, CancellationToken cancellationToken = default)
+    {
+        if (!Uri.TryCreate(serverBaseUrl?.Trim(), UriKind.Absolute, out var baseUri) ||
+            (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
+        {
+            return new OperationResult(false, "Informe uma URL HTTP ou HTTPS válida.");
+        }
+
+        try
+        {
+            using var client = new HttpClient
+            {
+                BaseAddress = baseUri,
+                Timeout = TimeSpan.FromSeconds(5)
+            };
+            using var response = await client.GetAsync("health", cancellationToken);
+            return response.IsSuccessStatusCode
+                ? new OperationResult(true, "Conexão com o servidor validada.")
+                : new OperationResult(false, $"O servidor respondeu com HTTP {(int)response.StatusCode}.");
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new OperationResult(false, "O servidor não respondeu dentro de 5 segundos.");
+        }
+        catch (Exception)
+        {
+            return new OperationResult(false, "Não foi possível conectar ao servidor informado.");
+        }
+    }
 
     private async Task SyncCoreAsync(CancellationToken cancellationToken)
     {
         if (!IsRemoteServerConfigured())
         {
-            SetConnectionStatus(false, "Informe o IP do ADMIN para concluir a configuracao.");
+            SetConnectionStatus(false, "Informe o endereço do ADMIN para concluir a configuração.");
             return;
         }
 
         var client = httpClientFactory.CreateClient("adrenalina-server");
-        var queuedRequests = await runtimeStore.DrainRequestsAsync(cancellationToken);
+        var queuedRequests = (await runtimeStore.DrainRequestsAsync(cancellationToken))
+            .Select(NormalizeRequestId)
+            .ToList();
 
         try
         {
@@ -152,17 +189,21 @@ public sealed class ClientServerGateway(
                     JsonDefaults.Options,
                     cancellationToken);
                 requestResponse.EnsureSuccessStatusCode();
+                var requestResult = await requestResponse.Content.ReadFromJsonAsync<OperationResult>(JsonDefaults.Options, cancellationToken);
+                if (requestResult is null || !requestResult.Success)
+                {
+                    throw new InvalidOperationException(requestResult?.Message ?? "O servidor rejeitou as solicitações pendentes.");
+                }
             }
 
             var heartbeat = new ClientHeartbeatRequest
             {
                 MachineKey = options.MachineKey,
-                MachineName = options.MachineName,
                 Hostname = Environment.MachineName,
                 IpAddress = ResolveLocalIpAddress(),
-                Kind = options.MachineKind,
                 Status = await ResolveMachineStatusAsync(cancellationToken),
-                Processes = CollectProcesses()
+                AcknowledgedCommandIds = _commandAcknowledgements.ToList(),
+                AcknowledgedNotificationIds = _notificationAcknowledgements.ToList()
             };
 
             var response = await client.PostAsJsonAsync("api/client/heartbeat", heartbeat, JsonDefaults.Options, cancellationToken);
@@ -171,19 +212,33 @@ public sealed class ClientServerGateway(
             var payload = await response.Content.ReadFromJsonAsync<ClientHeartbeatResponse>(JsonDefaults.Options, cancellationToken)
                           ?? new ClientHeartbeatResponse();
 
-            CurrentBlockedProgramsCsv = payload.Settings.BlockedProgramsCsv;
+            if (!payload.Success)
+            {
+                throw new InvalidOperationException(payload.Message);
+            }
+
             SetConnectionStatus(true, $"Servidor online em {options.ServerBaseUrl}");
 
-            var updatedState = await ApplyCommandsAsync(payload.RuntimeState, payload.Commands, cancellationToken);
+            var updatedState = ApplyCommands(payload.RuntimeState, payload.Commands);
             updatedState = AppendNotifications(updatedState, payload.Notifications);
             await runtimeStore.SaveStateAsync(updatedState, cancellationToken);
 
-            await EnforceBlockedProgramsAsync(CurrentBlockedProgramsCsv, updatedState.IsLocked, cancellationToken);
+            _commandAcknowledgements.Clear();
+            _notificationAcknowledgements.Clear();
+            foreach (var command in payload.Commands)
+            {
+                _commandAcknowledgements.Add(command.Id);
+            }
+            foreach (var notification in payload.Notifications)
+            {
+                _notificationAcknowledgements.Add(notification.Id);
+            }
+
         }
         catch (Exception exception)
         {
             logger.LogWarning(exception, "Servidor indisponivel. Cliente seguira no modo offline.");
-            SetConnectionStatus(false, "Servidor offline. O cliente continua operando e vai tentar sincronizar novamente.");
+            SetConnectionStatus(false, "Servidor offline. O Client tentará sincronizar novamente.");
 
             foreach (var item in queuedRequests)
             {
@@ -192,7 +247,7 @@ public sealed class ClientServerGateway(
 
             var current = await runtimeStore.LoadStateAsync(cancellationToken);
             await runtimeStore.SaveStateAsync(
-                CloneState(current, sessionMessage: "Servidor offline. O cliente segue operando e tentara sincronizar novamente."),
+                CloneState(current, sessionMessage: "Servidor offline. O Client tentará sincronizar novamente."),
                 cancellationToken);
         }
     }
@@ -210,45 +265,9 @@ public sealed class ClientServerGateway(
             : MachineStatus.Idle;
     }
 
-    private static IReadOnlyList<ProcessDto> CollectProcesses()
-    {
-        try
-        {
-            return Process.GetProcesses()
-                .OrderByDescending(process => process.WorkingSet64)
-                .Take(16)
-                .Select(
-                    process =>
-                    {
-                        string title;
-                        try
-                        {
-                            title = process.MainWindowTitle;
-                        }
-                        catch
-                        {
-                            title = string.Empty;
-                        }
-
-                        return new ProcessDto
-                        {
-                            ProcessName = $"{process.ProcessName}.exe",
-                            WindowTitle = title,
-                            MemoryMb = Math.Round(process.WorkingSet64 / 1024d / 1024d, 2)
-                        };
-                    })
-                .ToList();
-        }
-        catch
-        {
-            return [];
-        }
-    }
-
-    private async Task<ClientRuntimeState> ApplyCommandsAsync(
+    private ClientRuntimeState ApplyCommands(
         ClientRuntimeState state,
-        IReadOnlyList<RemoteCommandEnvelope> commands,
-        CancellationToken cancellationToken)
+        IReadOnlyList<RemoteCommandEnvelope> commands)
     {
         var working = state;
         foreach (var command in commands)
@@ -262,39 +281,6 @@ public sealed class ClientServerGateway(
                     working = CloneState(working, showRemainingTime: ParseShowFlag(command.PayloadJson));
                     break;
                 case RemoteCommandType.ShowMessage:
-                    break;
-                case RemoteCommandType.ClearTemporaryFiles:
-                    ClearAppTemporaryFiles();
-                    break;
-                case RemoteCommandType.Restart:
-                    if (options.EnableDestructiveCommands)
-                    {
-                        Process.Start(new ProcessStartInfo("shutdown", "/r /t 0")
-                        {
-                            CreateNoWindow = true,
-                            UseShellExecute = false
-                        });
-                    }
-                    else
-                    {
-                        working = CloneState(working, isLocked: true, sessionMessage: "Reinicio solicitado pelo administrador.");
-                    }
-
-                    break;
-                case RemoteCommandType.Logout:
-                    if (options.EnableDestructiveCommands)
-                    {
-                        Process.Start(new ProcessStartInfo("shutdown", "/l")
-                        {
-                            CreateNoWindow = true,
-                            UseShellExecute = false
-                        });
-                    }
-                    else
-                    {
-                        working = CloneState(working, isLocked: true, sessionMessage: "Logout solicitado pelo administrador.");
-                    }
-
                     break;
             }
 
@@ -310,48 +296,28 @@ public sealed class ClientServerGateway(
                 ]);
         }
 
-        await Task.CompletedTask;
         return working;
     }
 
-    private async Task EnforceBlockedProgramsAsync(string blockedProgramsCsv, bool isLocked, CancellationToken cancellationToken)
+    private static ClientShellRequest NormalizeRequestId(ClientShellRequest request)
     {
-        var blocked = blockedProgramsCsv
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(value => value.ToLowerInvariant())
-            .ToHashSet();
-
-        if (isLocked)
+        if (request.RequestId != Guid.Empty)
         {
-            blocked.UnionWith(
-            [
-                "explorer.exe",
-                "taskmgr.exe",
-                "regedit.exe",
-                "cmd.exe",
-                "powershell.exe",
-                "mmc.exe",
-                "control.exe"
-            ]);
+            return request;
         }
 
-        foreach (var process in Process.GetProcesses())
+        return new ClientShellRequest
         {
-            try
-            {
-                var executable = $"{process.ProcessName}.exe".ToLowerInvariant();
-                if (blocked.Contains(executable))
-                {
-                    process.Kill(true);
-                }
-            }
-            catch
-            {
-                // O bloqueio roda em background e ignora processos criticos/negados pelo sistema.
-            }
-        }
-
-        await Task.CompletedTask;
+            RequestId = Guid.NewGuid(),
+            Type = request.Type,
+            Login = request.Login,
+            Pin = request.Pin,
+            PinHash = request.PinHash,
+            DisplayName = request.DisplayName,
+            Message = request.Message,
+            Amount = request.Amount,
+            OccurredAtUtc = request.OccurredAtUtc
+        };
     }
 
     private static bool ParseShowFlag(string payloadJson)
@@ -375,20 +341,6 @@ public sealed class ClientServerGateway(
         }
 
         return true;
-    }
-
-    private static void ClearAppTemporaryFiles()
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "Adrenalina");
-        if (!Directory.Exists(directory))
-        {
-            return;
-        }
-
-        foreach (var file in Directory.GetFiles(directory))
-        {
-            File.Delete(file);
-        }
     }
 
     private static string ResolveLocalIpAddress()

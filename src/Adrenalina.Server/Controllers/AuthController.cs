@@ -4,6 +4,7 @@ using Adrenalina.Server.ViewModels;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Adrenalina.Server.Controllers;
 
@@ -22,8 +23,14 @@ public sealed class AuthController(IAdminAuthService authService) : Controller
 
     [HttpPost("/auth/login")]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("admin-login")]
     public async Task<IActionResult> Login(LoginViewModel model, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
         var admin = await authService.ValidateAsync(model.Login, model.Password, cancellationToken);
         if (admin is null)
         {
@@ -49,5 +56,17 @@ public sealed class AuthController(IAdminAuthService authService) : Controller
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction(nameof(Login));
+    }
+
+    [HttpGet("/auth/access-denied")]
+    public IActionResult AccessDenied()
+    {
+        if (User.Identity?.IsAuthenticated != true)
+        {
+            return RedirectToAction(nameof(Login));
+        }
+
+        Response.StatusCode = StatusCodes.Status403Forbidden;
+        return View();
     }
 }

@@ -5,4 +5,5 @@ namespace Adrenalina.Server.ViewModels;
 public sealed class MachinesPageViewModel
 {
     public IReadOnlyList<MachineDto> Machines { get; init; } = [];
+    public MachineUpsertRequest Form { get; init; } = new();
 }

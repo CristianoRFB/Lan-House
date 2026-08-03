@@ -5,12 +5,12 @@
 <section class="page-header">
     <div>
         <p class="eyebrow">Guia completo</p>
-        <h2>Tutorial do administrador</h2>
-        <p class="text-secondary">Este passo a passo cobre o app desktop do ADMIN, o painel web e a forma correta de conectar os clientes usando o IP do administrador.</p>
+        <h2>Guia do administrador</h2>
+        <p class="text-secondary">Implantação segura do Admin, cadastro das máquinas e conexão dos Clients.</p>
     </div>
     <div class="button-row">
         <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-light">Voltar ao painel</a>
-        <a asp-controller="Settings" asp-action="Index" class="btn btn-accent">Abrir configuracoes</a>
+        <a asp-controller="Settings" asp-action="Index" class="btn btn-accent">Abrir configurações</a>
     </div>
 </section>
 
@@ -21,7 +21,8 @@
         <ol class="tutorial-list mb-0">
             <li>Abra o aplicativo desktop <strong>Adrenalina.Admin</strong>.</li>
             <li>Clique em <strong>Iniciar servidor e abrir painel</strong>.</li>
-            <li>Veja o endereco mostrado em <strong>Clientes na rede</strong> e use esse IP nas maquinas cliente.</li>
+            <li>Ative explicitamente o acesso pela rede local, reinicie o servidor e confira o endereço exibido.</li>
+            <li>Cadastre cada máquina no painel antes de configurar o Client com a mesma chave.</li>
             <li>Entre no painel web com a conta inicial ou com sua conta administrativa.</li>
             <li>Revise configuracoes, cadastre usuarios e acompanhe maquinas e sessoes pelo painel.</li>
         </ol>
@@ -35,9 +36,8 @@
         <ul class="tutorial-list">
             <li><strong>Iniciar servidor e abrir painel</strong> inicia servidor, banco local e painel.</li>
             <li><strong>Painel local</strong> mostra onde o administrador entra no sistema.</li>
-            <li><strong>Clientes na rede</strong> mostra o endereco que deve ser usado nas maquinas cliente.</li>
+            <li><strong>Clientes na rede</strong> fica disponível somente quando o acesso à LAN é habilitado.</li>
             <li><strong>Abrir painel no navegador</strong> funciona mesmo sem WebView2.</li>
-            <li><strong>Copiar acesso inicial</strong> copia login inicial e endereco dos clientes.</li>
             <li><strong>Backup manual</strong> gera backup do banco local.</li>
         </ul>
     </article>
@@ -46,9 +46,8 @@
         <span class="tutorial-step-number">2</span>
         <h3>Login inicial e seguranca</h3>
         <ul class="tutorial-list">
-            <li>Conta inicial do sistema: <code>admin</code> / <code>adrenalina123</code>.</li>
-            <li>PIN inicial padrao do seed administrativo: <code>1234</code>.</li>
-            <li>Depois do primeiro acesso, mantenha os dados administrativos revisados na base de usuarios.</li>
+            <li>O primeiro acesso usa a conta <code>admin</code> e os dados aleatórios de <code>initial-admin-access.txt</code>.</li>
+            <li>Troque a senha em <strong>Usuários</strong>; o arquivo inicial será removido automaticamente.</li>
             <li>Se precisar de ajuda depois, o tutorial pode ser reaberto tanto no app desktop quanto neste painel.</li>
         </ul>
     </article>
@@ -77,12 +76,11 @@
 
     <article class="panel tutorial-step">
         <span class="tutorial-step-number">5</span>
-        <h3>Maquinas</h3>
+        <h3>Máquinas</h3>
         <ul class="tutorial-list">
-            <li>Veja nome, hostname, IP, tipo da maquina e estado atual.</li>
-            <li>Consulte processos recentes enviados pelo cliente.</li>
-            <li>Envie comandos como bloquear tela, reiniciar, logout, limpar temporarios e mensagens personalizadas.</li>
-            <li>Use essa tela para controlar os computadores conectados ao administrador.</li>
+            <li>Cadastre nome, chave única, tipo, grupo e observações antes de preparar o Client.</li>
+            <li>Acompanhe hostname, IP, último contato e estado atual.</li>
+            <li>Envie avisos ou alterne a exibição do tempo. O sistema não executa ações administrativas no Windows.</li>
         </ul>
     </article>
 
@@ -92,7 +90,7 @@
         <ul class="tutorial-list">
             <li>Inicie sessoes escolhendo maquina, usuario, minutos e valor por hora.</li>
             <li>Use <strong>Nome livre</strong> para atendimentos sem conta formal.</li>
-            <li>Ative <strong>Modo demo</strong> quando necessario.</li>
+            <li>Use <strong>Não contabilizar cobrança</strong> apenas quando a operação exigir uso livre.</li>
             <li>Durante uma sessao ativa, ajuste minutos ou anotacao e encerre quando precisar.</li>
         </ul>
     </article>
@@ -111,10 +109,10 @@
         <span class="tutorial-step-number">8</span>
         <h3>Configuracoes</h3>
         <ul class="tutorial-list">
-            <li>Defina nome da lan house, tema, atualizacoes e horario de backup.</li>
+            <li>Defina nome da lan house, valores e retenção dos backups manuais.</li>
             <li>Configure valores padrao de PC e console.</li>
             <li>Edite mensagens de boas-vindas, saida e bloqueio.</li>
-            <li>Revise lista branca, lista negra e opcoes de sincronizacao.</li>
+            <li>Revise as mensagens exibidas no Client e o tempo padrão mostrado ao usuário.</li>
         </ul>
     </article>
 
@@ -123,8 +121,8 @@
         <h3>Como preparar os clientes</h3>
         <ul class="tutorial-list">
             <li>Abra o <strong>Adrenalina.Client</strong> em cada maquina cliente.</li>
-            <li>Informe exatamente o endereco mostrado no ADMIN em <strong>Clientes na rede</strong>.</li>
-            <li>Salve a configuracao da maquina e teste o login com usuario e PIN.</li>
+            <li>Informe exatamente o endereço mostrado no ADMIN em <strong>Clientes na rede</strong>.</li>
+            <li>Use o mesmo nome e a mesma chave do cadastro da máquina, teste a conexão e salve.</li>
             <li>Pedidos de cadastro e mais tempo aparecem no painel do administrador para aprovacao.</li>
         </ul>
     </article>

@@ -7,7 +7,7 @@
     <div>
         <p class="eyebrow">Tempo e uso</p>
         <h2>Sessões de PCs e consoles</h2>
-        <p class="text-secondary">Controle pré-pago, sessões comuns com bloqueio automático e consoles separados dos PCs.</p>
+        <p class="text-secondary">Inicie, acompanhe e encerre o tempo de uso de PCs e consoles.</p>
     </div>
 </section>
 
@@ -48,7 +48,7 @@
         </div>
         <div class="form-check align-self-end">
             <input asp-for="StartForm.IsDemoMode" class="form-check-input" />
-            <label asp-for="StartForm.IsDemoMode" class="form-check-label">Modo demo</label>
+            <label asp-for="StartForm.IsDemoMode" class="form-check-label">Não contabilizar cobrança</label>
         </div>
         <div class="form-check align-self-end">
             <input asp-for="StartForm.HideTimerOnClient" class="form-check-input" />
@@ -95,7 +95,7 @@
                                         <input type="text" name="Reason" class="form-control form-control-sm" placeholder="Motivo" />
                                         <button class="btn btn-sm btn-outline-light">Ajustar</button>
                                     </form>
-                                    <form asp-action="End" method="post">
+                                    <form asp-action="End" method="post" data-confirm="Encerrar esta sessão agora?">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="sessionId" value="@session.Id" />
                                         <input type="hidden" name="reason" value="Encerrada pelo administrador." />

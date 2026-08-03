@@ -14,28 +14,32 @@
 <body class="login-body">
     <main class="login-panel">
         <div class="login-copy">
-            <p class="eyebrow">Administracao</p>
+            <p class="eyebrow">Administração</p>
             <h1>Adrenalina Lan House</h1>
-            <p>Controle total de maquinas, clientes, sessoes, anotacoes, relatorios, backups e comandos remotos.</p>
+            <p>Gerencie máquinas, clientes, sessões e financeiro em um painel local e protegido.</p>
         </div>
         <form asp-action="Login" method="post" class="panel form-grid">
             @Html.AntiForgeryToken()
             <div>
                 <label asp-for="Login" class="form-label">Login</label>
-                <input asp-for="Login" class="form-control" />
+                <input asp-for="Login" class="form-control" autocomplete="username" maxlength="64" autofocus />
+                <span asp-validation-for="Login" class="text-danger small"></span>
             </div>
             <div>
                 <label asp-for="Password" class="form-label">Senha</label>
-                <input asp-for="Password" type="password" class="form-control" />
+                <input asp-for="Password" type="password" class="form-control" autocomplete="current-password" maxlength="256" />
+                <span asp-validation-for="Password" class="text-danger small"></span>
             </div>
             @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
             {
-                <div class="alert alert-danger">@Model.ErrorMessage</div>
+                <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
             }
             <button type="submit" class="btn btn-accent">Entrar</button>
-            <p class="small text-secondary">Conta inicial: <code>admin</code> / <code>adrenalina123</code></p>
-            <p class="small text-secondary">Depois de entrar, use o menu <strong>Tutorial</strong> para ver o passo a passo completo do sistema.</p>
+            <p class="small text-secondary">No primeiro uso, consulte <code>initial-admin-access.txt</code> na pasta de dados do Admin e troque a senha imediatamente.</p>
         </form>
     </main>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Adrenalina.Server.Controllers;
 
-[Authorize]
+[Authorize(Roles = "Admin")]
 public sealed class ReportsController(ICafeManagementService cafeService) : Controller
 {
     [HttpGet("/relatorios")]

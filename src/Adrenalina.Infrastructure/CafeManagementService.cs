@@ -1,80 +1,22 @@
 using System.Globalization;
-using System.Text;
 using System.Text.Json;
 using Adrenalina.Application;
 using Adrenalina.Domain;
-using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using QuestPDF.Fluent;
-using QuestPDF.Infrastructure;
 
 namespace Adrenalina.Infrastructure;
 
 public sealed class CafeManagementService(
     AdrenalinaDbContext db,
     AdrenalinaStoragePaths storagePaths,
+    AdrenalinaDatabaseInitializer databaseInitializer,
+    AdrenalinaReportExporter reportExporter,
     ILogger<CafeManagementService> logger) : ICafeManagementService, IAdminAuthService
 {
     public async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
     {
-        await db.Database.EnsureCreatedAsync(cancellationToken);
-
-        if (!await db.Settings.AnyAsync(cancellationToken))
-        {
-            db.Settings.Add(new AdminSettings());
-        }
-
-        if (!await db.Users.AnyAsync(cancellationToken))
-        {
-            db.Users.AddRange(
-                new UserAccount
-                {
-                    DisplayName = "Administrador",
-                    Login = "admin",
-                    PinHash = PasswordHasher.Hash("1234"),
-                    PasswordHash = PasswordHasher.Hash("adrenalina123"),
-                    ProfileType = UserProfileType.Admin,
-                    AnnotationLimit = 0m
-                },
-                new UserAccount
-                {
-                    DisplayName = "Ghost Livre",
-                    Login = "ghost",
-                    PinHash = PasswordHasher.Hash("0000"),
-                    PasswordHash = PasswordHasher.Hash("ghost123"),
-                    ProfileType = UserProfileType.Ghost,
-                    AnnotationLimit = 0m
-                },
-                new UserAccount
-                {
-                    DisplayName = "Operador Especial",
-                    Login = "especial",
-                    PinHash = PasswordHasher.Hash("1111"),
-                    PasswordHash = PasswordHasher.Hash("especial123"),
-                    ProfileType = UserProfileType.Special,
-                    AnnotationLimit = 0m
-                },
-                new UserAccount
-                {
-                    DisplayName = "Cliente Comum",
-                    Login = "cliente",
-                    PinHash = PasswordHasher.Hash("2222"),
-                    PasswordHash = PasswordHasher.Hash("cliente123"),
-                    ProfileType = UserProfileType.Common,
-                    AnnotationLimit = 25m
-                });
-        }
-
-        if (!await db.Machines.AnyAsync(cancellationToken))
-        {
-            db.Machines.AddRange(
-                new Machine { Name = "PC-01", Hostname = "PC-01", IpAddress = "192.168.0.101", Kind = MachineKind.Pc, Status = MachineStatus.Idle },
-                new Machine { Name = "PC-02", Hostname = "PC-02", IpAddress = "192.168.0.102", Kind = MachineKind.Pc, Status = MachineStatus.Idle },
-                new Machine { Name = "PS-01", Hostname = "PS-01", IpAddress = "192.168.0.201", Kind = MachineKind.Console, Status = MachineStatus.Idle });
-        }
-
-        await db.SaveChangesAsync(cancellationToken);
+        await databaseInitializer.InitializeAsync(cancellationToken);
     }
 
     public async Task<AuthenticatedAdmin?> ValidateAsync(string login, string password, CancellationToken cancellationToken = default)
@@ -87,7 +29,7 @@ public sealed class CafeManagementService(
                            (account.ProfileType == UserProfileType.Admin || account.ProfileType == UserProfileType.Special),
                 cancellationToken);
 
-        if (user is null || !PasswordHasher.Verify(user.PasswordHash, password))
+        if (user is null || user.IsBlocked || !PasswordHasher.Verify(user.PasswordHash, password))
         {
             return null;
         }
@@ -107,6 +49,8 @@ public sealed class CafeManagementService(
         var settings = await GetSettingsEntityAsync(cancellationToken);
         var machines = await db.Machines.AsNoTracking().OrderBy(entry => entry.Name).ToListAsync(cancellationToken);
         var users = await db.Users.AsNoTracking().OrderBy(entry => entry.DisplayName).ToListAsync(cancellationToken);
+        var activeSessionCount = await db.Sessions.CountAsync(entry => entry.Status == SessionStatus.Active, cancellationToken);
+        var pendingRequestCount = await db.ClientRequests.CountAsync(entry => entry.Status == ClientRequestStatus.Pending, cancellationToken);
         var sessions = await db.Sessions.AsNoTracking().OrderByDescending(entry => entry.StartedAtUtc).Take(20).ToListAsync(cancellationToken);
         var recentUsageSessions = await db.Sessions.AsNoTracking()
             .Where(entry => entry.StartedAtUtc >= nowUtc.AddDays(-30))
@@ -139,8 +83,8 @@ public sealed class CafeManagementService(
         var usageByDay = recentUsageSessions
             .Where(entry => entry.StartedAtUtc >= nowUtc.AddDays(-7))
             .GroupBy(entry => entry.StartedAtUtc.Date)
+            .OrderBy(group => group.Key)
             .Select(group => new ChartPointDto(group.Key.ToString("dd/MM"), group.Sum(entry => entry.ConsumedMinutes)))
-            .OrderBy(point => point.Label)
             .ToList();
 
         var usageByMachine = recentUsageSessions
@@ -155,11 +99,11 @@ public sealed class CafeManagementService(
             CafeName = settings.CafeName,
             OnlineMachines = machines.Count(entry => IsMachineOnline(entry)),
             ActiveMachines = machines.Count(entry => entry.Status == MachineStatus.InSession),
-            ActiveSessions = sessions.Count(entry => entry.Status == SessionStatus.Active),
-            PendingRequests = requests.Count,
+            ActiveSessions = activeSessionCount,
+            PendingRequests = pendingRequestCount,
             PendingAnnotations = users.Sum(entry => entry.PendingAnnotationAmount),
             PromisedPayments = promisedPayments,
-            Machines = await GetMachinesAsync(cancellationToken),
+            Machines = machines.Select(MapMachine).ToList(),
             Users = users.Take(8).Select(MapUser).ToList(),
             Sessions = sessions.Select(entry => MapSession(entry, machineLookup.TryGetValue(entry.MachineId, out var machine) ? machine.Name : "Desconhecida")).ToList(),
             Requests = requests.Select(entry => MapRequest(entry, machineLookup.TryGetValue(entry.MachineId, out var machine) ? machine.Name : "Desconhecida")).ToList(),
@@ -172,38 +116,8 @@ public sealed class CafeManagementService(
     public async Task<IReadOnlyList<MachineDto>> GetMachinesAsync(CancellationToken cancellationToken = default)
     {
         var machines = await db.Machines.AsNoTracking().OrderBy(entry => entry.Name).ToListAsync(cancellationToken);
-        var snapshots = await db.ProcessSnapshots.AsNoTracking()
-            .OrderByDescending(entry => entry.RecordedAtUtc)
-            .Take(200)
-            .ToListAsync(cancellationToken);
 
-        return machines.Select(machine => new MachineDto
-        {
-            Id = machine.Id,
-            MachineKey = machine.MachineKey,
-            Name = machine.Name,
-            Hostname = machine.Hostname,
-            IpAddress = machine.IpAddress,
-            Kind = machine.Kind,
-            Status = IsMachineOnline(machine) ? machine.Status : MachineStatus.Offline,
-            GroupName = machine.GroupName,
-            ServiceProtectionEnabled = machine.ServiceProtectionEnabled,
-            BandwidthLimitEnabled = machine.BandwidthLimitEnabled,
-            BandwidthLimitKbps = machine.BandwidthLimitKbps,
-            LastCommandSummary = machine.LastCommandSummary,
-            Observations = machine.Observations,
-            LastSeenUtc = machine.LastSeenUtc,
-            RecentProcesses = snapshots
-                .Where(entry => entry.MachineId == machine.Id)
-                .Take(6)
-                .Select(entry => new ProcessDto
-                {
-                    ProcessName = entry.ProcessName,
-                    WindowTitle = entry.WindowTitle,
-                    MemoryMb = entry.MemoryMb
-                })
-                .ToList()
-        }).ToList();
+        return machines.Select(MapMachine).ToList();
     }
 
     public async Task<IReadOnlyList<UserDto>> GetUsersAsync(CancellationToken cancellationToken = default)
@@ -256,12 +170,27 @@ public sealed class CafeManagementService(
 
     public async Task<OperationResult> SaveSettingsAsync(SettingsUpdateRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
     {
+        var cafeName = TextSanitizer.Normalize(request.CafeName);
+        if (string.IsNullOrWhiteSpace(cafeName))
+        {
+            return new OperationResult(false, "Informe o nome da lan house.");
+        }
+
+        if (!Enum.IsDefined(request.DefaultTheme) || !Enum.IsDefined(request.UpdateMode) ||
+            request.BackupRetentionDays is < 1 or > 3650 ||
+            request.DefaultCommonAnnotationLimit is < 0m or > 1_000_000m ||
+            request.DefaultPcHourlyRate is < 0m or > 100_000m ||
+            request.DefaultConsoleHourlyRate is < 0m or > 100_000m)
+        {
+            return new OperationResult(false, "Revise tema, retenção e valores padrão informados.");
+        }
+
         var settings = await GetSettingsEntityAsync(cancellationToken);
-        settings.CafeName = TextSanitizer.Normalize(request.CafeName);
+        settings.CafeName = cafeName;
         settings.DefaultTheme = request.DefaultTheme;
         settings.UpdateMode = request.UpdateMode;
         settings.BackupCutoffLocalTime = request.BackupCutoffLocalTime;
-        settings.BackupRetentionDays = Math.Max(1, request.BackupRetentionDays);
+        settings.BackupRetentionDays = request.BackupRetentionDays;
         settings.WelcomeMessage = TextSanitizer.Normalize(request.WelcomeMessage);
         settings.GoodbyeMessage = TextSanitizer.Normalize(request.GoodbyeMessage);
         settings.LockMessage = TextSanitizer.Normalize(request.LockMessage);
@@ -291,6 +220,36 @@ public sealed class CafeManagementService(
             return new OperationResult(false, "O login precisa conter apenas letras e separadores simples.");
         }
 
+        var displayName = TextSanitizer.Normalize(request.DisplayName);
+        if (string.IsNullOrWhiteSpace(displayName) || displayName.Length > 100)
+        {
+            return new OperationResult(false, "Informe um nome de usuário com até 100 caracteres.");
+        }
+
+        if (!Enum.IsDefined(request.ProfileType)
+            || Math.Abs(request.Balance) > 1_000_000m
+            || request.AnnotationLimit is < 0m or > 1_000_000m)
+        {
+            return new OperationResult(false, "Informe perfil e limites financeiros válidos.");
+        }
+
+        DateTime? temporaryUntilUtc = null;
+        if (request.IsTemporary)
+        {
+            if (!request.TemporaryUntilUtc.HasValue)
+            {
+                return new OperationResult(false, "Informe até quando a conta temporária será válida.");
+            }
+
+            temporaryUntilUtc = request.TemporaryUntilUtc.Value.Kind == DateTimeKind.Utc
+                ? request.TemporaryUntilUtc.Value
+                : request.TemporaryUntilUtc.Value.ToUniversalTime();
+            if (temporaryUntilUtc <= DateTime.UtcNow)
+            {
+                return new OperationResult(false, "A validade da conta temporária precisa estar no futuro.");
+            }
+        }
+
         UserAccount user;
         var isNew = !request.Id.HasValue || request.Id == Guid.Empty;
         if (isNew)
@@ -308,16 +267,21 @@ public sealed class CafeManagementService(
             var requestId = request.Id.GetValueOrDefault();
             user = await db.Users.FirstOrDefaultAsync(entry => entry.Id == requestId, cancellationToken)
                 ?? throw new InvalidOperationException("Usuário não encontrado.");
+            if (await db.Users.AnyAsync(entry => entry.Id != requestId && entry.Login == login, cancellationToken))
+            {
+                return new OperationResult(false, "Já existe um usuário com esse login.");
+            }
         }
 
-        user.DisplayName = TextSanitizer.Normalize(request.DisplayName);
+        user.DisplayName = displayName;
         user.Login = login;
         user.ProfileType = request.ProfileType;
         user.Balance = request.Balance;
         user.AnnotationLimit = request.ProfileType == UserProfileType.Common ? request.AnnotationLimit : 0m;
         user.IsTemporary = request.IsTemporary;
-        user.TemporaryUntilUtc = request.TemporaryUntilUtc;
+        user.TemporaryUntilUtc = temporaryUntilUtc;
         user.Notes = TextSanitizer.Normalize(request.Notes);
+        user.IsBlocked = request.IsBlocked;
         user.CanSeeOwnBalance = true;
         user.CanSeeOwnAnnotations = true;
         user.Touch();
@@ -333,21 +297,94 @@ public sealed class CafeManagementService(
         }
         else if (isNew)
         {
-            user.PinHash = PasswordHasher.Hash("1234");
+            return new OperationResult(false, "Informe um PIN de 4 dígitos para o novo usuário.");
         }
 
+        var removeInitialAccessFileAfterSave = false;
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
+            if (request.Password.Length is < 12 or > 256)
+            {
+                return new OperationResult(false, "A senha do painel deve ter entre 12 e 256 caracteres.");
+            }
+
             user.PasswordHash = PasswordHasher.Hash(request.Password);
+            if (!isNew && user.ProfileType == UserProfileType.Admin)
+            {
+                removeInitialAccessFileAfterSave = true;
+            }
+        }
+        else if (isNew && request.ProfileType is UserProfileType.Admin or UserProfileType.Special)
+        {
+            return new OperationResult(false, "Informe uma senha com pelo menos 12 caracteres para perfis administrativos.");
         }
         else if (isNew)
         {
-            user.PasswordHash = PasswordHasher.Hash("adrenalina123");
+            user.PasswordHash = PasswordHasher.Hash(Guid.NewGuid().ToString("N"));
         }
 
         await LogAsync("Usuario", isNew ? "Criacao" : "Atualizacao", actorUserId, null, user.Id, $"Conta {user.DisplayName} salva com perfil {user.ProfileType}.", cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        if (removeInitialAccessFileAfterSave)
+        {
+            DeleteInitialAccessFile();
+        }
         return new OperationResult(true, isNew ? "Usuário criado." : "Usuário atualizado.");
+    }
+
+    public async Task<OperationResult> UpsertMachineAsync(MachineUpsertRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
+    {
+        var machineKey = TextSanitizer.Normalize(request.MachineKey).ToLowerInvariant();
+        var name = TextSanitizer.Normalize(request.Name);
+        if (string.IsNullOrWhiteSpace(machineKey) || string.IsNullOrWhiteSpace(name))
+        {
+            return new OperationResult(false, "Informe nome e chave da máquina.");
+        }
+
+        if (machineKey.Length > 100 || name.Length > 100)
+        {
+            return new OperationResult(false, "Nome e chave devem ter no máximo 100 caracteres.");
+        }
+
+        if (!Enum.IsDefined(request.Kind))
+        {
+            return new OperationResult(false, "Informe um tipo de máquina válido.");
+        }
+
+        var isNew = !request.Id.HasValue || request.Id == Guid.Empty;
+        Machine machine;
+        if (isNew)
+        {
+            if (await db.Machines.AnyAsync(entry => entry.MachineKey == machineKey || entry.Name == name, cancellationToken))
+            {
+                return new OperationResult(false, "Já existe uma máquina com esse nome ou chave.");
+            }
+
+            machine = new Machine { Status = MachineStatus.Offline };
+            db.Machines.Add(machine);
+        }
+        else
+        {
+            var id = request.Id.GetValueOrDefault();
+            machine = await db.Machines.FirstOrDefaultAsync(entry => entry.Id == id, cancellationToken)
+                ?? throw new InvalidOperationException("Máquina não encontrada.");
+
+            if (await db.Machines.AnyAsync(entry => entry.Id != id && (entry.MachineKey == machineKey || entry.Name == name), cancellationToken))
+            {
+                return new OperationResult(false, "Já existe outra máquina com esse nome ou chave.");
+            }
+        }
+
+        machine.MachineKey = machineKey;
+        machine.Name = name;
+        machine.Kind = request.Kind;
+        machine.GroupName = TextSanitizer.Normalize(request.GroupName);
+        machine.Observations = TextSanitizer.Normalize(request.Observations);
+        machine.Touch();
+
+        await LogAsync("Maquina", isNew ? "Criacao" : "Atualizacao", actorUserId, machine.Id, null, $"Máquina {machine.Name} salva.", cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return new OperationResult(true, isNew ? "Máquina cadastrada." : "Máquina atualizada.");
     }
 
     public async Task<OperationResult> AddLedgerEntryAsync(LedgerEntryRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
@@ -359,9 +396,14 @@ public sealed class CafeManagementService(
         }
 
         var amount = Math.Round(request.Amount, 2);
-        if (amount == 0m)
+        if (amount == 0m || Math.Abs(amount) > 1_000_000m || !Enum.IsDefined(request.Type))
         {
-            return new OperationResult(false, "Informe um valor diferente de zero.");
+            return new OperationResult(false, "Informe tipo e valor financeiro válidos.");
+        }
+
+        if (request.Type is LedgerEntryType.Credit or LedgerEntryType.Annotation or LedgerEntryType.PaymentPromise && amount < 0m)
+        {
+            return new OperationResult(false, "Use valores positivos para crédito, anotação e promessa de pagamento.");
         }
 
         if (request.Type == LedgerEntryType.Annotation && !user.HasUnlimitedAnnotations)
@@ -422,6 +464,15 @@ public sealed class CafeManagementService(
         if (request.UserAccountId.HasValue)
         {
             user = await db.Users.FirstOrDefaultAsync(entry => entry.Id == request.UserAccountId.Value, cancellationToken);
+            if (user is null)
+            {
+                return new OperationResult(false, "Usuário não encontrado.");
+            }
+
+            if (user.IsBlocked || user.TemporaryUntilUtc.HasValue && user.TemporaryUntilUtc < DateTime.UtcNow)
+            {
+                return new OperationResult(false, "A conta informada está bloqueada ou expirada.");
+            }
         }
 
         var profile = user?.ProfileType ?? UserProfileType.Ghost;
@@ -429,6 +480,11 @@ public sealed class CafeManagementService(
         if (profile == UserProfileType.Common && !request.IsDemoMode && request.GrantedMinutes <= 0)
         {
             return new OperationResult(false, "Usuários comuns precisam iniciar com tempo maior que zero.");
+        }
+
+        if (request.GrantedMinutes is < 0 or > 43_200 || request.HourlyRate is < 0m or > 100_000m)
+        {
+            return new OperationResult(false, "Minutos ou valor por hora estão fora do limite permitido.");
         }
 
         var settings = await GetSettingsEntityAsync(cancellationToken);
@@ -470,8 +526,16 @@ public sealed class CafeManagementService(
         });
 
         await LogAsync("Sessao", "Inicio", actorUserId, machine.Id, user?.Id, $"Sessão iniciada em {machine.Name} para {session.UserDisplayName}.", cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        return new OperationResult(true, "Sessão iniciada.");
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return new OperationResult(true, "Sessão iniciada.");
+        }
+        catch (DbUpdateException exception)
+        {
+            logger.LogWarning(exception, "Concorrência detectada ao iniciar sessão na máquina {MachineId}.", machine.Id);
+            return new OperationResult(false, "Essa máquina já recebeu outra sessão. Atualize a tela e tente novamente.");
+        }
     }
 
     public async Task<OperationResult> AdjustSessionAsync(SessionAdjustRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
@@ -480,6 +544,24 @@ public sealed class CafeManagementService(
         if (session is null)
         {
             return new OperationResult(false, "Sessão não encontrada.");
+        }
+
+        if (session.Status != SessionStatus.Active)
+        {
+            return new OperationResult(false, "Somente sessões ativas podem ser ajustadas.");
+        }
+
+        if (request.AdditionalMinutes is < -1_440 or > 43_200 ||
+            Math.Abs(request.AdditionalAnnotationAmount) > 1_000_000m ||
+            request.AdditionalMinutes == 0 && request.AdditionalAnnotationAmount == 0m)
+        {
+            return new OperationResult(false, "Informe um ajuste de tempo ou anotação dentro dos limites permitidos.");
+        }
+
+        if (session.RemainingMinutes + request.AdditionalMinutes < 0 ||
+            session.GrantedMinutes + request.AdditionalMinutes < 0)
+        {
+            return new OperationResult(false, "O ajuste não pode deixar o tempo da sessão negativo.");
         }
 
         session.GrantedMinutes += request.AdditionalMinutes;
@@ -551,6 +633,12 @@ public sealed class CafeManagementService(
 
     public async Task<OperationResult> QueueMachineCommandAsync(MachineCommandRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
     {
+        if (request.Type is not (RemoteCommandType.LockScreen or RemoteCommandType.RefreshConfiguration or
+            RemoteCommandType.ShowMessage or RemoteCommandType.ToggleTimerVisibility))
+        {
+            return new OperationResult(false, "Esse tipo de comando não é permitido pelo cliente seguro.");
+        }
+
         var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.Id == request.MachineId, cancellationToken);
         if (machine is null)
         {
@@ -587,11 +675,66 @@ public sealed class CafeManagementService(
             return new OperationResult(false, "Solicitação não encontrada.");
         }
 
+        if (entry.Status != ClientRequestStatus.Pending)
+        {
+            return new OperationResult(false, "Essa solicitação já foi processada.");
+        }
+
         entry.Status = request.Approve ? ClientRequestStatus.Approved : ClientRequestStatus.Rejected;
         entry.ResolvedAtUtc = DateTime.UtcNow;
         entry.ResolvedByUserId = actorUserId;
         entry.AdminResponse = TextSanitizer.Normalize(request.ResponseMessage);
         entry.Touch();
+
+        if (request.Approve && entry.Type == ClientRequestType.Registration)
+        {
+            var login = entry.RequestedLogin.Trim().ToLowerInvariant();
+            if (!LoginRules.LooksLikeLetterLogin(login) || await db.Users.AnyAsync(user => user.Login == login, cancellationToken))
+            {
+                return new OperationResult(false, "O login solicitado é inválido ou já está em uso.");
+            }
+
+            using var payload = JsonDocument.Parse(entry.PayloadJson);
+            var pinHash = payload.RootElement.TryGetProperty("pinHash", out var pinHashProperty)
+                ? pinHashProperty.GetString() ?? string.Empty
+                : string.Empty;
+            if (string.IsNullOrWhiteSpace(pinHash))
+            {
+                return new OperationResult(false, "A solicitação não contém um PIN válido.");
+            }
+
+            var settings = await GetSettingsEntityAsync(cancellationToken);
+            var user = new UserAccount
+            {
+                DisplayName = string.IsNullOrWhiteSpace(entry.RequestedDisplayName) ? login : entry.RequestedDisplayName,
+                Login = login,
+                PinHash = pinHash,
+                PasswordHash = PasswordHasher.Hash(Guid.NewGuid().ToString("N")),
+                ProfileType = UserProfileType.Common,
+                AnnotationLimit = settings.DefaultCommonAnnotationLimit
+            };
+            db.Users.Add(user);
+            entry.UserAccountId = user.Id;
+        }
+        else if (request.Approve && entry.Type == ClientRequestType.MoreTime)
+        {
+            var session = await db.Sessions
+                .FirstOrDefaultAsync(item => item.MachineId == entry.MachineId && item.Status == SessionStatus.Active, cancellationToken);
+            if (session is null)
+            {
+                return new OperationResult(false, "Não há sessão ativa nessa máquina para adicionar tempo.");
+            }
+
+            using var payload = JsonDocument.Parse(entry.PayloadJson);
+            var requestedMinutes = payload.RootElement.TryGetProperty("amount", out var amountProperty) && amountProperty.TryGetDecimal(out var amount)
+                ? (int)Math.Round(amount)
+                : 0;
+            var additionalMinutes = Math.Clamp(requestedMinutes <= 0 ? 30 : requestedMinutes, 1, 720);
+            session.GrantedMinutes += additionalMinutes;
+            session.RemainingMinutes += additionalMinutes;
+            session.Touch();
+            entry.UserAccountId = session.UserAccountId;
+        }
 
         db.Notifications.Add(new NotificationRecord
         {
@@ -615,7 +758,7 @@ public sealed class CafeManagementService(
         await EnsureInitializedAsync(cancellationToken);
 
         var settings = await GetSettingsEntityAsync(cancellationToken);
-        var snapshot = await CreateBackupSnapshotAsync(settings, true, actorUserId, cancellationToken);
+        var snapshot = await CreateBackupSnapshotAsync(settings, actorUserId, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         return new OperationResult(
@@ -640,24 +783,7 @@ public sealed class CafeManagementService(
         var users = await db.Users.AsNoTracking().ToDictionaryAsync(entry => entry.Id, cancellationToken);
         var settings = await GetSettingsEntityAsync(cancellationToken);
 
-        var summaryLines = BuildSummaryLines(settings.CafeName, request, sessions, ledger, machines, users);
-
-        return request.Format switch
-        {
-            ReportExportFormat.Txt => new FileExportResult(
-                $"relatorio-{request.StartDate:yyyyMMdd}-{request.EndDate:yyyyMMdd}.txt",
-                "text/plain",
-                Encoding.UTF8.GetBytes(string.Join(Environment.NewLine, summaryLines))),
-            ReportExportFormat.Excel => new FileExportResult(
-                $"relatorio-{request.StartDate:yyyyMMdd}-{request.EndDate:yyyyMMdd}.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                BuildExcel(summaryLines, sessions, ledger, machines, users)),
-            ReportExportFormat.Pdf => new FileExportResult(
-                $"relatorio-{request.StartDate:yyyyMMdd}-{request.EndDate:yyyyMMdd}.pdf",
-                "application/pdf",
-                BuildPdf(summaryLines, sessions, ledger, machines, users)),
-            _ => null
-        };
+        return reportExporter.Export(settings.CafeName, request, sessions, ledger, machines, users);
     }
 
     public async Task<ClientLoginResponse> LoginClientAsync(ClientLoginRequest request, CancellationToken cancellationToken = default)
@@ -665,6 +791,11 @@ public sealed class CafeManagementService(
         var machineKey = TextSanitizer.Normalize(request.MachineKey);
         var login = TextSanitizer.Normalize(request.Login).ToLowerInvariant();
         var pin = TextSanitizer.Normalize(request.Pin);
+
+        if (machineKey.Length > 100)
+        {
+            return new ClientLoginResponse { Success = false, Message = "Identificação da máquina inválida." };
+        }
 
         var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey, cancellationToken);
         if (machine is null)
@@ -705,7 +836,7 @@ public sealed class CafeManagementService(
         }
 
         var user = await db.Users.FirstOrDefaultAsync(entry => entry.Login == login, cancellationToken);
-        if (user is null || !PasswordHasher.Verify(user.PinHash, pin))
+        if (user is null || user.IsBlocked || !PasswordHasher.Verify(user.PinHash, pin))
         {
             await LogAsync("Cliente", "LoginNegado", null, machine.Id, user?.Id, $"Falha de login no cliente para {login}.", cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
@@ -785,40 +916,61 @@ public sealed class CafeManagementService(
 
     public async Task<ClientHeartbeatResponse> SyncClientHeartbeatAsync(ClientHeartbeatRequest request, CancellationToken cancellationToken = default)
     {
-        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == request.MachineKey, cancellationToken);
-        if (machine is null)
+        var machineKey = TextSanitizer.Normalize(request.MachineKey).ToLowerInvariant();
+        if (machineKey.Length > 100 || !Enum.IsDefined(request.Status))
         {
-            machine = new Machine
-            {
-                MachineKey = request.MachineKey,
-                Name = request.MachineName,
-                Hostname = request.Hostname,
-                IpAddress = request.IpAddress,
-                Kind = request.Kind
-            };
-
-            db.Machines.Add(machine);
+            return new ClientHeartbeatResponse { Success = false, Message = "Heartbeat inválido." };
         }
 
-        machine.Name = string.IsNullOrWhiteSpace(request.MachineName) ? machine.Name : request.MachineName;
-        machine.Hostname = request.Hostname;
-        machine.IpAddress = request.IpAddress;
-        machine.Kind = request.Kind;
+        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey, cancellationToken);
+        if (machine is null)
+        {
+            return new ClientHeartbeatResponse
+            {
+                Success = false,
+                Message = "Máquina não cadastrada. Cadastre no painel ADMIN usando a mesma chave."
+            };
+        }
+
+        var hostname = TextSanitizer.Normalize(request.Hostname);
+        var ipAddress = TextSanitizer.Normalize(request.IpAddress);
+        machine.Hostname = hostname[..Math.Min(100, hostname.Length)];
+        machine.IpAddress = ipAddress[..Math.Min(64, ipAddress.Length)];
         machine.Status = request.Status;
         machine.LastSeenUtc = DateTime.UtcNow;
         machine.Touch();
 
-        var oldSnapshots = db.ProcessSnapshots.Where(entry => entry.MachineId == machine.Id);
-        db.ProcessSnapshots.RemoveRange(oldSnapshots);
-        foreach (var process in request.Processes.Take(20))
+        var acknowledgedCommandIds = request.AcknowledgedCommandIds.Take(100).ToList();
+        if (acknowledgedCommandIds.Count > 0)
         {
-            db.ProcessSnapshots.Add(new MachineProcessSnapshot
+            var acknowledgedCommands = await db.RemoteCommands
+                .Where(entry => entry.MachineId == machine.Id && acknowledgedCommandIds.Contains(entry.Id))
+                .ToListAsync(cancellationToken);
+            foreach (var command in acknowledgedCommands)
             {
-                MachineId = machine.Id,
-                ProcessName = process.ProcessName,
-                WindowTitle = process.WindowTitle,
-                MemoryMb = process.MemoryMb
-            });
+                command.Status = RemoteCommandStatus.Completed;
+                command.ExecutedAtUtc = DateTime.UtcNow;
+                command.ResultSummary = "Confirmado pelo Client.";
+                command.Touch();
+            }
+        }
+
+        var acknowledgedNotificationIds = request.AcknowledgedNotificationIds.Take(100).ToList();
+        if (acknowledgedNotificationIds.Count > 0)
+        {
+            var acknowledgedNotifications = await db.Notifications
+                .Where(entry => entry.MachineId == machine.Id && acknowledgedNotificationIds.Contains(entry.Id))
+                .ToListAsync(cancellationToken);
+            foreach (var notification in acknowledgedNotifications)
+            {
+                notification.IsReadByClient = true;
+                notification.Touch();
+            }
+        }
+
+        if (acknowledgedCommandIds.Count > 0 || acknowledgedNotificationIds.Count > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
         }
 
         var settings = await GetSettingsEntityAsync(cancellationToken);
@@ -838,7 +990,8 @@ public sealed class CafeManagementService(
                 : request.Status;
 
         var commands = await db.RemoteCommands
-            .Where(entry => entry.MachineId == machine.Id && entry.Status == RemoteCommandStatus.Pending)
+            .Where(entry => entry.MachineId == machine.Id &&
+                            (entry.Status == RemoteCommandStatus.Pending || entry.Status == RemoteCommandStatus.Delivered))
             .OrderBy(entry => entry.RequestedAtUtc)
             .ToListAsync(cancellationToken);
 
@@ -853,16 +1006,12 @@ public sealed class CafeManagementService(
             .OrderBy(entry => entry.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
-        foreach (var notification in notifications)
-        {
-            notification.IsReadByClient = true;
-            notification.Touch();
-        }
-
         await db.SaveChangesAsync(cancellationToken);
 
         return new ClientHeartbeatResponse
         {
+            Success = true,
+            Message = "Sincronização concluída.",
             MachineId = machine.Id,
             Settings = MapSettings(settings),
             RuntimeState = BuildRuntimeState(settings, machine, session, user, notifications),
@@ -873,39 +1022,113 @@ public sealed class CafeManagementService(
 
     public async Task<OperationResult> SubmitClientRequestsAsync(ClientRequestBatchRequest request, CancellationToken cancellationToken = default)
     {
-        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == request.MachineKey, cancellationToken);
+        var machineKey = TextSanitizer.Normalize(request.MachineKey).ToLowerInvariant();
+        if (machineKey.Length > 100)
+        {
+            return new OperationResult(false, "Identificação da máquina inválida.");
+        }
+
+        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey, cancellationToken);
         if (machine is null)
         {
             return new OperationResult(false, "Máquina não registrada.");
         }
 
-        foreach (var item in request.Requests)
+        if (request.Requests.Count > 20)
         {
-            db.ClientRequests.Add(new ClientRequestRecord
-            {
-                MachineId = machine.Id,
-                Type = item.Type,
-                RequestedLogin = TextSanitizer.Normalize(item.Login),
-                RequestedDisplayName = TextSanitizer.Normalize(item.DisplayName),
-                PayloadJson = JsonSerializer.Serialize(item, JsonDefaults.Options),
-                RequestedAtUtc = item.OccurredAtUtc
-            });
+            return new OperationResult(false, "Envie no máximo 20 solicitações por lote.");
         }
 
-        if (request.Requests.Count > 0)
+        var normalizedRequests = request.Requests
+            .Select(item => new { Item = item, Id = item.RequestId == Guid.Empty ? Guid.NewGuid() : item.RequestId })
+            .ToList();
+        if (normalizedRequests.Select(item => item.Id).Distinct().Count() != normalizedRequests.Count)
         {
-            await LogAsync("Cliente", "Solicitacao", null, machine.Id, null, $"{request.Requests.Count} solicitações recebidas de {machine.Name}.", cancellationToken);
+            return new OperationResult(false, "O lote contém identificadores de solicitação duplicados.");
+        }
+
+        var requestIds = normalizedRequests.Select(item => item.Id).ToList();
+        var existingRequestIds = (await db.ClientRequests.AsNoTracking()
+            .Where(item => requestIds.Contains(item.Id))
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken))
+            .ToHashSet();
+        var logins = normalizedRequests
+            .Select(item => TextSanitizer.Normalize(item.Item.Login).ToLowerInvariant())
+            .Where(login => !string.IsNullOrWhiteSpace(login))
+            .Distinct()
+            .ToList();
+        var userIdsByLogin = await db.Users.AsNoTracking()
+            .Where(user => logins.Contains(user.Login))
+            .ToDictionaryAsync(user => user.Login, user => user.Id, cancellationToken);
+        var addedCount = 0;
+
+        foreach (var requestItem in normalizedRequests)
+        {
+            if (existingRequestIds.Contains(requestItem.Id))
+            {
+                continue;
+            }
+
+            var item = requestItem.Item;
+            if (!Enum.IsDefined(item.Type) || Math.Abs(item.Amount) > 43_200m)
+            {
+                return new OperationResult(false, "A solicitação contém tipo ou valor inválido.");
+            }
+
+            var login = TextSanitizer.Normalize(item.Login).ToLowerInvariant();
+            var displayName = TextSanitizer.Normalize(item.DisplayName);
+            if (item.Type == ClientRequestType.Registration &&
+                (!LoginRules.LooksLikeLetterLogin(login) ||
+                 (!LoginRules.LooksLikeFourDigitPin(item.Pin) && string.IsNullOrWhiteSpace(item.PinHash)) ||
+                 string.IsNullOrWhiteSpace(displayName)))
+            {
+                return new OperationResult(false, "Cadastro requer nome, login válido e PIN de 4 dígitos.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(item.PinHash) && !PasswordHasher.IsHashFormatValid(item.PinHash))
+            {
+                return new OperationResult(false, "O hash do PIN informado é inválido.");
+            }
+
+            var existingUserId = userIdsByLogin.TryGetValue(login, out var userId) ? userId : (Guid?)null;
+            var safePayload = JsonSerializer.Serialize(new
+            {
+                message = TextSanitizer.Normalize(item.Message),
+                amount = item.Amount,
+                pinHash = !string.IsNullOrWhiteSpace(item.PinHash)
+                    ? item.PinHash
+                    : LoginRules.LooksLikeFourDigitPin(item.Pin) ? PasswordHasher.Hash(item.Pin) : string.Empty
+            }, JsonDefaults.Options);
+
+            db.ClientRequests.Add(new ClientRequestRecord
+            {
+                Id = requestItem.Id,
+                MachineId = machine.Id,
+                UserAccountId = existingUserId,
+                Type = item.Type,
+                RequestedLogin = login,
+                RequestedDisplayName = displayName,
+                PayloadJson = safePayload,
+                RequestedAtUtc = item.OccurredAtUtc < DateTime.UtcNow.AddDays(-30) || item.OccurredAtUtc > DateTime.UtcNow.AddMinutes(5)
+                    ? DateTime.UtcNow
+                    : item.OccurredAtUtc
+            });
+            addedCount++;
+        }
+
+        if (addedCount > 0)
+        {
+            await LogAsync("Cliente", "Solicitacao", null, machine.Id, null, $"{addedCount} solicitações novas recebidas de {machine.Name}.", cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        return new OperationResult(true, "Solicitações sincronizadas.");
+        return new OperationResult(true, addedCount == 0 ? "Solicitações já sincronizadas anteriormente." : "Solicitações sincronizadas.");
     }
 
     public async Task RunMaintenanceTickAsync(CancellationToken cancellationToken = default)
     {
-        await EnsureInitializedAsync(cancellationToken);
         await UpdateSessionsAsync(cancellationToken);
-        await RunBackupIfNecessaryAsync(cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
     }
 
@@ -1000,32 +1223,8 @@ public sealed class CafeManagementService(
         }
     }
 
-    private async Task RunBackupIfNecessaryAsync(CancellationToken cancellationToken)
-    {
-        var settings = await GetSettingsEntityAsync(cancellationToken);
-        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local);
-        if (nowLocal.TimeOfDay < settings.BackupCutoffLocalTime.ToTimeSpan())
-        {
-            return;
-        }
-
-        var localStart = nowLocal.Date;
-        var localEnd = localStart.AddDays(1);
-        var utcStart = TimeZoneInfo.ConvertTimeToUtc(localStart, TimeZoneInfo.Local);
-        var utcEnd = TimeZoneInfo.ConvertTimeToUtc(localEnd, TimeZoneInfo.Local);
-        var alreadyDone = await db.Backups.AsNoTracking()
-            .AnyAsync(entry => entry.Succeeded && entry.ExecutedAtUtc >= utcStart && entry.ExecutedAtUtc < utcEnd, cancellationToken);
-        if (alreadyDone)
-        {
-            return;
-        }
-
-        await CreateBackupSnapshotAsync(settings, false, null, cancellationToken);
-    }
-
     private async Task<BackupSnapshot> CreateBackupSnapshotAsync(
         AdminSettings settings,
-        bool isManual,
         Guid? actorUserId,
         CancellationToken cancellationToken)
     {
@@ -1050,25 +1249,25 @@ public sealed class CafeManagementService(
             {
                 FolderPath = destination,
                 Succeeded = true,
-                Summary = isManual ? "Backup manual concluído." : "Backup automático diário concluído.",
+                Summary = "Backup manual concluído.",
                 ExecutedAtUtc = DateTime.UtcNow
             };
 
             db.Backups.Add(snapshot);
             await LogAsync(
                 "Backup",
-                isManual ? "Manual" : "Automatico",
+                "Manual",
                 actorUserId,
                 null,
                 null,
-                $"{(isManual ? "Backup manual" : "Backup automático")} gerado em {destination}.",
+                $"Backup manual gerado em {destination}.",
                 cancellationToken);
 
             return snapshot;
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Falha ao gerar backup {BackupMode}.", isManual ? "manual" : "automatico");
+            logger.LogError(exception, "Falha ao gerar backup manual.");
 
             var snapshot = new BackupSnapshot
             {
@@ -1093,6 +1292,21 @@ public sealed class CafeManagementService(
             {
                 File.Delete(file);
             }
+        }
+    }
+
+    private void DeleteInitialAccessFile()
+    {
+        var root = Path.GetDirectoryName(storagePaths.DatabaseFilePath);
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return;
+        }
+
+        var path = Path.Combine(root, AdrenalinaDatabaseInitializer.InitialAccessFileName);
+        if (File.Exists(path))
+        {
+            File.Delete(path);
         }
     }
 
@@ -1217,6 +1431,24 @@ public sealed class CafeManagementService(
     private static bool IsMachineOnline(Machine machine) =>
         machine.LastSeenUtc.HasValue && machine.LastSeenUtc.Value >= DateTime.UtcNow.AddMinutes(-2);
 
+    private static MachineDto MapMachine(Machine machine) => new()
+    {
+        Id = machine.Id,
+        MachineKey = machine.MachineKey,
+        Name = machine.Name,
+        Hostname = machine.Hostname,
+        IpAddress = machine.IpAddress,
+        Kind = machine.Kind,
+        Status = IsMachineOnline(machine) ? machine.Status : MachineStatus.Offline,
+        GroupName = machine.GroupName,
+        ServiceProtectionEnabled = machine.ServiceProtectionEnabled,
+        BandwidthLimitEnabled = machine.BandwidthLimitEnabled,
+        BandwidthLimitKbps = machine.BandwidthLimitKbps,
+        LastCommandSummary = machine.LastCommandSummary,
+        Observations = machine.Observations,
+        LastSeenUtc = machine.LastSeenUtc
+    };
+
     private static UserDto MapUser(UserAccount entry) => new()
     {
         Id = entry.Id,
@@ -1228,7 +1460,8 @@ public sealed class CafeManagementService(
         AnnotationLimit = entry.AnnotationLimit,
         IsTemporary = entry.IsTemporary,
         TemporaryUntilUtc = entry.TemporaryUntilUtc,
-        Notes = entry.Notes
+        Notes = entry.Notes,
+        IsBlocked = entry.IsBlocked
     };
 
     private static SessionDto MapSession(SessionRecord entry, string machineName) => new()
@@ -1333,146 +1566,4 @@ public sealed class CafeManagementService(
         };
     }
 
-    private static IReadOnlyList<string> BuildSummaryLines(
-        string cafeName,
-        ReportFilterRequest request,
-        IReadOnlyList<SessionRecord> sessions,
-        IReadOnlyList<LedgerEntry> ledger,
-        IReadOnlyDictionary<Guid, Machine> machines,
-        IReadOnlyDictionary<Guid, UserAccount> users)
-    {
-        var pcSessions = sessions.Where(entry => entry.MachineKind == MachineKind.Pc).ToList();
-        var consoleSessions = sessions.Where(entry => entry.MachineKind == MachineKind.Console).ToList();
-
-        return
-        [
-            cafeName,
-            $"Período: {request.StartDate:dd/MM/yyyy} a {request.EndDate:dd/MM/yyyy}",
-            $"Sessões de PC: {pcSessions.Count}",
-            $"Sessões de console: {consoleSessions.Count}",
-            $"Tempo total PCs: {pcSessions.Sum(entry => entry.ConsumedMinutes)} min",
-            $"Tempo total consoles: {consoleSessions.Sum(entry => entry.ConsumedMinutes)} min",
-            $"Valor anotado: R$ {ledger.Where(entry => entry.Type == LedgerEntryType.Annotation).Sum(entry => entry.Amount):N2}",
-            $"Pagamentos prometidos: R$ {ledger.Where(entry => entry.Type == LedgerEntryType.PaymentPromise).Sum(entry => entry.Amount):N2}",
-            $"Usuários atendidos: {sessions.Select(entry => entry.UserAccountId).Where(entry => entry.HasValue).Distinct().Count()}",
-            "",
-            "Sessões",
-            .. sessions.Select(entry =>
-            {
-                var machineName = machines.TryGetValue(entry.MachineId, out var machine) ? machine.Name : "Desconhecida";
-                var userName = entry.UserAccountId.HasValue && users.TryGetValue(entry.UserAccountId.Value, out var user)
-                    ? user.DisplayName
-                    : entry.UserDisplayName;
-                return $"- {machineName} | {userName} | {entry.MachineKind} | {entry.ConsumedMinutes} min | R$ {entry.TotalSpent:N2}";
-            }),
-            "",
-            "Financeiro",
-            .. ledger.Select(entry =>
-            {
-                var userName = users.TryGetValue(entry.UserAccountId, out var user) ? user.DisplayName : "Desconhecido";
-                var dueDate = entry.PromisedPaymentDateUtc.HasValue ? $" | vence {entry.PromisedPaymentDateUtc.Value:dd/MM/yyyy}" : string.Empty;
-                return $"- {entry.Type} | {userName} | R$ {entry.Amount:N2}{dueDate} | {entry.Description}";
-            })
-        ];
-    }
-
-    private static byte[] BuildExcel(
-        IReadOnlyList<string> summaryLines,
-        IReadOnlyList<SessionRecord> sessions,
-        IReadOnlyList<LedgerEntry> ledger,
-        IReadOnlyDictionary<Guid, Machine> machines,
-        IReadOnlyDictionary<Guid, UserAccount> users)
-    {
-        using var workbook = new XLWorkbook();
-
-        var summary = workbook.Worksheets.Add("Resumo");
-        for (var index = 0; index < summaryLines.Count; index++)
-        {
-            summary.Cell(index + 1, 1).Value = summaryLines[index];
-        }
-
-        var sessionsSheet = workbook.Worksheets.Add("Sessoes");
-        sessionsSheet.Cell(1, 1).Value = "Máquina";
-        sessionsSheet.Cell(1, 2).Value = "Usuário";
-        sessionsSheet.Cell(1, 3).Value = "Tipo";
-        sessionsSheet.Cell(1, 4).Value = "Minutos";
-        sessionsSheet.Cell(1, 5).Value = "Valor";
-
-        for (var row = 0; row < sessions.Count; row++)
-        {
-            var session = sessions[row];
-            sessionsSheet.Cell(row + 2, 1).Value = machines.TryGetValue(session.MachineId, out var machine) ? machine.Name : "Desconhecida";
-            sessionsSheet.Cell(row + 2, 2).Value = session.UserAccountId.HasValue && users.TryGetValue(session.UserAccountId.Value, out var user) ? user.DisplayName : session.UserDisplayName;
-            sessionsSheet.Cell(row + 2, 3).Value = session.MachineKind.ToString();
-            sessionsSheet.Cell(row + 2, 4).Value = session.ConsumedMinutes;
-            sessionsSheet.Cell(row + 2, 5).Value = session.TotalSpent;
-        }
-
-        var ledgerSheet = workbook.Worksheets.Add("Financeiro");
-        ledgerSheet.Cell(1, 1).Value = "Usuário";
-        ledgerSheet.Cell(1, 2).Value = "Tipo";
-        ledgerSheet.Cell(1, 3).Value = "Valor";
-        ledgerSheet.Cell(1, 4).Value = "Descrição";
-        ledgerSheet.Cell(1, 5).Value = "Promessa";
-
-        for (var row = 0; row < ledger.Count; row++)
-        {
-            var item = ledger[row];
-            ledgerSheet.Cell(row + 2, 1).Value = users.TryGetValue(item.UserAccountId, out var user) ? user.DisplayName : "Desconhecido";
-            ledgerSheet.Cell(row + 2, 2).Value = item.Type.ToString();
-            ledgerSheet.Cell(row + 2, 3).Value = item.Amount;
-            ledgerSheet.Cell(row + 2, 4).Value = item.Description;
-            ledgerSheet.Cell(row + 2, 5).Value = item.PromisedPaymentDateUtc?.ToString("dd/MM/yyyy") ?? string.Empty;
-        }
-
-        using var stream = new MemoryStream();
-        workbook.SaveAs(stream);
-        return stream.ToArray();
-    }
-
-    private static byte[] BuildPdf(
-        IReadOnlyList<string> summaryLines,
-        IReadOnlyList<SessionRecord> sessions,
-        IReadOnlyList<LedgerEntry> ledger,
-        IReadOnlyDictionary<Guid, Machine> machines,
-        IReadOnlyDictionary<Guid, UserAccount> users)
-    {
-        QuestPDF.Settings.License = LicenseType.Community;
-
-        return Document.Create(container =>
-        {
-            container.Page(page =>
-            {
-                page.Margin(20);
-                page.DefaultTextStyle(text => text.FontSize(10));
-                page.Header().Text("Relatório Adrenalina").SemiBold().FontSize(18);
-                page.Content().Column(column =>
-                {
-                    column.Spacing(10);
-                    column.Item().Text(string.Join(Environment.NewLine, summaryLines.Take(10)));
-                    column.Item().Text("Sessões").SemiBold();
-                    foreach (var session in sessions.Take(12))
-                    {
-                        var machine = machines.TryGetValue(session.MachineId, out var machineEntry) ? machineEntry.Name : "Desconhecida";
-                        var user = session.UserAccountId.HasValue && users.TryGetValue(session.UserAccountId.Value, out var userEntry)
-                            ? userEntry.DisplayName
-                            : session.UserDisplayName;
-                        column.Item().Text($"{machine} | {user} | {session.ConsumedMinutes} min | R$ {session.TotalSpent:N2}");
-                    }
-
-                    column.Item().Text("Financeiro").SemiBold();
-                    foreach (var item in ledger.Take(12))
-                    {
-                        var user = users.TryGetValue(item.UserAccountId, out var userEntry) ? userEntry.DisplayName : "Desconhecido";
-                        column.Item().Text($"{item.Type} | {user} | R$ {item.Amount:N2} | {item.Description}");
-                    }
-                });
-                page.Footer().AlignRight().Text(text =>
-                {
-                    text.Span("Página ");
-                    text.CurrentPageNumber();
-                });
-            });
-        }).GeneratePdf();
-    }
 }

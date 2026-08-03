@@ -45,14 +45,6 @@ public sealed class MachineDto
     public string LastCommandSummary { get; init; } = string.Empty;
     public string Observations { get; init; } = string.Empty;
     public DateTime? LastSeenUtc { get; init; }
-    public IReadOnlyList<ProcessDto> RecentProcesses { get; init; } = [];
-}
-
-public sealed class ProcessDto
-{
-    public string ProcessName { get; init; } = string.Empty;
-    public string WindowTitle { get; init; } = string.Empty;
-    public double MemoryMb { get; init; }
 }
 
 public sealed class UserDto
@@ -67,6 +59,7 @@ public sealed class UserDto
     public bool IsTemporary { get; init; }
     public DateTime? TemporaryUntilUtc { get; init; }
     public string Notes { get; init; } = string.Empty;
+    public bool IsBlocked { get; init; }
 }
 
 public sealed class SessionDto
@@ -153,6 +146,17 @@ public sealed class UserUpsertRequest
     public bool IsTemporary { get; init; }
     public DateTime? TemporaryUntilUtc { get; init; }
     public string Notes { get; init; } = string.Empty;
+    public bool IsBlocked { get; init; }
+}
+
+public sealed class MachineUpsertRequest
+{
+    public Guid? Id { get; init; }
+    public string MachineKey { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public MachineKind Kind { get; init; } = MachineKind.Pc;
+    public string GroupName { get; init; } = "Principal";
+    public string Observations { get; init; } = string.Empty;
 }
 
 public sealed class LedgerEntryRequest
@@ -235,16 +239,17 @@ public sealed record FileExportResult(string FileName, string ContentType, byte[
 public sealed class ClientHeartbeatRequest
 {
     public string MachineKey { get; init; } = string.Empty;
-    public string MachineName { get; init; } = string.Empty;
     public string Hostname { get; init; } = string.Empty;
     public string IpAddress { get; init; } = string.Empty;
-    public MachineKind Kind { get; init; } = MachineKind.Pc;
     public MachineStatus Status { get; init; } = MachineStatus.Offline;
-    public IReadOnlyList<ProcessDto> Processes { get; init; } = [];
+    public IReadOnlyList<Guid> AcknowledgedCommandIds { get; init; } = [];
+    public IReadOnlyList<Guid> AcknowledgedNotificationIds { get; init; } = [];
 }
 
 public sealed class ClientHeartbeatResponse
 {
+    public bool Success { get; init; } = true;
+    public string Message { get; init; } = string.Empty;
     public Guid MachineId { get; init; }
     public SettingsDto Settings { get; init; } = new();
     public ClientRuntimeState RuntimeState { get; init; } = new();
@@ -274,9 +279,11 @@ public sealed class ClientRequestBatchRequest
 
 public sealed class ClientShellRequest
 {
+    public Guid RequestId { get; init; } = Guid.NewGuid();
     public ClientRequestType Type { get; init; }
     public string Login { get; init; } = string.Empty;
     public string Pin { get; init; } = string.Empty;
+    public string PinHash { get; init; } = string.Empty;
     public string DisplayName { get; init; } = string.Empty;
     public string Message { get; init; } = string.Empty;
     public decimal Amount { get; init; }
@@ -342,6 +349,7 @@ public interface ICafeManagementService
     Task<SettingsDto> GetSettingsAsync(CancellationToken cancellationToken = default);
     Task<OperationResult> SaveSettingsAsync(SettingsUpdateRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> UpsertUserAsync(UserUpsertRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
+    Task<OperationResult> UpsertMachineAsync(MachineUpsertRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> AddLedgerEntryAsync(LedgerEntryRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> StartSessionAsync(SessionStartRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> AdjustSessionAsync(SessionAdjustRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
@@ -361,6 +369,7 @@ public static class PasswordHasher
     private const int SaltSize = 16;
     private const int KeySize = 32;
     private const int Iterations = 100_000;
+    private const int MaximumAcceptedIterations = 1_000_000;
 
     public static string Hash(string rawValue)
     {
@@ -371,21 +380,39 @@ public static class PasswordHasher
 
     public static bool Verify(string hashedValue, string rawValue)
     {
-        if (string.IsNullOrWhiteSpace(hashedValue) || string.IsNullOrWhiteSpace(rawValue))
+        if (!IsHashFormatValid(hashedValue) || string.IsNullOrWhiteSpace(rawValue))
         {
             return false;
         }
 
         var parts = hashedValue.Split('.', 3);
-        if (parts.Length != 3 || !int.TryParse(parts[0], out var iterations))
-        {
-            return false;
-        }
-
+        var iterations = int.Parse(parts[0]);
         var salt = Convert.FromBase64String(parts[1]);
         var expected = Convert.FromBase64String(parts[2]);
         var actual = Rfc2898DeriveBytes.Pbkdf2(rawValue, salt, iterations, HashAlgorithmName.SHA512, expected.Length);
         return CryptographicOperations.FixedTimeEquals(actual, expected);
+    }
+
+    public static bool IsHashFormatValid(string hashedValue)
+    {
+        if (string.IsNullOrWhiteSpace(hashedValue))
+        {
+            return false;
+        }
+
+        try
+        {
+            var parts = hashedValue.Split('.', 3);
+            return parts.Length == 3 &&
+                   int.TryParse(parts[0], out var iterations) &&
+                   iterations is >= 10_000 and <= MaximumAcceptedIterations &&
+                   Convert.FromBase64String(parts[1]).Length is >= 16 and <= 64 &&
+                   Convert.FromBase64String(parts[2]).Length is >= 32 and <= 64;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 }
 
@@ -400,10 +427,12 @@ public static class JsonDefaults
 
 public static class LoginRules
 {
-    public static bool LooksLikeFourDigitPin(string pin) => pin.Length == 4 && pin.All(char.IsDigit);
+    public static bool LooksLikeFourDigitPin(string pin) =>
+        pin is { Length: 4 } && pin.All(character => character is >= '0' and <= '9');
 
     public static bool LooksLikeLetterLogin(string login) =>
         !string.IsNullOrWhiteSpace(login) &&
+        login.Length <= 64 &&
         login.All(character => char.IsLetter(character) || character is '.' or '_' or '-');
 }
 
@@ -412,5 +441,8 @@ public static class TextSanitizer
     public static string Normalize(string value) =>
         string.IsNullOrWhiteSpace(value)
             ? string.Empty
-            : Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(value.Trim()));
+            : new string(value.Trim()
+                .Where(character => !char.IsControl(character) || character is '\r' or '\n' or '\t')
+                .Take(1_000)
+                .ToArray());
 }

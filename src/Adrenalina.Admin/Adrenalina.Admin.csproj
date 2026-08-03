@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2"
-                      Version="1.0.3179.45"
                       GeneratePathProperty="true"
                       ExcludeAssets="compile;build;buildTransitive" />
   </ItemGroup>
@@ -48,14 +47,5 @@
     <RuntimeIdentifier Condition="'$(Configuration)' == 'Release' and '$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <SelfContained Condition="'$(Configuration)' == 'Release'">true</SelfContained>
   </PropertyGroup>
-
-  <Target Name="StopRunningAdminFromBuildOutput"
-          BeforeTargets="BeforeBuild"
-          Condition="'$(OS)' == 'Windows_NT' and '$(DesignTimeBuild)' != 'true' and '$(Configuration)' == 'Debug'">
-    <Exec Command="cmd /c &quot;taskkill /F /IM $(AssemblyName).exe /T &gt;nul 2&gt;nul&quot;"
-          IgnoreExitCode="true" />
-    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$ErrorActionPreference = 'SilentlyContinue'; Get-CimInstance Win32_Process -Filter \&quot;Name = 'dotnet.exe'\&quot; 2&gt;$null | Where-Object { $_.CommandLine -like '*$(AssemblyName).dll*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }&quot;"
-          IgnoreExitCode="true" />
-  </Target>
 
 </Project>
