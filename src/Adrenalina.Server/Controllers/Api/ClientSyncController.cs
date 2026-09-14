@@ -24,7 +24,13 @@ public sealed class ClientSyncController(ICafeManagementService cafeService, Mac
         minimumSupportedVersion = ProtocolContract.MinimumSupportedVersion
     };
 
-    private bool IsMachineAuthenticated(string machineKey, DateTime timestampUtc, string nonce, string proof, string operation)
+    private async Task<bool> IsMachineAuthenticatedAsync(
+        string machineKey,
+        DateTime timestampUtc,
+        string nonce,
+        string proof,
+        string operation,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(proof) &&
             HttpContext.Connection.RemoteIpAddress is { } address && IPAddress.IsLoopback(address))
@@ -32,10 +38,10 @@ public sealed class ClientSyncController(ICafeManagementService cafeService, Mac
             return true;
         }
 
-        var credentialHash = db.Machines.AsNoTracking()
+        var credentialHash = await db.Machines.AsNoTracking()
             .Where(machine => machine.MachineKey == machineKey)
             .Select(machine => machine.MachineCredentialHash)
-            .FirstOrDefault();
+            .FirstOrDefaultAsync(cancellationToken);
         var signingKey = string.IsNullOrWhiteSpace(credentialHash)
             ? MachineAuthentication.DeriveSigningKey(machineKey)
             : credentialHash;
@@ -52,7 +58,7 @@ public sealed class ClientSyncController(ICafeManagementService cafeService, Mac
             return BadRequest(ProtocolError());
         }
 
-        if (!IsMachineAuthenticated(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "heartbeat"))
+        if (!await IsMachineAuthenticatedAsync(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "heartbeat", cancellationToken))
         {
             return Unauthorized(new { success = false, message = "Autenticação da máquina inválida ou expirada." });
         }
@@ -82,7 +88,7 @@ public sealed class ClientSyncController(ICafeManagementService cafeService, Mac
             return BadRequest(ProtocolError());
         }
 
-        if (!IsMachineAuthenticated(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "login"))
+        if (!await IsMachineAuthenticatedAsync(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "login", cancellationToken))
         {
             return Unauthorized(new { success = false, message = "Autenticação da máquina inválida ou expirada." });
         }
@@ -99,7 +105,7 @@ public sealed class ClientSyncController(ICafeManagementService cafeService, Mac
             return BadRequest(ProtocolError());
         }
 
-        if (!IsMachineAuthenticated(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "requests"))
+        if (!await IsMachineAuthenticatedAsync(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "requests", cancellationToken))
         {
             return Unauthorized(new { success = false, message = "Autenticação da máquina inválida ou expirada." });
         }
