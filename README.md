@@ -129,7 +129,7 @@ Entre com os dados do arquivo e altere a senha do `admin` em `Usuários`. Quando
 No painel, abra `Máquinas` e cadastre:
 
 - nome da estação;
-- chave da máquina;
+- chave aleatória da máquina com pelo menos 16 caracteres;
 - tipo (`Pc` ou `Console`);
 - grupo e observações opcionais.
 
