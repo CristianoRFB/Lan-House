@@ -21,7 +21,7 @@ public sealed class ServerApiTests
             WebRootPath = Path.Combine(root, "wwwroot"),
             DataRootPath = Path.Combine(root, "admin-data"),
             Urls = "http://127.0.0.1:0",
-            EnvironmentName = "Development",
+            EnvironmentName = "Production",
             UseHttpsRedirection = false
         });
 
@@ -50,13 +50,26 @@ public sealed class ServerApiTests
             Assert.Equal(HttpStatusCode.Redirect, dashboard.StatusCode);
             Assert.Equal("/auth/login", dashboard.Headers.Location?.AbsolutePath);
 
-            for (var attempt = 0; attempt < 10; attempt++)
+            using var missingProof = await client.PostAsJsonAsync("/api/client/login", new ClientLoginRequest
             {
+                MachineKey = "inexistente",
+                Login = "cliente",
+                Pin = "0000"
+            });
+            Assert.Equal(HttpStatusCode.Unauthorized, missingProof.StatusCode);
+
+            for (var attempt = 0; attempt < 9; attempt++)
+            {
+                var timestamp = DateTime.UtcNow;
+                var nonce = Guid.NewGuid().ToString("N");
                 using var loginAttempt = await client.PostAsJsonAsync("/api/client/login", new ClientLoginRequest
                 {
                     MachineKey = "inexistente",
                     Login = "cliente",
-                    Pin = "0000"
+                    Pin = "0000",
+                    RequestTimestampUtc = timestamp,
+                    Nonce = nonce,
+                    MachineProof = MachineAuthentication.CreateProof("inexistente", timestamp, nonce, "login")
                 });
                 Assert.Equal(HttpStatusCode.OK, loginAttempt.StatusCode);
             }
