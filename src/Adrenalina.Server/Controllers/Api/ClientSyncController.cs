@@ -5,6 +5,7 @@ using Adrenalina.Server.Infrastructure;
 using System.Net;
 using Adrenalina.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Adrenalina.Server.Controllers.Api;
 
@@ -15,7 +16,8 @@ public sealed class ClientSyncController(
     ICafeManagementService cafeService,
     MachineReplayGuard replayGuard,
     AdrenalinaDbContext db,
-    IWebHostEnvironment environment) : ControllerBase
+    IWebHostEnvironment environment,
+    ILogger<ClientSyncController> logger) : ControllerBase
 {
     private static bool IsProtocolSupported(int version) =>
         version is >= ProtocolContract.MinimumSupportedVersion and <= ProtocolContract.CurrentVersion;
@@ -49,6 +51,9 @@ public sealed class ClientSyncController(
             .FirstOrDefaultAsync(cancellationToken);
         if (machine is null)
         {
+            logger.LogWarning("Client request rejected for unregistered machine during {Operation} from {RemoteIp}.",
+                operation,
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
             return false;
         }
 
@@ -57,8 +62,23 @@ public sealed class ClientSyncController(
             ? MachineAuthentication.DeriveSigningKey(machineKey)
             : credentialHash;
 
-        return MachineAuthentication.VerifyProofWithSigningKey(signingKey, timestampUtc, nonce, operation, proof) &&
-               replayGuard.TryAccept($"{operation}:{machineKey}:{nonce}");
+        if (!MachineAuthentication.VerifyProofWithSigningKey(signingKey, timestampUtc, nonce, operation, proof))
+        {
+            logger.LogWarning("Client request rejected for invalid machine proof during {Operation} from {RemoteIp}.",
+                operation,
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+            return false;
+        }
+
+        if (!replayGuard.TryAccept($"{operation}:{machineKey}:{nonce}"))
+        {
+            logger.LogWarning("Client request rejected as replay during {Operation} from {RemoteIp}.",
+                operation,
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+            return false;
+        }
+
+        return true;
     }
 
     [HttpPost("heartbeat")]
