@@ -41,6 +41,10 @@ public sealed class ServerApiTests
             Assert.Equal(HttpStatusCode.OK, health.StatusCode);
             Assert.Contains("Adrenalina.Server", await health.Content.ReadAsStringAsync());
 
+            using var readiness = await client.GetAsync("/health/ready");
+            Assert.Equal(HttpStatusCode.OK, readiness.StatusCode);
+            Assert.Contains("ready", await readiness.Content.ReadAsStringAsync());
+
             using var dashboard = await client.GetAsync("/dashboard");
             Assert.Equal(HttpStatusCode.Redirect, dashboard.StatusCode);
             Assert.Equal("/auth/login", dashboard.Headers.Location?.AbsolutePath);

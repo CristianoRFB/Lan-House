@@ -169,6 +169,27 @@ public static class AdrenalinaServerBootstrap
             timestampUtc = DateTime.UtcNow
         })).AllowAnonymous();
 
+        app.MapGet("/health/ready", async (ICafeManagementService service, CancellationToken cancellationToken) =>
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(3));
+            try
+            {
+                var integrity = await service.CheckDatabaseIntegrityAsync(timeout.Token);
+                return integrity.Healthy
+                    ? Results.Ok(new { status = "ready", service = "Adrenalina.Server", timestampUtc = DateTime.UtcNow })
+                    : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            }
+            catch
+            {
+                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            }
+        }).AllowAnonymous();
+
         app.MapControllerRoute(
             name: "default",
             pattern: "{controller=Dashboard}/{action=Index}/{id?}");
