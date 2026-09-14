@@ -21,6 +21,7 @@ public sealed class ServerApiTests
             WebRootPath = Path.Combine(root, "wwwroot"),
             DataRootPath = Path.Combine(root, "admin-data"),
             Urls = "http://127.0.0.1:0",
+            EnvironmentName = "Development",
             UseHttpsRedirection = false
         });
 

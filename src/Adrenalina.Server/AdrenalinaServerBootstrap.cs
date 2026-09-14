@@ -21,7 +21,8 @@ public static class AdrenalinaServerBootstrap
             Args = options.Args,
             ApplicationName = typeof(AdrenalinaServerBootstrap).Assembly.FullName,
             ContentRootPath = options.ContentRootPath ?? AppContext.BaseDirectory,
-            WebRootPath = options.WebRootPath ?? Path.Combine(options.ContentRootPath ?? AppContext.BaseDirectory, "wwwroot")
+            WebRootPath = options.WebRootPath ?? Path.Combine(options.ContentRootPath ?? AppContext.BaseDirectory, "wwwroot"),
+            EnvironmentName = options.EnvironmentName
         };
 
         var builder = WebApplication.CreateBuilder(builderOptions);

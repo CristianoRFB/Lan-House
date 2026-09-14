@@ -11,7 +11,11 @@ namespace Adrenalina.Server.Controllers.Api;
 [ApiController]
 [Route("api/client")]
 [EnableRateLimiting("client-api")]
-public sealed class ClientSyncController(ICafeManagementService cafeService, MachineReplayGuard replayGuard, AdrenalinaDbContext db) : ControllerBase
+public sealed class ClientSyncController(
+    ICafeManagementService cafeService,
+    MachineReplayGuard replayGuard,
+    AdrenalinaDbContext db,
+    IWebHostEnvironment environment) : ControllerBase
 {
     private static bool IsProtocolSupported(int version) =>
         version is >= ProtocolContract.MinimumSupportedVersion and <= ProtocolContract.CurrentVersion;
@@ -33,6 +37,7 @@ public sealed class ClientSyncController(ICafeManagementService cafeService, Mac
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(proof) &&
+            environment.IsDevelopment() &&
             HttpContext.Connection.RemoteIpAddress is { } address && IPAddress.IsLoopback(address))
         {
             return true;
