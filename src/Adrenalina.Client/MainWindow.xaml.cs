@@ -414,9 +414,9 @@ public partial class MainWindow : Window
             ? machineName.ToLowerInvariant().Replace(' ', '-')
             : machineKeyInput.Trim().ToLowerInvariant();
 
-        if (machineName.Length > 100 || machineKey.Length > 100)
+        if (machineName.Length > 100 || machineKey.Length < 16 || machineKey.Length > 100)
         {
-            message = "Nome e chave da máquina devem ter no máximo 100 caracteres.";
+            message = "O nome deve ter no máximo 100 caracteres e a chave entre 16 e 100 caracteres.";
             return false;
         }
 

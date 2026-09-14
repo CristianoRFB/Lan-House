@@ -363,9 +363,9 @@ public sealed class CafeManagementService(
             return new OperationResult(false, "Informe nome e chave da máquina.");
         }
 
-        if (machineKey.Length > 100 || name.Length > 100)
+        if (machineKey.Length < 16 || machineKey.Length > 100 || name.Length > 100)
         {
-            return new OperationResult(false, "Nome e chave devem ter no máximo 100 caracteres.");
+            return new OperationResult(false, "A chave da máquina deve ter entre 16 e 100 caracteres.");
         }
 
         if (!Enum.IsDefined(request.Kind))

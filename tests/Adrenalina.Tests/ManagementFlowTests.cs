@@ -68,7 +68,7 @@ public sealed class ManagementFlowTests
         var result = await environment.RunAsync(service => service.UpsertMachineAsync(new MachineUpsertRequest
         {
             Name = "PC-TESTE",
-            MachineKey = "pc-teste-chave",
+            MachineKey = "pc-teste-chave-01",
             Kind = MachineKind.Pc,
             GroupName = "Laboratorio"
         }, adminId));
@@ -76,7 +76,7 @@ public sealed class ManagementFlowTests
 
         var machines = await environment.RunAsync(service => service.GetMachinesAsync());
         var machine = Assert.Single(machines);
-        Assert.Equal("pc-teste-chave", machine.MachineKey);
+        Assert.Equal("pc-teste-chave-01", machine.MachineKey);
 
         var heartbeat = await environment.RunAsync(service => service.SyncClientHeartbeatAsync(new ClientHeartbeatRequest
         {
@@ -102,7 +102,7 @@ public sealed class ManagementFlowTests
 
         var login = await environment.RunAsync(service => service.LoginClientAsync(new ClientLoginRequest
         {
-            MachineKey = "pc-fluxo-chave",
+            MachineKey = "pc-fluxo-chave-01",
             Login = "cliente",
             Pin = "2222"
         }));
@@ -135,7 +135,7 @@ public sealed class ManagementFlowTests
         var (adminId, _) = await PrepareMachineAndCreditAsync(environment);
         var login = await environment.RunAsync(service => service.LoginClientAsync(new ClientLoginRequest
         {
-            MachineKey = "pc-fluxo-chave",
+            MachineKey = "pc-fluxo-chave-01",
             Login = "cliente",
             Pin = "2222"
         }));
@@ -143,7 +143,7 @@ public sealed class ManagementFlowTests
 
         var sent = await environment.RunAsync(service => service.SubmitClientRequestsAsync(new ClientRequestBatchRequest
         {
-            MachineKey = "pc-fluxo-chave",
+            MachineKey = "pc-fluxo-chave-01",
             Requests =
             [
                 new ClientShellRequest { Type = ClientRequestType.MoreTime, Login = "cliente", Amount = 15 },
@@ -183,7 +183,7 @@ public sealed class ManagementFlowTests
         var requestId = Guid.NewGuid();
         var batch = new ClientRequestBatchRequest
         {
-            MachineKey = "pc-fluxo-chave",
+            MachineKey = "pc-fluxo-chave-01",
             Requests =
             [
                 new ClientShellRequest
@@ -237,7 +237,7 @@ public sealed class ManagementFlowTests
             },
             adminId))).Success);
 
-        var heartbeat = new ClientHeartbeatRequest { MachineKey = "pc-fluxo-chave", Status = MachineStatus.Idle };
+        var heartbeat = new ClientHeartbeatRequest { MachineKey = "pc-fluxo-chave-01", Status = MachineStatus.Idle };
         var first = await environment.RunAsync(service => service.SyncClientHeartbeatAsync(heartbeat));
         var second = await environment.RunAsync(service => service.SyncClientHeartbeatAsync(heartbeat));
         Assert.Single(first.Commands);
@@ -245,7 +245,7 @@ public sealed class ManagementFlowTests
 
         var acknowledged = await environment.RunAsync(service => service.SyncClientHeartbeatAsync(new ClientHeartbeatRequest
         {
-            MachineKey = "pc-fluxo-chave",
+            MachineKey = "pc-fluxo-chave-01",
             Status = MachineStatus.Idle,
             AcknowledgedCommandIds = [first.Commands.Single().Id]
         }));
@@ -320,7 +320,7 @@ public sealed class ManagementFlowTests
         Assert.True((await environment.RunAsync(service => service.UpsertMachineAsync(new MachineUpsertRequest
         {
             Name = "PC-FLUXO",
-            MachineKey = "pc-fluxo-chave",
+            MachineKey = "pc-fluxo-chave-01",
             Kind = MachineKind.Pc
         }, adminId))).Success);
         Assert.True((await environment.RunAsync(service => service.AddLedgerEntryAsync(new LedgerEntryRequest
