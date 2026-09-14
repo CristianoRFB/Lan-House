@@ -41,6 +41,9 @@ public sealed class ServerApiTests
             using var health = await client.GetAsync("/health");
             Assert.Equal(HttpStatusCode.OK, health.StatusCode);
             Assert.Contains("Adrenalina.Server", await health.Content.ReadAsStringAsync());
+            Assert.Equal("nosniff", health.Headers.GetValues("X-Content-Type-Options").Single());
+            Assert.Equal("DENY", health.Headers.GetValues("X-Frame-Options").Single());
+            Assert.Equal("no-referrer", health.Headers.GetValues("Referrer-Policy").Single());
 
             using var readiness = await client.GetAsync("/health/ready");
             Assert.Equal(HttpStatusCode.OK, readiness.StatusCode);

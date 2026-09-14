@@ -159,6 +159,13 @@ public static class AdrenalinaServerBootstrap
 
         app.UseStaticFiles();
         app.UseRouting();
+        app.Use(async (context, next) =>
+        {
+            context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            context.Response.Headers["X-Frame-Options"] = "DENY";
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            await next();
+        });
         app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
