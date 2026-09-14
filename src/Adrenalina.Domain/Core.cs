@@ -261,6 +261,8 @@ public sealed class ClientRequestRecord : Entity
 public sealed class BackupSnapshot : Entity
 {
     public string FolderPath { get; set; } = string.Empty;
+    public string Sha256 { get; set; } = string.Empty;
+    public long SizeBytes { get; set; }
     public bool Succeeded { get; set; }
     public string Summary { get; set; } = string.Empty;
     public DateTime ExecutedAtUtc { get; set; } = DateTime.UtcNow;

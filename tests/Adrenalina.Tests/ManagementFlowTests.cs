@@ -324,9 +324,13 @@ public sealed class ManagementFlowTests
         Assert.True(result.Success, result.Message);
         var backup = Assert.Single(Directory.GetFiles(Path.Combine(environment.RootPath, "backups"), "*.db"));
         var header = new byte[15];
-        await using var stream = File.OpenRead(backup);
-        _ = await stream.ReadAsync(header);
+        await using (var stream = File.OpenRead(backup))
+        {
+            _ = await stream.ReadAsync(header);
+        }
         Assert.Equal("SQLite format 3", System.Text.Encoding.ASCII.GetString(header));
+        var validation = await environment.RunAsync(service => service.ValidateBackupAsync(backup));
+        Assert.True(validation.Valid, validation.Detail);
     }
 
     private static async Task<Guid> GetAdminIdAsync(TestEnvironment environment) =>

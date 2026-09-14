@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Security.Cryptography;
 using Adrenalina.Application;
 using Adrenalina.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -834,7 +835,7 @@ public sealed class CafeManagementService(
 
         try
         {
-            await using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={candidate};Mode=ReadOnly;Cache=Private");
+            await using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={candidate};Mode=ReadOnly;Cache=Private;Pooling=False");
             await connection.OpenAsync(cancellationToken);
             await using var command = connection.CreateCommand();
             command.CommandText = "PRAGMA integrity_check;";
@@ -1325,11 +1326,16 @@ public sealed class CafeManagementService(
             }
 
             await db.Database.ExecuteSqlInterpolatedAsync($"VACUUM INTO {destination}", cancellationToken);
+            var fileInfo = new FileInfo(destination);
+            await using var backupStream = File.OpenRead(destination);
+            var checksum = Convert.ToHexString(await SHA256.HashDataAsync(backupStream, cancellationToken));
             CleanupOldBackups(settings.BackupRetentionDays);
 
             var snapshot = new BackupSnapshot
             {
                 FolderPath = destination,
+                Sha256 = checksum,
+                SizeBytes = fileInfo.Length,
                 Succeeded = true,
                 Summary = "Backup manual concluído.",
                 ExecutedAtUtc = DateTime.UtcNow

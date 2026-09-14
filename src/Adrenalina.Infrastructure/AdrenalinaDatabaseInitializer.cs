@@ -104,6 +104,16 @@ public sealed class AdrenalinaDatabaseInitializer(
                 await ExecuteAsync(connection, "ALTER TABLE Machines ADD COLUMN MachineCredentialHash TEXT NOT NULL DEFAULT '';", cancellationToken);
             }
 
+            if (!await ColumnExistsAsync(connection, "Backups", "Sha256", cancellationToken))
+            {
+                await ExecuteAsync(connection, "ALTER TABLE Backups ADD COLUMN Sha256 TEXT NOT NULL DEFAULT '';", cancellationToken);
+            }
+
+            if (!await ColumnExistsAsync(connection, "Backups", "SizeBytes", cancellationToken))
+            {
+                await ExecuteAsync(connection, "ALTER TABLE Backups ADD COLUMN SizeBytes INTEGER NOT NULL DEFAULT 0;", cancellationToken);
+            }
+
             await ExecuteAsync(connection, "PRAGMA journal_mode=WAL;", cancellationToken);
             await ExecuteAsync(connection, "PRAGMA synchronous=NORMAL;", cancellationToken);
             await ExecuteAsync(connection, "CREATE INDEX IF NOT EXISTS IX_Machines_LastSeenUtc ON Machines (LastSeenUtc);", cancellationToken);
