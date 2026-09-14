@@ -5,6 +5,12 @@ using Adrenalina.Domain;
 
 namespace Adrenalina.Application;
 
+public static class ProtocolContract
+{
+    public const int CurrentVersion = 1;
+    public const int MinimumSupportedVersion = 1;
+}
+
 public sealed record OperationResult(bool Success, string Message);
 
 public sealed record AuthenticatedAdmin(Guid Id, string Login, string DisplayName, UserProfileType ProfileType);
@@ -238,6 +244,7 @@ public sealed record FileExportResult(string FileName, string ContentType, byte[
 
 public sealed class ClientHeartbeatRequest
 {
+    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
     public string Hostname { get; init; } = string.Empty;
     public string IpAddress { get; init; } = string.Empty;
@@ -259,6 +266,7 @@ public sealed class ClientHeartbeatResponse
 
 public sealed class ClientLoginRequest
 {
+    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
     public string Login { get; init; } = string.Empty;
     public string Pin { get; init; } = string.Empty;
@@ -273,6 +281,7 @@ public sealed class ClientLoginResponse
 
 public sealed class ClientRequestBatchRequest
 {
+    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
     public IReadOnlyList<ClientShellRequest> Requests { get; init; } = [];
 }

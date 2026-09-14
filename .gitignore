@@ -2,3 +2,10 @@
 **/bin/
 **/obj/
 **/artifacts/
+
+# Runtime output and local operational data.
+*.log
+**/data/*.db
+**/data/*.db-shm
+**/data/*.db-wal
+**/backups/

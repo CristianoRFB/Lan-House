@@ -44,10 +44,16 @@ public static class AdrenalinaServerBootstrap
         if (!string.IsNullOrWhiteSpace(options.Urls))
         {
             builder.WebHost.UseUrls(options.Urls);
-            if (!options.Urls.Contains("0.0.0.0", StringComparison.OrdinalIgnoreCase) &&
-                !options.Urls.Contains('*') && !options.Urls.Contains('+'))
+            var listensOnAllInterfaces = options.Urls.Contains("0.0.0.0", StringComparison.OrdinalIgnoreCase) ||
+                                         options.Urls.Contains('*') || options.Urls.Contains('+');
+            if (!listensOnAllInterfaces)
             {
                 builder.Configuration["AllowedHosts"] = "localhost;127.0.0.1";
+            }
+            else
+            {
+                // A LAN só é habilitada por opt-in explícito do Admin.
+                builder.Configuration["AllowedHosts"] = "*";
             }
         }
 

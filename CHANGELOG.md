@@ -6,6 +6,10 @@ Todas as alterações relevantes deste projeto serão documentadas neste arquivo
 
 ### Segurança
 
+- removidos do índice artefatos de build, logs e banco de runtime; adicionada proteção no `.gitignore`;
+- adicionada versão explícita ao contrato Client/Server e rejeição de versões incompatíveis;
+- criada a fronteira `IStationEnforcementService` com provider seguro no-op para desenvolvimento e validação futura autorizada;
+- restringido `AllowedHosts` por padrão, com wildcard somente quando o binding LAN é explicitamente habilitado;
 - atualizadas e centralizadas as dependências .NET;
 - substituído o SQLite nativo embutido vulnerável pelo `winsqlite3` atualizado pelo Windows;
 - adicionados rate limiting por IP, limites de corpo/cabeçalho e timeouts HTTP;

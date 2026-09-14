@@ -35,6 +35,7 @@ public static class ClientHostFactory
             RequestQueueFilePath = Path.Combine(machineDirectory, "client-requests.json")
         });
         services.AddSingleton<IClientRuntimeStore, JsonClientRuntimeStore>();
+        services.AddSingleton<IStationEnforcementService, SafeNoOpStationEnforcementService>();
         services.AddHttpClient(
             "adrenalina-server",
             client =>
