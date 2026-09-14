@@ -119,6 +119,35 @@ public sealed class ClientIsolationTests
         }
     }
 
+    [Fact]
+    public async Task CorruptRequestQueueIsPreservedAndNewRequestCanBeEnqueued()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "Adrenalina.Tests", Guid.NewGuid().ToString("N"));
+        var queuePath = Path.Combine(root, "requests.json");
+        try
+        {
+            Directory.CreateDirectory(root);
+            await File.WriteAllTextAsync(queuePath, "{fila-invalida");
+            var store = new JsonClientRuntimeStore(new LocalClientStoragePaths
+            {
+                StateFilePath = Path.Combine(root, "state.json"),
+                RequestQueueFilePath = queuePath
+            });
+
+            await store.EnqueueRequestAsync(new ClientShellRequest { Type = Adrenalina.Domain.ClientRequestType.MoreTime });
+
+            Assert.Single(await store.DrainRequestsAsync());
+            Assert.Single(Directory.GetFiles(root, "requests.json.corrupt-*"));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private sealed class FixedHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new();

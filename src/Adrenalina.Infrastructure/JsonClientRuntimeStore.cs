@@ -104,8 +104,15 @@ public sealed class JsonClientRuntimeStore(LocalClientStoragePaths paths) : ICli
             List<ClientShellRequest> items = [];
             if (File.Exists(paths.RequestQueueFilePath))
             {
-                var json = await File.ReadAllTextAsync(paths.RequestQueueFilePath, cancellationToken);
-                items = JsonSerializer.Deserialize<List<ClientShellRequest>>(json, JsonDefaults.Options) ?? [];
+                try
+                {
+                    var json = await File.ReadAllTextAsync(paths.RequestQueueFilePath, cancellationToken);
+                    items = JsonSerializer.Deserialize<List<ClientShellRequest>>(json, JsonDefaults.Options) ?? [];
+                }
+                catch (JsonException)
+                {
+                    PreserveCorruptFile(paths.RequestQueueFilePath);
+                }
             }
 
             items.Add(request);
