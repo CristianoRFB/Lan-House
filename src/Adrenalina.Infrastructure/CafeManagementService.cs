@@ -822,6 +822,34 @@ public sealed class CafeManagementService(
         }
     }
 
+    public async Task<BackupValidationResult> ValidateBackupAsync(string backupPath, CancellationToken cancellationToken = default)
+    {
+        var backupRoot = Path.GetFullPath(storagePaths.BackupDirectory) + Path.DirectorySeparatorChar;
+        var candidate = Path.GetFullPath(backupPath ?? string.Empty);
+        if (!candidate.StartsWith(backupRoot, StringComparison.OrdinalIgnoreCase) ||
+            !candidate.EndsWith(".db", StringComparison.OrdinalIgnoreCase) || !File.Exists(candidate))
+        {
+            return new BackupValidationResult(false, "O arquivo de backup não está em uma localização permitida.", DateTime.UtcNow);
+        }
+
+        try
+        {
+            await using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={candidate};Mode=ReadOnly;Cache=Private");
+            await connection.OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA integrity_check;";
+            var detail = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken)) ?? "";
+            return new BackupValidationResult(
+                string.Equals(detail, "ok", StringComparison.OrdinalIgnoreCase),
+                detail,
+                DateTime.UtcNow);
+        }
+        catch (Exception exception) when (exception is Microsoft.Data.Sqlite.SqliteException or IOException)
+        {
+            return new BackupValidationResult(false, "Não foi possível abrir ou validar o backup.", DateTime.UtcNow);
+        }
+    }
+
     public async Task<FileExportResult?> ExportReportAsync(ReportFilterRequest request, CancellationToken cancellationToken = default)
     {
         var start = request.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();

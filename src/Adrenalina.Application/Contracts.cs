@@ -54,6 +54,7 @@ public static class MachineAuthentication
 public sealed record OperationResult(bool Success, string Message);
 
 public sealed record DatabaseIntegrityResult(bool Healthy, string Detail, DateTime CheckedAtUtc);
+public sealed record BackupValidationResult(bool Valid, string Detail, DateTime CheckedAtUtc);
 
 public sealed record AuthenticatedAdmin(Guid Id, string Login, string DisplayName, UserProfileType ProfileType);
 
@@ -424,6 +425,7 @@ public interface ICafeManagementService
     Task<ClientLoginResponse> LoginClientAsync(ClientLoginRequest request, CancellationToken cancellationToken = default);
     Task<OperationResult> SubmitClientRequestsAsync(ClientRequestBatchRequest request, CancellationToken cancellationToken = default);
     Task<DatabaseIntegrityResult> CheckDatabaseIntegrityAsync(CancellationToken cancellationToken = default);
+    Task<BackupValidationResult> ValidateBackupAsync(string backupPath, CancellationToken cancellationToken = default);
     Task RunMaintenanceTickAsync(CancellationToken cancellationToken = default);
 }
 

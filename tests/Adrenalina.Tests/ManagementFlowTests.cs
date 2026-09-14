@@ -15,6 +15,16 @@ public sealed class ManagementFlowTests
         Assert.True(result.Healthy);
         Assert.Equal("ok", result.Detail, ignoreCase: true);
     }
+
+    [Fact]
+    public async Task BackupValidationRejectsPathsOutsideBackupDirectory()
+    {
+        await using var environment = await TestEnvironment.CreateAsync();
+
+        var result = await environment.RunAsync(service => service.ValidateBackupAsync(Path.Combine(environment.RootPath, "outside.db")));
+
+        Assert.False(result.Valid);
+    }
     [Fact]
     public async Task DatabaseCreationAndSeedAreIdempotent()
     {
