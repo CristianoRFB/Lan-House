@@ -59,7 +59,7 @@
                 <span class="status-pill">@machine.Status</span>
             </div>
             <p class="small text-secondary">@machine.Observations</p>
-            <p class="small">Chave do cliente: <code>@machine.MachineKey</code></p>
+            <p class="small">Chave do cliente: <code aria-label="chave protegida">************</code></p>
             <p class="small">Último contato: @(machine.LastSeenUtc.HasValue ? machine.LastSeenUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") : "ainda não conectado")</p>
             <a asp-action="Index" asp-route-editId="@machine.Id" class="btn btn-outline-light btn-sm mb-3">Editar cadastro</a>
 

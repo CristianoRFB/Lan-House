@@ -36,4 +36,14 @@ public sealed class SecurityTests
         Assert.False(MachineAuthentication.VerifyProof("machine-secret", timestamp, nonce, "login", proof));
         Assert.False(MachineAuthentication.VerifyProof("machine-secret", timestamp.AddMinutes(-3), nonce, "heartbeat", proof));
     }
+
+    [Fact]
+    public void MachineReplayGuardAcceptsNonceOnlyOnce()
+    {
+        var guard = new Adrenalina.Server.Infrastructure.MachineReplayGuard();
+        var nonce = Guid.NewGuid().ToString("N");
+
+        Assert.True(guard.TryAccept(nonce));
+        Assert.False(guard.TryAccept(nonce));
+    }
 }
