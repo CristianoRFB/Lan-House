@@ -86,6 +86,10 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
                     StartupMessage = UsedFallbackPort
                         ? $"A porta {DefaultPort} estava ocupada. O ADMIN iniciou na porta {_currentPort} nesta execucao."
                         : $"Servidor local iniciado na porta {_currentPort}.";
+                    if (_listenOnLocalNetwork)
+                    {
+                        StartupMessage += " LAN ativa em HTTP; configure HTTPS com certificado antes de expor a uma rede nao confiavel.";
+                    }
                     return;
                 }
                 catch (Exception exception) when (AdminPortResolver.IsAddressInUse(exception))
