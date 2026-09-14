@@ -246,7 +246,16 @@ public sealed class ClientServerGateway(
 
             foreach (var item in queuedRequests)
             {
-                await runtimeStore.EnqueueRequestAsync(item, cancellationToken);
+                try
+                {
+                    // The request was drained before the network call. Restore it even when
+                    // the transport cancellation token has already been signaled.
+                    await runtimeStore.EnqueueRequestAsync(item, CancellationToken.None);
+                }
+                catch (Exception restoreException)
+                {
+                    logger.LogError(restoreException, "Não foi possível restaurar uma solicitação pendente na fila local.");
+                }
             }
 
             var current = await runtimeStore.LoadStateAsync(cancellationToken);
