@@ -160,6 +160,7 @@ public sealed class UserAccount : Entity
 public sealed class Machine : Entity
 {
     public string MachineKey { get; set; } = Guid.NewGuid().ToString("N");
+    public string MachineCredentialHash { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Hostname { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;

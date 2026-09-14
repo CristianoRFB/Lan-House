@@ -398,6 +398,7 @@ public sealed class CafeManagementService(
         }
 
         machine.MachineKey = machineKey;
+        machine.MachineCredentialHash = MachineAuthentication.DeriveSigningKey(machineKey);
         machine.Name = name;
         machine.Kind = request.Kind;
         machine.GroupName = TextSanitizer.Normalize(request.GroupName);

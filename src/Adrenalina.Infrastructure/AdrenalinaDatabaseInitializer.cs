@@ -99,6 +99,11 @@ public sealed class AdrenalinaDatabaseInitializer(
                 await ExecuteAsync(connection, "ALTER TABLE Users ADD COLUMN LockedUntilUtc TEXT NULL;", cancellationToken);
             }
 
+            if (!await ColumnExistsAsync(connection, "Machines", "MachineCredentialHash", cancellationToken))
+            {
+                await ExecuteAsync(connection, "ALTER TABLE Machines ADD COLUMN MachineCredentialHash TEXT NOT NULL DEFAULT '';", cancellationToken);
+            }
+
             await ExecuteAsync(connection, "PRAGMA journal_mode=WAL;", cancellationToken);
             await ExecuteAsync(connection, "PRAGMA synchronous=NORMAL;", cancellationToken);
             await ExecuteAsync(connection, "CREATE INDEX IF NOT EXISTS IX_Machines_LastSeenUtc ON Machines (LastSeenUtc);", cancellationToken);

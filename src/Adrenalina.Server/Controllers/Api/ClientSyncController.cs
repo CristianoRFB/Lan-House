@@ -3,13 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Adrenalina.Server.Infrastructure;
 using System.Net;
+using Adrenalina.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 namespace Adrenalina.Server.Controllers.Api;
 
 [ApiController]
 [Route("api/client")]
 [EnableRateLimiting("client-api")]
-public sealed class ClientSyncController(ICafeManagementService cafeService, MachineReplayGuard replayGuard) : ControllerBase
+public sealed class ClientSyncController(ICafeManagementService cafeService, MachineReplayGuard replayGuard, AdrenalinaDbContext db) : ControllerBase
 {
     private static bool IsProtocolSupported(int version) =>
         version is >= ProtocolContract.MinimumSupportedVersion and <= ProtocolContract.CurrentVersion;
@@ -30,7 +32,15 @@ public sealed class ClientSyncController(ICafeManagementService cafeService, Mac
             return true;
         }
 
-        return MachineAuthentication.VerifyProof(machineKey, timestampUtc, nonce, operation, proof) &&
+        var credentialHash = db.Machines.AsNoTracking()
+            .Where(machine => machine.MachineKey == machineKey)
+            .Select(machine => machine.MachineCredentialHash)
+            .FirstOrDefault();
+        var signingKey = string.IsNullOrWhiteSpace(credentialHash)
+            ? MachineAuthentication.DeriveSigningKey(machineKey)
+            : credentialHash;
+
+        return MachineAuthentication.VerifyProofWithSigningKey(signingKey, timestampUtc, nonce, operation, proof) &&
                replayGuard.TryAccept($"{operation}:{machineKey}:{nonce}");
     }
 

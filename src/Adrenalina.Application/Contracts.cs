@@ -13,16 +13,25 @@ public static class ProtocolContract
 
 public static class MachineAuthentication
 {
+    public static string DeriveSigningKey(string machineSecret) =>
+        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(machineSecret)));
+
     public static string CreateProof(string machineKey, DateTime timestampUtc, string nonce, string operation)
+        => CreateProofWithSigningKey(DeriveSigningKey(machineKey), timestampUtc, nonce, operation);
+
+    public static string CreateProofWithSigningKey(string signingKey, DateTime timestampUtc, string nonce, string operation)
     {
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(machineKey));
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(signingKey));
         var payload = $"{operation}\n{timestampUtc.Ticks}\n{nonce}";
         return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
     }
 
     public static bool VerifyProof(string machineKey, DateTime timestampUtc, string nonce, string operation, string proof)
+        => VerifyProofWithSigningKey(DeriveSigningKey(machineKey), timestampUtc, nonce, operation, proof);
+
+    public static bool VerifyProofWithSigningKey(string signingKey, DateTime timestampUtc, string nonce, string operation, string proof)
     {
-        if (string.IsNullOrWhiteSpace(machineKey) || string.IsNullOrWhiteSpace(nonce) ||
+        if (string.IsNullOrWhiteSpace(signingKey) || string.IsNullOrWhiteSpace(nonce) ||
             string.IsNullOrWhiteSpace(proof) || nonce.Length > 100 || proof.Length > 200 ||
             timestampUtc.Kind != DateTimeKind.Utc || Math.Abs((DateTime.UtcNow - timestampUtc).TotalMinutes) > 2)
         {
@@ -31,7 +40,7 @@ public static class MachineAuthentication
 
         try
         {
-            var expected = Convert.FromBase64String(CreateProof(machineKey, timestampUtc, nonce, operation));
+            var expected = Convert.FromBase64String(CreateProofWithSigningKey(signingKey, timestampUtc, nonce, operation));
             var supplied = Convert.FromBase64String(proof);
             return CryptographicOperations.FixedTimeEquals(expected, supplied);
         }
