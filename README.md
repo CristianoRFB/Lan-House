@@ -199,7 +199,7 @@ Não é necessário instalar WebView2 para usar o Admin: o navegador padrão é 
 - o protocolo Client/Server possui versão explícita e rejeita versões incompatíveis;
 - o bloqueio da estação é uma representação visual, não um recurso de segurança do Windows;
 - não há recuperação automática de senha; proteja o arquivo de acesso inicial, o banco e os backups;
-- o protocolo de LAN usa HTTP e a chave da máquina ainda não é uma credencial criptográfica;
+- o protocolo de LAN usa HTTP no servidor embutido por padrão; a autenticação da máquina usa prova HMAC com nonce e janela temporal, mas HTTPS exige certificado externo configurado;
 - não existe pipeline formal de migrations/rollback nem restauração guiada;
 - arquivos gerados antigos (`bin`, `obj`, logs e banco de demonstração) ainda podem existir em históricos anteriores do repositório, embora `.gitignore` impeça novas inclusões comuns;
 Não execute instaladores ou ferramentas externas de controle da estação em computadores institucionais.
