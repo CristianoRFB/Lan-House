@@ -26,6 +26,15 @@ public static class AdrenalinaServerBootstrap
 
         var builder = WebApplication.CreateBuilder(builderOptions);
 
+        var certificatePath = builder.Configuration["Kestrel:Certificates:Default:Path"];
+        var certificatePassword = builder.Configuration["Kestrel:Certificates:Default:Password"];
+        var usesHttps = options.Urls?.Contains("https://", StringComparison.OrdinalIgnoreCase) == true;
+        if (usesHttps && string.IsNullOrWhiteSpace(certificatePath))
+        {
+            throw new InvalidOperationException(
+                "Um binding HTTPS exige Kestrel:Certificates:Default:Path configurado fora do repositorio.");
+        }
+
         // O servidor embutido precisa rodar sem depender de acesso ao Event Log do Windows.
         builder.Logging.ClearProviders();
         builder.Logging.AddSimpleConsole();
@@ -119,6 +128,16 @@ public static class AdrenalinaServerBootstrap
 
         builder.WebHost.ConfigureKestrel(kestrelOptions =>
         {
+            if (!string.IsNullOrWhiteSpace(certificatePath))
+            {
+                kestrelOptions.ConfigureHttpsDefaults(httpsOptions =>
+                {
+                    httpsOptions.ServerCertificate = new System.Security.Cryptography.X509Certificates.X509Certificate2(
+                        certificatePath,
+                        certificatePassword);
+                });
+            }
+
             kestrelOptions.Limits.MaxRequestBodySize = 64 * 1024;
             kestrelOptions.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(10);
             kestrelOptions.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(30);

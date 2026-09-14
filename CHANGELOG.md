@@ -8,6 +8,7 @@ Todas as alterações relevantes deste projeto serão documentadas neste arquivo
 
 - removidos do índice artefatos de build, logs e banco de runtime; adicionada proteção no `.gitignore`;
 - adicionada versão explícita ao contrato Client/Server e rejeição de versões incompatíveis;
+- adicionado carregamento de certificado Kestrel por configuração externa e bloqueio de binding HTTPS sem certificado;
 - criada a fronteira `IStationEnforcementService` com provider seguro no-op para desenvolvimento e validação futura autorizada;
 - restringido `AllowedHosts` por padrão, com wildcard somente quando o binding LAN é explicitamente habilitado;
 - atualizadas e centralizadas as dependências .NET;

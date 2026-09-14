@@ -195,6 +195,7 @@ Não é necessário instalar WebView2 para usar o Admin: o navegador padrão é 
 ## Limitações conhecidas
 
 - a rede local depende da rede e das políticas já existentes; o sistema não altera firewall;
+- para produção HTTPS, configure `Kestrel:Certificates:Default:Path` e a senha por segredo do ambiente; o certificado não deve ser commitado;
 - o protocolo Client/Server possui versão explícita e rejeita versões incompatíveis;
 - o bloqueio da estação é uma representação visual, não um recurso de segurança do Windows;
 - não há recuperação automática de senha; proteja o arquivo de acesso inicial, o banco e os backups;
