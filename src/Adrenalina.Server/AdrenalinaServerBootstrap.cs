@@ -74,6 +74,7 @@ public static class AdrenalinaServerBootstrap
                 cookieOptions.Cookie.SameSite = SameSiteMode.Strict;
                 cookieOptions.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
                 cookieOptions.SlidingExpiration = true;
+                cookieOptions.ExpireTimeSpan = TimeSpan.FromHours(8);
             });
 
         builder.Services.AddAuthorization();

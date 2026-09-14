@@ -255,6 +255,7 @@ public sealed class ClientHeartbeatRequest
 
 public sealed class ClientHeartbeatResponse
 {
+    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public bool Success { get; init; } = true;
     public string Message { get; init; } = string.Empty;
     public Guid MachineId { get; init; }
@@ -274,6 +275,7 @@ public sealed class ClientLoginRequest
 
 public sealed class ClientLoginResponse
 {
+    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public bool Success { get; init; }
     public string Message { get; init; } = string.Empty;
     public ClientRuntimeState RuntimeState { get; init; } = new();
