@@ -794,6 +794,34 @@ public sealed class CafeManagementService(
                 : $"Falha ao gerar backup manual: {snapshot.Summary}");
     }
 
+    public async Task<DatabaseIntegrityResult> CheckDatabaseIntegrityAsync(CancellationToken cancellationToken = default)
+    {
+        var connection = db.Database.GetDbConnection();
+        var shouldClose = connection.State != System.Data.ConnectionState.Open;
+        if (shouldClose)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA integrity_check;";
+            var detail = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken)) ?? "";
+            return new DatabaseIntegrityResult(
+                string.Equals(detail, "ok", StringComparison.OrdinalIgnoreCase),
+                detail,
+                DateTime.UtcNow);
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
+    }
+
     public async Task<FileExportResult?> ExportReportAsync(ReportFilterRequest request, CancellationToken cancellationToken = default)
     {
         var start = request.StartDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();

@@ -53,6 +53,8 @@ public static class MachineAuthentication
 
 public sealed record OperationResult(bool Success, string Message);
 
+public sealed record DatabaseIntegrityResult(bool Healthy, string Detail, DateTime CheckedAtUtc);
+
 public sealed record AuthenticatedAdmin(Guid Id, string Login, string DisplayName, UserProfileType ProfileType);
 
 public sealed class DashboardDto
@@ -421,6 +423,7 @@ public interface ICafeManagementService
     Task<ClientHeartbeatResponse> SyncClientHeartbeatAsync(ClientHeartbeatRequest request, CancellationToken cancellationToken = default);
     Task<ClientLoginResponse> LoginClientAsync(ClientLoginRequest request, CancellationToken cancellationToken = default);
     Task<OperationResult> SubmitClientRequestsAsync(ClientRequestBatchRequest request, CancellationToken cancellationToken = default);
+    Task<DatabaseIntegrityResult> CheckDatabaseIntegrityAsync(CancellationToken cancellationToken = default);
     Task RunMaintenanceTickAsync(CancellationToken cancellationToken = default);
 }
 

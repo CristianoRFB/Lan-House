@@ -6,6 +6,16 @@ namespace Adrenalina.Tests;
 public sealed class ManagementFlowTests
 {
     [Fact]
+    public async Task DatabaseIntegrityCheckReturnsHealthyForFreshDatabase()
+    {
+        await using var environment = await TestEnvironment.CreateAsync();
+
+        var result = await environment.RunAsync(service => service.CheckDatabaseIntegrityAsync());
+
+        Assert.True(result.Healthy);
+        Assert.Equal("ok", result.Detail, ignoreCase: true);
+    }
+    [Fact]
     public async Task DatabaseCreationAndSeedAreIdempotent()
     {
         await using var environment = await TestEnvironment.CreateAsync();
