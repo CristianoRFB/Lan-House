@@ -43,10 +43,16 @@ public sealed class ClientSyncController(
             return true;
         }
 
-        var credentialHash = await db.Machines.AsNoTracking()
+        var machine = await db.Machines.AsNoTracking()
             .Where(machine => machine.MachineKey == machineKey)
-            .Select(machine => machine.MachineCredentialHash)
+            .Select(machine => new { machine.MachineCredentialHash })
             .FirstOrDefaultAsync(cancellationToken);
+        if (machine is null)
+        {
+            return false;
+        }
+
+        var credentialHash = machine.MachineCredentialHash;
         var signingKey = string.IsNullOrWhiteSpace(credentialHash)
             ? MachineAuthentication.DeriveSigningKey(machineKey)
             : credentialHash;

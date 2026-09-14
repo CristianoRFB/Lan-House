@@ -71,7 +71,7 @@ public sealed class ServerApiTests
                     Nonce = nonce,
                     MachineProof = MachineAuthentication.CreateProof("inexistente", timestamp, nonce, "login")
                 });
-                Assert.Equal(HttpStatusCode.OK, loginAttempt.StatusCode);
+                Assert.Equal(HttpStatusCode.Unauthorized, loginAttempt.StatusCode);
             }
 
             using var limitedAttempt = await client.PostAsJsonAsync("/api/client/login", new ClientLoginRequest
