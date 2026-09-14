@@ -540,6 +540,7 @@ public sealed class CafeManagementService(
 
     public async Task<OperationResult> AdjustSessionAsync(SessionAdjustRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var session = await db.Sessions.FirstOrDefaultAsync(entry => entry.Id == request.SessionId, cancellationToken);
         if (session is null)
         {
@@ -581,12 +582,14 @@ public sealed class CafeManagementService(
 
             if (!ledgerResult.Success)
             {
+                await transaction.RollbackAsync(cancellationToken);
                 return ledgerResult;
             }
         }
 
         await LogAsync("Sessao", "Ajuste", actorUserId, session.MachineId, session.UserAccountId, $"Sessão ajustada com {request.AdditionalMinutes} minutos extras.", cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return new OperationResult(true, "Sessão ajustada.");
     }
 
