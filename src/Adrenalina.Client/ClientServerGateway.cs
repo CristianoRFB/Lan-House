@@ -52,11 +52,15 @@ public sealed class ClientServerGateway(
 
         try
         {
+            var (loginTimestamp, loginNonce, loginProof) = CreateMachineProof("login");
             var response = await client.PostAsJsonAsync(
                 "api/client/login",
                 new ClientLoginRequest
                 {
                     MachineKey = options.MachineKey,
+                    RequestTimestampUtc = loginTimestamp,
+                    Nonce = loginNonce,
+                    MachineProof = loginProof,
                     Login = login,
                     Pin = pin
                 },
@@ -181,11 +185,7 @@ public sealed class ClientServerGateway(
             {
                 var requestResponse = await client.PostAsJsonAsync(
                     "api/client/requests",
-                    new ClientRequestBatchRequest
-                    {
-                        MachineKey = options.MachineKey,
-                        Requests = queuedRequests
-                    },
+                    CreateRequestBatch(queuedRequests),
                     JsonDefaults.Options,
                     cancellationToken);
                 requestResponse.EnsureSuccessStatusCode();
@@ -196,9 +196,13 @@ public sealed class ClientServerGateway(
                 }
             }
 
+            var (heartbeatTimestamp, heartbeatNonce, heartbeatProof) = CreateMachineProof("heartbeat");
             var heartbeat = new ClientHeartbeatRequest
             {
                 MachineKey = options.MachineKey,
+                RequestTimestampUtc = heartbeatTimestamp,
+                Nonce = heartbeatNonce,
+                MachineProof = heartbeatProof,
                 Hostname = Environment.MachineName,
                 IpAddress = ResolveLocalIpAddress(),
                 Status = await ResolveMachineStatusAsync(cancellationToken),
@@ -250,6 +254,26 @@ public sealed class ClientServerGateway(
                 CloneState(current, sessionMessage: "Servidor offline. O Client tentará sincronizar novamente."),
                 cancellationToken);
         }
+    }
+
+    private ClientRequestBatchRequest CreateRequestBatch(IReadOnlyList<ClientShellRequest> requests)
+    {
+        var (timestamp, nonce, proof) = CreateMachineProof("requests");
+        return new ClientRequestBatchRequest
+        {
+            MachineKey = options.MachineKey,
+            RequestTimestampUtc = timestamp,
+            Nonce = nonce,
+            MachineProof = proof,
+            Requests = requests
+        };
+    }
+
+    private (DateTime Timestamp, string Nonce, string Proof) CreateMachineProof(string operation)
+    {
+        var timestamp = DateTime.UtcNow;
+        var nonce = Guid.NewGuid().ToString("N");
+        return (timestamp, nonce, MachineAuthentication.CreateProof(options.MachineKey, timestamp, nonce, operation));
     }
 
     private async Task<MachineStatus> ResolveMachineStatusAsync(CancellationToken cancellationToken)

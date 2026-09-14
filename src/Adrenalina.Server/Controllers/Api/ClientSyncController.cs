@@ -1,13 +1,15 @@
 using Adrenalina.Application;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Adrenalina.Server.Infrastructure;
+using System.Net;
 
 namespace Adrenalina.Server.Controllers.Api;
 
 [ApiController]
 [Route("api/client")]
 [EnableRateLimiting("client-api")]
-public sealed class ClientSyncController(ICafeManagementService cafeService) : ControllerBase
+public sealed class ClientSyncController(ICafeManagementService cafeService, MachineReplayGuard replayGuard) : ControllerBase
 {
     private static bool IsProtocolSupported(int version) =>
         version is >= ProtocolContract.MinimumSupportedVersion and <= ProtocolContract.CurrentVersion;
@@ -20,6 +22,18 @@ public sealed class ClientSyncController(ICafeManagementService cafeService) : C
         minimumSupportedVersion = ProtocolContract.MinimumSupportedVersion
     };
 
+    private bool IsMachineAuthenticated(string machineKey, DateTime timestampUtc, string nonce, string proof, string operation)
+    {
+        if (string.IsNullOrWhiteSpace(proof) &&
+            HttpContext.Connection.RemoteIpAddress is { } address && IPAddress.IsLoopback(address))
+        {
+            return true;
+        }
+
+        return MachineAuthentication.VerifyProof(machineKey, timestampUtc, nonce, operation, proof) &&
+               replayGuard.TryAccept($"{operation}:{machineKey}:{nonce}");
+    }
+
     [HttpPost("heartbeat")]
     public async Task<ActionResult<ClientHeartbeatResponse>> Heartbeat([FromBody] ClientHeartbeatRequest request, CancellationToken cancellationToken)
     {
@@ -28,9 +42,17 @@ public sealed class ClientSyncController(ICafeManagementService cafeService) : C
             return BadRequest(ProtocolError());
         }
 
+        if (!IsMachineAuthenticated(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "heartbeat"))
+        {
+            return Unauthorized(new { success = false, message = "Autenticação da máquina inválida ou expirada." });
+        }
+
         var observedRequest = new ClientHeartbeatRequest
         {
             MachineKey = request.MachineKey,
+            RequestTimestampUtc = request.RequestTimestampUtc,
+            Nonce = request.Nonce,
+            MachineProof = request.MachineProof,
             Hostname = request.Hostname,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? request.IpAddress,
             Status = request.Status,
@@ -50,6 +72,11 @@ public sealed class ClientSyncController(ICafeManagementService cafeService) : C
             return BadRequest(ProtocolError());
         }
 
+        if (!IsMachineAuthenticated(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "login"))
+        {
+            return Unauthorized(new { success = false, message = "Autenticação da máquina inválida ou expirada." });
+        }
+
         var response = await cafeService.LoginClientAsync(request, cancellationToken);
         return Ok(response);
     }
@@ -60,6 +87,11 @@ public sealed class ClientSyncController(ICafeManagementService cafeService) : C
         if (!IsProtocolSupported(request.ProtocolVersion))
         {
             return BadRequest(ProtocolError());
+        }
+
+        if (!IsMachineAuthenticated(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "requests"))
+        {
+            return Unauthorized(new { success = false, message = "Autenticação da máquina inválida ou expirada." });
         }
 
         var response = await cafeService.SubmitClientRequestsAsync(request, cancellationToken);

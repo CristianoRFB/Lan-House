@@ -11,6 +11,37 @@ public static class ProtocolContract
     public const int MinimumSupportedVersion = 1;
 }
 
+public static class MachineAuthentication
+{
+    public static string CreateProof(string machineKey, DateTime timestampUtc, string nonce, string operation)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(machineKey));
+        var payload = $"{operation}\n{timestampUtc.Ticks}\n{nonce}";
+        return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
+    }
+
+    public static bool VerifyProof(string machineKey, DateTime timestampUtc, string nonce, string operation, string proof)
+    {
+        if (string.IsNullOrWhiteSpace(machineKey) || string.IsNullOrWhiteSpace(nonce) ||
+            string.IsNullOrWhiteSpace(proof) || nonce.Length > 100 || proof.Length > 200 ||
+            timestampUtc.Kind != DateTimeKind.Utc || Math.Abs((DateTime.UtcNow - timestampUtc).TotalMinutes) > 2)
+        {
+            return false;
+        }
+
+        try
+        {
+            var expected = Convert.FromBase64String(CreateProof(machineKey, timestampUtc, nonce, operation));
+            var supplied = Convert.FromBase64String(proof);
+            return CryptographicOperations.FixedTimeEquals(expected, supplied);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+}
+
 public sealed record OperationResult(bool Success, string Message);
 
 public sealed record AuthenticatedAdmin(Guid Id, string Login, string DisplayName, UserProfileType ProfileType);
@@ -246,6 +277,9 @@ public sealed class ClientHeartbeatRequest
 {
     public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
+    public DateTime RequestTimestampUtc { get; init; }
+    public string Nonce { get; init; } = string.Empty;
+    public string MachineProof { get; init; } = string.Empty;
     public string Hostname { get; init; } = string.Empty;
     public string IpAddress { get; init; } = string.Empty;
     public MachineStatus Status { get; init; } = MachineStatus.Offline;
@@ -269,6 +303,9 @@ public sealed class ClientLoginRequest
 {
     public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
+    public DateTime RequestTimestampUtc { get; init; }
+    public string Nonce { get; init; } = string.Empty;
+    public string MachineProof { get; init; } = string.Empty;
     public string Login { get; init; } = string.Empty;
     public string Pin { get; init; } = string.Empty;
 }
@@ -285,6 +322,9 @@ public sealed class ClientRequestBatchRequest
 {
     public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
+    public DateTime RequestTimestampUtc { get; init; }
+    public string Nonce { get; init; } = string.Empty;
+    public string MachineProof { get; init; } = string.Empty;
     public IReadOnlyList<ClientShellRequest> Requests { get; init; } = [];
 }
 

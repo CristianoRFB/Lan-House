@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Threading.RateLimiting;
+using Adrenalina.Server.Infrastructure;
 
 namespace Adrenalina.Server;
 
@@ -78,6 +79,7 @@ public static class AdrenalinaServerBootstrap
             });
 
         builder.Services.AddAuthorization();
+        builder.Services.AddSingleton<MachineReplayGuard>();
         builder.Services.AddRateLimiter(rateLimiterOptions =>
         {
             rateLimiterOptions.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

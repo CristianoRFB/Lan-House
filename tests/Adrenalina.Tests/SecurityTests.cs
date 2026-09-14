@@ -24,4 +24,16 @@ public sealed class SecurityTests
         Assert.False(PasswordHasher.IsHashFormatValid(maliciousHash));
         Assert.False(PasswordHasher.Verify(maliciousHash, "1234"));
     }
+
+    [Fact]
+    public void MachineProofIsBoundToOperationAndTimestamp()
+    {
+        var timestamp = DateTime.UtcNow;
+        var nonce = Guid.NewGuid().ToString("N");
+        var proof = MachineAuthentication.CreateProof("machine-secret", timestamp, nonce, "heartbeat");
+
+        Assert.True(MachineAuthentication.VerifyProof("machine-secret", timestamp, nonce, "heartbeat", proof));
+        Assert.False(MachineAuthentication.VerifyProof("machine-secret", timestamp, nonce, "login", proof));
+        Assert.False(MachineAuthentication.VerifyProof("machine-secret", timestamp.AddMinutes(-3), nonce, "heartbeat", proof));
+    }
 }
