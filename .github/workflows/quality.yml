@@ -29,4 +29,13 @@ jobs:
         run: dotnet test tests/Adrenalina.Tests/Adrenalina.Tests.csproj --no-restore --configuration Release --verbosity normal
 
       - name: Audit packages
-        run: dotnet list Adrenalina.slnx package --vulnerable --include-transitive
+        shell: pwsh
+        run: |
+          $output = dotnet list Adrenalina.slnx package --vulnerable --include-transitive 2>&1
+          $output | Out-Host
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+          if ($output -match 'has the following vulnerable packages') {
+            throw 'NuGet vulnerability audit failed.'
+          }
