@@ -15,8 +15,12 @@ checks that require the target Windows/LAN environment.
   administrative diagnostic endpoint.
 - Generated backups are validated as SQLite databases and, when a recorded
   checksum exists, are rejected if the file has changed.
+- Pending client requests are restored after a failed or cancelled network
+  submission, with restoration failures written to the client log.
 - The NuGet solution audit reports no vulnerable direct or transitive packages
   with the configured package sources.
+- The repository contains a Windows CI workflow that repeats restore, Release
+  build, tests, and the package vulnerability audit on pushes and pull requests.
 - `dotnet build Adrenalina.slnx --no-restore` and the test project must pass
   before a release commit is accepted.
 
