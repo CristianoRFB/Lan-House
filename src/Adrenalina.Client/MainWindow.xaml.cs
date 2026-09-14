@@ -13,6 +13,7 @@ public partial class MainWindow : Window
     private readonly ClientConnectionOptions _options;
     private readonly IClientRuntimeStore _runtimeStore;
     private readonly ClientServerGateway _gateway;
+    private readonly IStationEnforcementService _stationEnforcement;
     private readonly DispatcherTimer _refreshTimer;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
 
@@ -22,11 +23,13 @@ public partial class MainWindow : Window
     public MainWindow(
         ClientConnectionOptions options,
         IClientRuntimeStore runtimeStore,
-        ClientServerGateway gateway)
+        ClientServerGateway gateway,
+        IStationEnforcementService stationEnforcement)
     {
         _options = options;
         _runtimeStore = runtimeStore;
         _gateway = gateway;
+        _stationEnforcement = stationEnforcement;
 
         InitializeComponent();
 
@@ -74,6 +77,7 @@ public partial class MainWindow : Window
             var state = await _runtimeStore.LoadStateAsync();
             _lastKnownState = state;
             var setupPending = !_options.SetupCompleted;
+            _stationEnforcement.ApplySessionState(!setupPending && !state.IsLocked);
 
             ApplyTheme(state.Theme);
             ApplyWindowMode(setupPending ? false : state.IsLocked, setupPending);

@@ -840,10 +840,27 @@ public sealed class CafeManagementService(
             await using var command = connection.CreateCommand();
             command.CommandText = "PRAGMA integrity_check;";
             var detail = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken)) ?? "";
-            return new BackupValidationResult(
-                string.Equals(detail, "ok", StringComparison.OrdinalIgnoreCase),
-                detail,
-                DateTime.UtcNow);
+            if (!string.Equals(detail, "ok", StringComparison.OrdinalIgnoreCase))
+            {
+                return new BackupValidationResult(false, detail, DateTime.UtcNow);
+            }
+
+            var recordedChecksum = await db.Backups.AsNoTracking()
+                .Where(snapshot => snapshot.FolderPath == candidate && snapshot.Sha256 != null && snapshot.Sha256 != "")
+                .OrderByDescending(snapshot => snapshot.CreatedAtUtc)
+                .Select(snapshot => snapshot.Sha256)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(recordedChecksum))
+            {
+                await using var backupStream = File.OpenRead(candidate);
+                var actualChecksum = Convert.ToHexString(await SHA256.HashDataAsync(backupStream, cancellationToken));
+                if (!string.Equals(recordedChecksum, actualChecksum, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new BackupValidationResult(false, "O checksum do backup não corresponde ao registro salvo.", DateTime.UtcNow);
+                }
+            }
+
+            return new BackupValidationResult(true, detail, DateTime.UtcNow);
         }
         catch (Exception exception) when (exception is Microsoft.Data.Sqlite.SqliteException or IOException)
         {
