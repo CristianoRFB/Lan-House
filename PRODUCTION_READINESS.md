@@ -15,6 +15,8 @@ checks that require the target Windows/LAN environment.
   administrative diagnostic endpoint.
 - Generated backups are validated as SQLite databases and, when a recorded
   checksum exists, are rejected if the file has changed.
+- The NuGet solution audit reports no vulnerable direct or transitive packages
+  with the configured package sources.
 - `dotnet build Adrenalina.slnx --no-restore` and the test project must pass
   before a release commit is accepted.
 
