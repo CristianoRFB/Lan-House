@@ -23,16 +23,38 @@ public sealed class CafeManagementService(
     {
         var normalized = login.Trim().ToLowerInvariant();
         var user = await db.Users
-            .AsNoTracking()
             .FirstOrDefaultAsync(
                 account => account.Login.ToLower() == normalized &&
                            (account.ProfileType == UserProfileType.Admin || account.ProfileType == UserProfileType.Special),
                 cancellationToken);
 
-        if (user is null || user.IsBlocked || !PasswordHasher.Verify(user.PasswordHash, password))
+        if (user is null || user.IsBlocked)
         {
             return null;
         }
+
+        var nowUtc = DateTime.UtcNow;
+        if (user.LockedUntilUtc > nowUtc)
+        {
+            return null;
+        }
+
+        if (!PasswordHasher.Verify(user.PasswordHash, password))
+        {
+            user.FailedLoginAttempts++;
+            if (user.FailedLoginAttempts >= 5)
+            {
+                user.LockedUntilUtc = nowUtc.AddMinutes(10);
+                user.FailedLoginAttempts = 0;
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+
+        user.FailedLoginAttempts = 0;
+        user.LockedUntilUtc = null;
+        await db.SaveChangesAsync(cancellationToken);
 
         return new AuthenticatedAdmin(user.Id, user.Login, user.DisplayName, user.ProfileType);
     }

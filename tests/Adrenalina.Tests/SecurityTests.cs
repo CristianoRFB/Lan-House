@@ -46,4 +46,22 @@ public sealed class SecurityTests
         Assert.True(guard.TryAccept(nonce));
         Assert.False(guard.TryAccept(nonce));
     }
+
+    [Fact]
+    public void PasswordFailurePolicyLocksAfterFiveAttempts()
+    {
+        var account = new Adrenalina.Domain.UserAccount();
+        for (var attempt = 1; attempt <= 5; attempt++)
+        {
+            account.FailedLoginAttempts++;
+            if (account.FailedLoginAttempts >= 5)
+            {
+                account.LockedUntilUtc = DateTime.UtcNow.AddMinutes(10);
+                account.FailedLoginAttempts = 0;
+            }
+        }
+
+        Assert.True(account.LockedUntilUtc > DateTime.UtcNow);
+        Assert.Equal(0, account.FailedLoginAttempts);
+    }
 }

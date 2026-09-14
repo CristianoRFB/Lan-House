@@ -146,6 +146,8 @@ public sealed class UserAccount : Entity
     public DateTime? TemporaryUntilUtc { get; set; }
     public string Notes { get; set; } = string.Empty;
     public bool IsBlocked { get; set; }
+    public int FailedLoginAttempts { get; set; }
+    public DateTime? LockedUntilUtc { get; set; }
     public bool CanSeeOwnBalance { get; set; } = true;
     public bool CanSeeOwnAnnotations { get; set; } = true;
 
