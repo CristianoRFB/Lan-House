@@ -331,6 +331,11 @@ public sealed class ManagementFlowTests
         Assert.Equal("SQLite format 3", System.Text.Encoding.ASCII.GetString(header));
         var validation = await environment.RunAsync(service => service.ValidateBackupAsync(backup));
         Assert.True(validation.Valid, validation.Detail);
+
+        await File.AppendAllTextAsync(backup, "tampered");
+        var tamperedValidation = await environment.RunAsync(service => service.ValidateBackupAsync(backup));
+        Assert.False(tamperedValidation.Valid);
+        Assert.Contains("checksum", tamperedValidation.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<Guid> GetAdminIdAsync(TestEnvironment environment) =>
