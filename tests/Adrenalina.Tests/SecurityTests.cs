@@ -48,6 +48,16 @@ public sealed class SecurityTests
     }
 
     [Fact]
+    public void MachineReplayGuardBoundsUniqueNonceMemory()
+    {
+        var guard = new Adrenalina.Server.Infrastructure.MachineReplayGuard(2);
+
+        Assert.True(guard.TryAccept("one"));
+        Assert.True(guard.TryAccept("two"));
+        Assert.False(guard.TryAccept("three"));
+    }
+
+    [Fact]
     public void PasswordFailurePolicyLocksAfterFiveAttempts()
     {
         var account = new Adrenalina.Domain.UserAccount();

@@ -4,19 +4,40 @@ namespace Adrenalina.Server.Infrastructure;
 
 public sealed class MachineReplayGuard
 {
+    private const int DefaultMaximumEntries = 100_000;
     private readonly ConcurrentDictionary<string, DateTime> _seen = new(StringComparer.Ordinal);
+    private readonly object _gate = new();
+    private readonly int _maximumEntries;
+
+    public MachineReplayGuard(int maximumEntries = DefaultMaximumEntries)
+    {
+        if (maximumEntries < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumEntries));
+        }
+
+        _maximumEntries = maximumEntries;
+    }
 
     public bool TryAccept(string nonce)
     {
         var now = DateTime.UtcNow;
-        foreach (var item in _seen)
+        lock (_gate)
         {
-            if (item.Value < now.AddMinutes(-3))
+            foreach (var item in _seen)
             {
-                _seen.TryRemove(item.Key, out _);
+                if (item.Value < now.AddMinutes(-3))
+                {
+                    _seen.TryRemove(item.Key, out _);
+                }
             }
-        }
 
-        return _seen.TryAdd(nonce, now);
+            if (_seen.Count >= _maximumEntries && !_seen.ContainsKey(nonce))
+            {
+                return false;
+            }
+
+            return _seen.TryAdd(nonce, now);
+        }
     }
 }
