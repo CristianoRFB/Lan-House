@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#09111e"/>
+      <stop offset="0.55" stop-color="#131d33"/>
+      <stop offset="1" stop-color="#0d1424"/>
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="920" fill="#070c16"/>
+  <rect x="40" y="30" width="1360" height="860" rx="18" fill="url(#bg)" stroke="#263653"/>
+  <text x="84" y="110" fill="#eef2ff" font-family="Segoe UI, Arial" font-size="36" font-weight="700">ADRENALINA CLIENT</text>
+  <text x="84" y="148" fill="#b3c2d9" font-family="Segoe UI, Arial" font-size="19">PC-01 - Sessao atual</text>
+  <text x="84" y="184" fill="#7fd9c7" font-family="Segoe UI, Arial" font-size="17">Conectado ao servidor HTTPS automaticamente</text>
+  <rect x="84" y="240" width="770" height="500" rx="14" fill="#141d32" stroke="#26314d"/>
+  <text x="124" y="300" fill="#eef2ff" font-family="Segoe UI, Arial" font-size="26" font-weight="600">Sessao atual</text>
+  <text x="124" y="358" fill="#eef2ff" font-family="Segoe UI, Arial" font-size="22">Usuario: Joao Silva</text>
+  <text x="124" y="394" fill="#b3c2d9" font-family="Segoe UI, Arial" font-size="18">Perfil: Cliente comum</text>
+  <rect x="124" y="446" width="230" height="120" rx="10" fill="#1d2944"/>
+  <text x="148" y="484" fill="#b3c2d9" font-family="Segoe UI, Arial" font-size="17">Tempo restante</text>
+  <text x="148" y="538" fill="#eef2ff" font-family="Segoe UI, Arial" font-size="30" font-weight="700">01:42:18</text>
+  <rect x="378" y="446" width="230" height="120" rx="10" fill="#1d2944"/>
+  <text x="402" y="484" fill="#b3c2d9" font-family="Segoe UI, Arial" font-size="17">Saldo</text>
+  <text x="402" y="538" fill="#eef2ff" font-family="Segoe UI, Arial" font-size="30" font-weight="700">R$ 35,00</text>
+  <rect x="632" y="446" width="180" height="120" rx="10" fill="#1d2944"/>
+  <text x="656" y="484" fill="#b3c2d9" font-family="Segoe UI, Arial" font-size="17">Estado</text>
+  <text x="656" y="538" fill="#7fd9c7" font-family="Segoe UI, Arial" font-size="23" font-weight="700">Online</text>
+  <rect x="892" y="240" width="468" height="500" rx="14" fill="#141d32" stroke="#26314d"/>
+  <text x="932" y="300" fill="#eef2ff" font-family="Segoe UI, Arial" font-size="26" font-weight="600">Solicitacoes</text>
+  <rect x="932" y="340" width="388" height="64" rx="8" fill="#263653"/>
+  <text x="956" y="380" fill="#eef2ff" font-family="Segoe UI, Arial" font-size="18">Solicitar cadastro</text>
+  <rect x="932" y="424" width="388" height="64" rx="8" fill="#263653"/>
+  <text x="956" y="464" fill="#eef2ff" font-family="Segoe UI, Arial" font-size="18">Pedir mais tempo</text>
+  <text x="932" y="558" fill="#b3c2d9" font-family="Segoe UI, Arial" font-size="17">Avisos</text>
+  <text x="932" y="604" fill="#eef2ff" font-family="Segoe UI, Arial" font-size="17">Sua sessao esta ativa.</text>
+  <text x="84" y="838" fill="#a4b2c6" font-family="Segoe UI, Arial" font-size="16">PREVIA ILUSTRATIVA - tela do cliente</text>
+</svg>

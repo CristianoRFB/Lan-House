@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="960" viewBox="0 0 1600 960">
+  <rect width="1600" height="960" fill="#0c121e"/>
+  <rect width="1600" height="112" fill="#111928"/>
+  <text x="42" y="52" fill="#ffffff" font-family="Segoe UI, Arial" font-size="30" font-weight="700">ADRENALINA ADMIN</text>
+  <text x="42" y="84" fill="#adbcd1" font-family="Segoe UI, Arial" font-size="17">Painel local: https://localhost:5076/</text>
+  <rect x="1160" y="32" width="170" height="48" rx="6" fill="#466070"/>
+  <text x="1245" y="63" text-anchor="middle" fill="#ffffff" font-family="Segoe UI, Arial" font-size="17">Configuracoes</text>
+  <rect x="1348" y="32" width="170" height="48" rx="6" fill="#54653d"/>
+  <text x="1433" y="63" text-anchor="middle" fill="#ffffff" font-family="Segoe UI, Arial" font-size="17">Tutorial</text>
+  <rect x="42" y="146" width="350" height="760" rx="8" fill="#111928" stroke="#263653"/>
+  <text x="70" y="196" fill="#ffffff" font-family="Segoe UI, Arial" font-size="21" font-weight="700">Fluxo principal</text>
+  <text x="70" y="240" fill="#ccd6e4" font-family="Segoe UI, Arial" font-size="17">Servidor: ativo</text>
+  <text x="70" y="274" fill="#7fd9c7" font-family="Segoe UI, Arial" font-size="17">Clientes online: 8/12</text>
+  <rect x="70" y="318" width="290" height="52" rx="6" fill="#3960a8"/>
+  <text x="215" y="351" text-anchor="middle" fill="#ffffff" font-family="Segoe UI, Arial" font-size="16">Abrir painel</text>
+  <rect x="70" y="390" width="290" height="52" rx="6" fill="#348454"/>
+  <text x="215" y="423" text-anchor="middle" fill="#ffffff" font-family="Segoe UI, Arial" font-size="16">Backup manual</text>
+  <rect x="420" y="146" width="1138" height="760" rx="8" fill="#f4f7fb"/>
+  <rect x="420" y="146" width="1138" height="74" fill="#ffffff"/>
+  <text x="464" y="193" fill="#1d2b42" font-family="Segoe UI, Arial" font-size="27" font-weight="700">Dashboard</text>
+  <rect x="464" y="260" width="320" height="140" rx="6" fill="#e8eef8"/>
+  <text x="494" y="305" fill="#5a6e8b" font-family="Segoe UI, Arial" font-size="17">Estacoes ativas</text>
+  <text x="494" y="365" fill="#1d2b42" font-family="Segoe UI, Arial" font-size="46" font-weight="700">8</text>
+  <rect x="814" y="260" width="320" height="140" rx="6" fill="#e7f4ee"/>
+  <text x="844" y="305" fill="#4b7761" font-family="Segoe UI, Arial" font-size="17">Sessoes abertas</text>
+  <text x="844" y="365" fill="#245e40" font-family="Segoe UI, Arial" font-size="46" font-weight="700">6</text>
+  <rect x="1164" y="260" width="320" height="140" rx="6" fill="#fff1df"/>
+  <text x="1194" y="305" fill="#916c40" font-family="Segoe UI, Arial" font-size="17">Solicitacoes pendentes</text>
+  <text x="1194" y="365" fill="#7b5423" font-family="Segoe UI, Arial" font-size="46" font-weight="700">3</text>
+  <text x="464" y="480" fill="#1d2b42" font-family="Segoe UI, Arial" font-size="24" font-weight="700">Maquinas</text>
+  <line x1="464" y1="520" x2="1484" y2="520" stroke="#d5deea" stroke-width="2"/>
+  <text x="464" y="560" fill="#5a6e8b" font-family="Segoe UI, Arial" font-size="17">Nome</text>
+  <text x="790" y="560" fill="#5a6e8b" font-family="Segoe UI, Arial" font-size="17">Status</text>
+  <text x="1060" y="560" fill="#5a6e8b" font-family="Segoe UI, Arial" font-size="17">Sessao</text>
+  <text x="464" y="615" fill="#253751" font-family="Segoe UI, Arial" font-size="18">PC-01</text>
+  <text x="790" y="615" fill="#348454" font-family="Segoe UI, Arial" font-size="18">Em sessao</text>
+  <text x="1060" y="615" fill="#253751" font-family="Segoe UI, Arial" font-size="18">Joao Silva</text>
+  <text x="464" y="670" fill="#253751" font-family="Segoe UI, Arial" font-size="18">PC-02</text>
+  <text x="790" y="670" fill="#687991" font-family="Segoe UI, Arial" font-size="18">Livre</text>
+  <text x="70" y="870" fill="#a4b2c6" font-family="Segoe UI, Arial" font-size="16">PREVIA ILUSTRATIVA - painel administrativo</text>
+</svg>

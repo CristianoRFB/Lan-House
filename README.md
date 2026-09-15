@@ -204,6 +204,17 @@ ser cadastrada no Admin para autenticar a máquina.
 
 Não é necessário instalar WebView2 para usar o Admin: o navegador padrão é o fallback suportado.
 
+## Prévia visual
+
+As imagens abaixo são prévias ilustrativas geradas a partir do layout atual do
+produto. Elas não são capturas reais de uma execução:
+
+![Menu inicial do Adrenalina](docs/previews/launcher-preview.svg)
+
+![Painel do Adrenalina ADMIN](docs/previews/admin-preview.svg)
+
+![Tela do Adrenalina Client](docs/previews/client-preview.svg)
+
 ## Limitações conhecidas
 
 - a rede local depende da rede e das políticas já existentes; o aplicativo não altera firewall, e o instalador cria somente a regra limitada ao perfil `Private` e `LocalSubnet`;

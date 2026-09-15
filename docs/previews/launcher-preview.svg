@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="720" viewBox="0 0 1240 720">
+  <rect width="1240" height="720" fill="#080d18"/>
+  <rect x="40" y="32" width="1160" height="656" rx="12" fill="#0c121e" stroke="#263653"/>
+  <text x="84" y="116" fill="#ffffff" font-family="Segoe UI, Arial" font-size="54" font-weight="700">ADRENALINA</text>
+  <text x="88" y="158" fill="#b7c6dc" font-family="Segoe UI, Arial" font-size="22">Escolha como deseja abrir o sistema.</text>
+  <rect x="88" y="238" width="500" height="230" rx="8" fill="#3960a8"/>
+  <text x="338" y="330" text-anchor="middle" fill="#ffffff" font-family="Segoe UI, Arial" font-size="38" font-weight="700">ADMIN</text>
+  <text x="338" y="374" text-anchor="middle" fill="#e9f1ff" font-family="Segoe UI, Arial" font-size="22">Gerenciar a Lan House</text>
+  <rect x="652" y="238" width="500" height="230" rx="8" fill="#348454"/>
+  <text x="902" y="330" text-anchor="middle" fill="#ffffff" font-family="Segoe UI, Arial" font-size="38" font-weight="700">CLIENTE</text>
+  <text x="902" y="374" text-anchor="middle" fill="#eafff1" font-family="Segoe UI, Arial" font-size="22">Abrir esta estação</text>
+  <text x="88" y="588" fill="#a4b2c6" font-family="Segoe UI, Arial" font-size="19">PREVIA ILUSTRATIVA - menu inicial do Adrenalina</text>
+</svg>
