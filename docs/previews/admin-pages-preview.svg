@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1500" viewBox="0 0 1600 1500">
+  <rect width="1600" height="1500" fill="#09101c"/>
+  <text x="60" y="70" fill="#ffffff" font-family="Segoe UI, Arial" font-size="34" font-weight="700">ADRENALINA ADMIN - TELAS DO PAINEL</text>
+  <text x="60" y="108" fill="#aebed4" font-family="Segoe UI, Arial" font-size="18">PREVIAS ILUSTRATIVAS - navegacao web administrativa</text>
+  <g font-family="Segoe UI, Arial">
+    <g transform="translate(60 150)">
+      <rect width="710" height="280" rx="8" fill="#f4f7fb"/>
+      <rect width="710" height="50" rx="8" fill="#17253c"/><text x="24" y="33" fill="#ffffff" font-size="19" font-weight="700">Login do Admin</text>
+      <rect x="190" y="82" width="330" height="150" rx="6" fill="#ffffff" stroke="#d4dfec"/><text x="225" y="114" fill="#1d2b42" font-size="21" font-weight="700">Adrenalina Lan House</text><text x="225" y="149" fill="#526783" font-size="15">Login</text><rect x="225" y="158" width="250" height="26" fill="#edf2f8"/><text x="225" y="216" fill="#3960a8" font-size="16" font-weight="700">Entrar</text>
+    </g>
+    <g transform="translate(830 150)">
+      <rect width="710" height="280" rx="8" fill="#f4f7fb"/>
+      <rect width="710" height="50" rx="8" fill="#17253c"/><text x="24" y="33" fill="#ffffff" font-size="19" font-weight="700">Painel / Dashboard</text>
+      <rect x="24" y="78" width="200" height="72" rx="5" fill="#e8eef8"/><text x="42" y="108" fill="#5a6e8b" font-size="14">Estacoes ativas</text><text x="42" y="136" fill="#1d2b42" font-size="27" font-weight="700">8</text>
+      <rect x="255" y="78" width="200" height="72" rx="5" fill="#e7f4ee"/><text x="273" y="108" fill="#4b7761" font-size="14">Sessoes abertas</text><text x="273" y="136" fill="#245e40" font-size="27" font-weight="700">6</text>
+      <rect x="486" y="78" width="200" height="72" rx="5" fill="#fff1df"/><text x="504" y="108" fill="#916c40" font-size="14">Pendencias</text><text x="504" y="136" fill="#7b5423" font-size="27" font-weight="700">3</text>
+      <text x="24" y="198" fill="#1d2b42" font-size="19" font-weight="700">Solicitacoes pendentes e logs recentes</text>
+    </g>
+    <g transform="translate(60 470)">
+      <rect width="710" height="280" rx="8" fill="#f4f7fb"/><rect width="710" height="50" rx="8" fill="#17253c"/><text x="24" y="33" fill="#ffffff" font-size="19" font-weight="700">Maquinas</text>
+      <text x="28" y="91" fill="#5a6e8b" font-size="14">Nome</text><text x="260" y="91" fill="#5a6e8b" font-size="14">Tipo</text><text x="420" y="91" fill="#5a6e8b" font-size="14">Status</text>
+      <line x1="28" y1="108" x2="682" y2="108" stroke="#d4dfec"/><text x="28" y="145" fill="#253751" font-size="17">PC-01</text><text x="260" y="145" fill="#253751" font-size="17">PC</text><text x="420" y="145" fill="#348454" font-size="17">Em sessao</text><text x="28" y="193" fill="#253751" font-size="17">PC-02</text><text x="260" y="193" fill="#253751" font-size="17">PC</text><text x="420" y="193" fill="#687991" font-size="17">Livre</text>
+    </g>
+    <g transform="translate(830 470)">
+      <rect width="710" height="280" rx="8" fill="#f4f7fb"/><rect width="710" height="50" rx="8" fill="#17253c"/><text x="24" y="33" fill="#ffffff" font-size="19" font-weight="700">Sessoes</text>
+      <text x="28" y="91" fill="#5a6e8b" font-size="14">Iniciar sessao</text><rect x="28" y="108" width="200" height="32" fill="#ffffff" stroke="#cbd8e6"/><rect x="245" y="108" width="150" height="32" fill="#ffffff" stroke="#cbd8e6"/><rect x="415" y="108" width="130" height="32" fill="#3960a8"/><text x="480" y="130" text-anchor="middle" fill="#ffffff" font-size="14">Iniciar</text><text x="28" y="190" fill="#1d2b42" font-size="18" font-weight="700">Sessoes recentes</text>
+    </g>
+    <g transform="translate(60 790)">
+      <rect width="710" height="280" rx="8" fill="#f4f7fb"/><rect width="710" height="50" rx="8" fill="#17253c"/><text x="24" y="33" fill="#ffffff" font-size="19" font-weight="700">Usuarios e anotacoes</text>
+      <text x="28" y="91" fill="#5a6e8b" font-size="14">Salvar usuario</text><rect x="28" y="108" width="155" height="32" fill="#ffffff" stroke="#cbd8e6"/><rect x="198" y="108" width="155" height="32" fill="#ffffff" stroke="#cbd8e6"/><rect x="368" y="108" width="125" height="32" fill="#3960a8"/><text x="430" y="130" text-anchor="middle" fill="#ffffff" font-size="14">Salvar</text><text x="28" y="190" fill="#1d2b42" font-size="18" font-weight="700">Base de usuarios</text>
+    </g>
+    <g transform="translate(830 790)">
+      <rect width="710" height="280" rx="8" fill="#f4f7fb"/><rect width="710" height="50" rx="8" fill="#17253c"/><text x="24" y="33" fill="#ffffff" font-size="19" font-weight="700">Relatorios e exportacoes</text>
+      <text x="28" y="91" fill="#5a6e8b" font-size="14">Periodo e formato</text><rect x="28" y="108" width="150" height="32" fill="#ffffff" stroke="#cbd8e6"/><rect x="193" y="108" width="150" height="32" fill="#ffffff" stroke="#cbd8e6"/><rect x="358" y="108" width="145" height="32" fill="#3960a8"/><text x="430" y="130" text-anchor="middle" fill="#ffffff" font-size="14">Gerar arquivo</text><text x="28" y="190" fill="#1d2b42" font-size="18" font-weight="700">Solicitacoes em aberto e log completo</text>
+    </g>
+    <g transform="translate(60 1110)">
+      <rect width="710" height="280" rx="8" fill="#f4f7fb"/><rect width="710" height="50" rx="8" fill="#17253c"/><text x="24" y="33" fill="#ffffff" font-size="19" font-weight="700">Configuracoes</text>
+      <text x="28" y="91" fill="#5a6e8b" font-size="14">Nome da lan house</text><rect x="28" y="108" width="300" height="32" fill="#ffffff" stroke="#cbd8e6"/><text x="28" y="190" fill="#1d2b42" font-size="18">Backup, tarifas e mensagens</text><rect x="28" y="215" width="190" height="32" fill="#348454"/><text x="123" y="237" text-anchor="middle" fill="#ffffff" font-size="14">Salvar configuracoes</text>
+    </g>
+    <g transform="translate(830 1110)">
+      <rect width="710" height="280" rx="8" fill="#f4f7fb"/><rect width="710" height="50" rx="8" fill="#17253c"/><text x="24" y="33" fill="#ffffff" font-size="19" font-weight="700">Tutorial, acesso e erros</text>
+      <rect x="28" y="82" width="200" height="54" rx="5" fill="#e8eef8"/><text x="128" y="115" text-anchor="middle" fill="#253751" font-size="16">Guia do administrador</text><rect x="250" y="82" width="200" height="54" rx="5" fill="#fff1df"/><text x="350" y="115" text-anchor="middle" fill="#7b5423" font-size="16">Acesso negado</text><rect x="472" y="82" width="200" height="54" rx="5" fill="#f8e8e8"/><text x="572" y="115" text-anchor="middle" fill="#873f3f" font-size="16">Erro recuperavel</text><text x="28" y="198" fill="#1d2b42" font-size="18" font-weight="700">Voltar ao painel ou tentar novamente</text>
+    </g>
+  </g>
+</svg>

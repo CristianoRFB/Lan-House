@@ -215,6 +215,10 @@ produto. Elas não são capturas reais de uma execução:
 
 ![Tela do Adrenalina Client](docs/previews/client-preview.svg)
 
+![Todas as telas web do Adrenalina ADMIN](docs/previews/admin-pages-preview.svg)
+
+![Estados e telas do Adrenalina Client](docs/previews/client-states-preview.svg)
+
 ## Limitações conhecidas
 
 - a rede local depende da rede e das políticas já existentes; o aplicativo não altera firewall, e o instalador cria somente a regra limitada ao perfil `Private` e `LocalSubnet`;
