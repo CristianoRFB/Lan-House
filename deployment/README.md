@@ -14,6 +14,8 @@ Na raiz do repositório:
 
 O resultado fica em `artifacts\release` e contém os executáveis
 self-contained do Admin e do Client.
+O pacote também contém o `Adrenalina.Launcher.exe`, que apresenta as opções
+`ADMIN` e `CLIENTE`.
 
 ## Instalar o servidor
 
@@ -32,6 +34,10 @@ para rollback. Para uma autoridade certificadora existente, use
 Distribua o arquivo `.cer` gerado em `C:\ProgramData\Adrenalina\certs` para
 cada estação e instale-o em `Trusted Root Certification Authorities`. Em uma
 rede corporativa, prefira um certificado emitido pela CA da organização.
+
+Com o Admin ativo e a LAN habilitada, o Client tenta descobrir o servidor
+automaticamente via UDP e preenche a URL HTTPS. O cadastro da chave da estação
+continua sendo uma etapa de segurança do primeiro uso.
 
 ## Validar
 

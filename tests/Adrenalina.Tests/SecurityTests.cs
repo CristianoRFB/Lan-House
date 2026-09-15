@@ -1,9 +1,24 @@
 using Adrenalina.Application;
+using System.Text.Json;
 
 namespace Adrenalina.Tests;
 
 public sealed class SecurityTests
 {
+    [Fact]
+    public void LanDiscoveryAnnouncementIsVersionedAndIdentifiesTheAdmin()
+    {
+        var payload = LanDiscoveryProtocol.CreateAnnouncement(5076, useHttps: true);
+        var announcement = JsonSerializer.Deserialize<LanDiscoveryAnnouncement>(payload, JsonDefaults.Options);
+
+        Assert.True(LanDiscoveryProtocol.IsDiscoveryRequest(System.Text.Encoding.ASCII.GetBytes("ADRENALINA_DISCOVER_V1")));
+        Assert.NotNull(announcement);
+        Assert.Equal("Adrenalina.Admin", announcement!.Service);
+        Assert.Equal(LanDiscoveryProtocol.Version, announcement.Version);
+        Assert.Equal(5076, announcement.Port);
+        Assert.True(announcement.UseHttps);
+    }
+
     [Fact]
     public void PasswordHasherAcceptsHashesItCreates()
     {

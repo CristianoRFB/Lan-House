@@ -4,6 +4,7 @@ Sistema de gerenciamento de lan house com dois aplicativos independentes:
 
 - `Adrenalina.Admin`: aplicativo WinForms exclusivo da administração;
 - `Adrenalina.Client`: aplicativo WPF exclusivo da estação cliente.
+- `Adrenalina.Launcher`: menu inicial com as opções ADMIN e CLIENTE.
 
 ## Segurança do fluxo atual
 
@@ -195,6 +196,11 @@ scripts em `deployment/`: `Publish-Release.ps1`, `Install-Production.ps1`,
 `Install-ClientCertificate.ps1` e `Validate-Production.ps1`. A instalação LAN
 de produção exige HTTPS e limita a regra de firewall ao perfil `Private` e à
 sub-rede local.
+
+Após a instalação, abra `Adrenalina.Launcher.exe` e escolha `ADMIN` ou
+`CLIENTE`. Ao abrir o Client pela primeira vez com o Admin disponível na LAN,
+o endereço HTTPS é descoberto automaticamente; a chave da estação ainda deve
+ser cadastrada no Admin para autenticar a máquina.
 
 Não é necessário instalar WebView2 para usar o Admin: o navegador padrão é o fallback suportado.
 

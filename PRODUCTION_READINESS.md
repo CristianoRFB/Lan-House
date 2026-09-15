@@ -32,6 +32,8 @@ checks that require the target Windows/LAN environment.
 - `deployment\Install-Production.ps1` provisions the server certificate, writes machine deployment settings, creates a Private-profile/LocalSubnet firewall rule, and preserves the previous installation for rollback.
 - `deployment\Validate-Production.ps1` checks the installed binaries, deployment settings, certificate, firewall, `/health`, `/health/ready`, and the latest SQLite backup header.
 - `deployment\Install-ClientCertificate.ps1` installs the server certificate into the current user's trusted root store on client stations.
+- `Adrenalina.Launcher.exe` provides a single entry point with explicit `ADMIN` and `CLIENTE` choices.
+- The Client discovers the active Admin URL over the LAN and stores it locally; machine credentials remain explicit and authenticated.
 
 ## Required target-environment validation
 

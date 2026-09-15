@@ -3,6 +3,8 @@ using Adrenalina.Domain;
 using Adrenalina.Server;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using System.Net;
+using System.Net.Sockets;
 
 namespace Adrenalina.Admin;
 
@@ -15,6 +17,9 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
     private readonly string _dataRootPath;
     private readonly bool _listenOnLocalNetwork;
     private readonly AdminServerDeploymentOptions _deploymentOptions;
+    private UdpClient? _discoverySocket;
+    private CancellationTokenSource? _discoveryCancellation;
+    private Task? _discoveryTask;
     private WebApplication? _app;
     private int _currentPort = DefaultPort;
 
@@ -89,6 +94,10 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
                     await app.StartAsync(cancellationToken);
 
                     _app = app;
+                    if (_listenOnLocalNetwork)
+                    {
+                        StartDiscoveryResponder();
+                    }
                     UsedFallbackPort = candidatePort != DefaultPort;
                     StartupMessage = UsedFallbackPort
                         ? $"A porta {DefaultPort} estava ocupada. O ADMIN iniciou na porta {_currentPort} nesta execucao."
@@ -134,6 +143,7 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
             }
 
             await _app.StopAsync(cancellationToken);
+            await StopDiscoveryResponderAsync();
             await _app.DisposeAsync();
             _app = null;
             _currentPort = DefaultPort;
@@ -188,6 +198,46 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
     {
         await StopAsync();
         _lifecycleGate.Dispose();
+    }
+
+    private void StartDiscoveryResponder()
+    {
+        _discoveryCancellation = new CancellationTokenSource();
+        _discoverySocket = new UdpClient(new IPEndPoint(IPAddress.Any, LanDiscoveryProtocol.Port));
+        _discoveryTask = RespondToDiscoveryAsync(_discoverySocket, _discoveryCancellation.Token);
+    }
+
+    private async Task RespondToDiscoveryAsync(UdpClient socket, CancellationToken cancellationToken)
+    {
+        var announcement = LanDiscoveryProtocol.CreateAnnouncement(_currentPort, Scheme == "https");
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var request = await socket.ReceiveAsync(cancellationToken);
+                if (LanDiscoveryProtocol.IsDiscoveryRequest(request.Buffer))
+                {
+                    await socket.SendAsync(announcement, request.RemoteEndPoint);
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async Task StopDiscoveryResponderAsync()
+    {
+        _discoveryCancellation?.Cancel();
+        _discoverySocket?.Dispose();
+        if (_discoveryTask is not null)
+        {
+            await _discoveryTask;
+        }
+
+        _discoveryTask = null;
+        _discoverySocket = null;
+        _discoveryCancellation?.Dispose();
+        _discoveryCancellation = null;
     }
 
     private void EnsureAdminDataMigrated()

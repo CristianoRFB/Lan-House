@@ -11,6 +11,7 @@ Todas as alterações relevantes deste projeto serão documentadas neste arquivo
 - adicionados scripts de publicação self-contained, instalação com firewall restrito, rollback, cópia off-machine e restauração guiada;
 - adicionada checklist de entrega para registrar evidências do ambiente do cliente;
 - corrigido o restore do runtime `win-x64` no pacote de release e removida a combinação inválida de self-contained/RID do build do Admin.
+- adicionado launcher único com menu ADMIN/CLIENTE e descoberta automática do servidor na LAN.
 
 ### Segurança
 

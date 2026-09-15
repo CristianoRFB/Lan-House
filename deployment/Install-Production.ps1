@@ -16,8 +16,10 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 $PackageRoot = (Resolve-Path -LiteralPath $PackageRoot).Path
 $adminSource = Join-Path $PackageRoot 'Admin'
 $clientSource = Join-Path $PackageRoot 'Client'
+$launcherSource = Join-Path $PackageRoot 'Launcher'
 if (-not (Test-Path (Join-Path $adminSource 'Adrenalina.Admin.exe'))) { throw "Publicação do Admin não encontrada em $adminSource." }
 if (-not (Test-Path (Join-Path $clientSource 'Adrenalina.Client.exe'))) { throw "Publicação do Client não encontrada em $clientSource." }
+if (-not (Test-Path (Join-Path $launcherSource 'Adrenalina.Launcher.exe'))) { throw "Publicação do Launcher não encontrada em $launcherSource." }
 
 foreach ($name in 'Adrenalina.Admin', 'Adrenalina.Client') {
     if (Get-Process -Name $name -ErrorAction SilentlyContinue) { throw "Feche $name antes de atualizar a instalação." }
@@ -33,6 +35,7 @@ New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
 Copy-Item "$adminSource\*" $InstallRoot -Recurse -Force
 New-Item -ItemType Directory -Path (Join-Path $InstallRoot 'Client') -Force | Out-Null
 Copy-Item "$clientSource\*" (Join-Path $InstallRoot 'Client') -Recurse -Force
+Copy-Item "$launcherSource\*" $InstallRoot -Recurse -Force
 
 $thumbprint = $null
 if ($CertificatePath) {
@@ -65,6 +68,7 @@ $ruleName = 'Adrenalina Admin LAN (Private)'
 Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 if ($EnableLan) {
     New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5076 -Profile Private -RemoteAddress LocalSubnet | Out-Null
+    New-NetFirewallRule -DisplayName 'Adrenalina Discovery LAN (Private)' -Direction Inbound -Action Allow -Protocol UDP -LocalPort 5075 -Profile Private -RemoteAddress LocalSubnet | Out-Null
 }
 
 Write-Host "Adrenalina instalado em $InstallRoot"

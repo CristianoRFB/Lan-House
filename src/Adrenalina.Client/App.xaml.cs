@@ -35,12 +35,39 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        await DiscoverServerAsync();
+
         _interactiveHost = ClientHostFactory.BuildInteractiveHost(e.Args);
         await _interactiveHost.StartAsync();
 
         var mainWindow = _interactiveHost.Services.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
         mainWindow.Show();
+    }
+
+    private static async Task DiscoverServerAsync()
+    {
+        var options = ClientOptionsStore.LoadOrCreate();
+        if (options.SetupCompleted && !string.IsNullOrWhiteSpace(options.ServerBaseUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            var discovered = await LanDiscoveryProtocol.DiscoverServerAsync(TimeSpan.FromSeconds(2));
+            if (discovered is null)
+            {
+                return;
+            }
+
+            options.ServerBaseUrl = discovered.ToString();
+            ClientOptionsStore.Save(options);
+        }
+        catch
+        {
+            // The setup screen remains available when discovery is unavailable.
+        }
     }
 
     protected override async void OnExit(System.Windows.ExitEventArgs e)

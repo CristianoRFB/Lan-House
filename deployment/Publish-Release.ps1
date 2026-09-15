@@ -26,6 +26,7 @@ if ($LASTEXITCODE -ne 0 -or $audit -match 'has the following vulnerable packages
 
 Invoke-Dotnet @('publish', (Join-Path $repoRoot 'src\Adrenalina.Admin\Adrenalina.Admin.csproj'), '--configuration', 'Release', '--runtime', 'win-x64', '--self-contained', 'true', '--output', (Join-Path $OutputRoot 'Admin'), '-m:1')
 Invoke-Dotnet @('publish', (Join-Path $repoRoot 'src\Adrenalina.Client\Adrenalina.Client.csproj'), '--configuration', 'Release', '--runtime', 'win-x64', '--self-contained', 'true', '--output', (Join-Path $OutputRoot 'Client'), '-m:1')
+Invoke-Dotnet @('publish', (Join-Path $repoRoot 'src\Adrenalina.Launcher\Adrenalina.Launcher.csproj'), '--configuration', 'Release', '--runtime', 'win-x64', '--self-contained', 'true', '--output', (Join-Path $OutputRoot 'Launcher'), '-m:1')
 
 Copy-Item (Join-Path $PSScriptRoot 'Install-Production.ps1') $OutputRoot
 Copy-Item (Join-Path $PSScriptRoot 'Validate-Production.ps1') $OutputRoot
