@@ -20,10 +20,10 @@ O roadmap prioriza confiabilidade e implantação antes de novas funções. Iten
 - [ ] assistente obrigatório de primeiro acesso, sem senha fixa de produção;
 - [ ] políticas de autorização para Admin e Operador Especial;
 - [ ] credencial individual e rotacionável por máquina;
-- [ ] HTTPS ou canal autenticado na rede local;
+- [x] HTTPS obrigatório para exposição de produção na rede local, com configuração externa e pacote de certificado;
 - [ ] migrations versionadas, teste de upgrade e estratégia de rollback;
-- [ ] verificação de integridade e restauração guiada de backup;
-- [ ] instaladores assinados e testados fora de computadores institucionais;
+- [x] verificação de integridade, cópia off-machine e restauração guiada por scripts de implantação;
+- [ ] instalador assinado e validado no ambiente do cliente; pacote PowerShell de implantação e rollback incluído;
 - [ ] limpeza versionada dos artefatos `bin`/`obj` antigos ainda rastreados no histórico;
 - [ ] cobertura automatizada dos casos financeiros e de concorrência;
 - [ ] teste de carga com quantidade-alvo de máquinas definida;

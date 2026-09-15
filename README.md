@@ -30,7 +30,7 @@ Os antigos componentes de quiosque, serviço, watchdog, hooks, scripts de instal
 | `Adrenalina.Domain` | Entidades e enumerações de negócio |
 | `Adrenalina.Infrastructure` | EF Core, SQLite, regras de negócio, seed e persistência |
 
-O Client não referencia `Adrenalina.Server`, não abre SQLite e se comunica somente por HTTP. Admin e Client não compartilham telas nem arquivos de configuração.
+O Client não referencia `Adrenalina.Server`, não abre SQLite e se comunica por HTTP local ou HTTPS na LAN de produção. Admin e Client não compartilham telas nem arquivos de configuração.
 
 ## Dados e configurações
 
@@ -190,17 +190,23 @@ dotnet publish src/Adrenalina.Admin -c Release -r win-x64 --self-contained true 
 dotnet publish src/Adrenalina.Client -c Release -r win-x64 --self-contained true -m:1
 ```
 
+Para uma entrega reproduzível com validações e implantação Windows, use os
+scripts em `deployment/`: `Publish-Release.ps1`, `Install-Production.ps1`,
+`Install-ClientCertificate.ps1` e `Validate-Production.ps1`. A instalação LAN
+de produção exige HTTPS e limita a regra de firewall ao perfil `Private` e à
+sub-rede local.
+
 Não é necessário instalar WebView2 para usar o Admin: o navegador padrão é o fallback suportado.
 
 ## Limitações conhecidas
 
-- a rede local depende da rede e das políticas já existentes; o sistema não altera firewall;
-- para produção HTTPS, configure `Kestrel:Certificates:Default:Path` e a senha por segredo do ambiente; o certificado não deve ser commitado;
+- a rede local depende da rede e das políticas já existentes; o aplicativo não altera firewall, e o instalador cria somente a regra limitada ao perfil `Private` e `LocalSubnet`;
+- para produção HTTPS, use certificado PFX externo ou thumbprint de certificado no repositório do Windows; o certificado e a senha nunca devem ser commitados;
 - o protocolo Client/Server possui versão explícita e rejeita versões incompatíveis;
 - o bloqueio da estação é uma representação visual, não um recurso de segurança do Windows;
 - não há recuperação automática de senha; proteja o arquivo de acesso inicial, o banco e os backups;
-- o protocolo de LAN usa HTTP no servidor embutido por padrão; a autenticação da máquina usa prova HMAC com nonce e janela temporal, mas HTTPS exige certificado externo configurado;
-- não existe pipeline formal de migrations/rollback nem restauração guiada;
+- o protocolo de LAN usa HTTPS quando a exposição é de produção; a autenticação da máquina usa prova HMAC com nonce e janela temporal;
+- o instalador preserva a versão anterior para rollback e a inicialização aplica upgrades aditivos; restauração do banco ativo continua sendo uma operação deliberada e deve ser exercitada no procedimento operacional;
 - arquivos gerados antigos (`bin`, `obj`, logs e banco de demonstração) ainda podem existir em históricos anteriores do repositório, embora `.gitignore` impeça novas inclusões comuns;
 Não execute instaladores ou ferramentas externas de controle da estação em computadores institucionais.
 

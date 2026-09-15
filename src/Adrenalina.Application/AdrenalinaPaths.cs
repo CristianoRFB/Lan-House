@@ -49,4 +49,16 @@ public static class AdrenalinaPaths
             "Adrenalina",
             "runtime");
     }
+
+    public static string GetMachineDeploymentRoot()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "Adrenalina");
+    }
+
+    public static string GetDeploymentSettingsPath()
+    {
+        return Path.Combine(GetMachineDeploymentRoot(), "server-settings.json");
+    }
 }

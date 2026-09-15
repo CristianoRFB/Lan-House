@@ -766,7 +766,7 @@ public sealed class MainForm : Form
     private string GetClientConnectionUrl()
     {
         return _server.ListenOnLocalNetwork
-            ? AdminNetworkLocator.GetPreferredBaseUrl(_server.Port)
+            ? AdminNetworkLocator.GetPreferredBaseUrl(_server.Port, _server.ConnectionScheme)
             : _server.BaseAddress.ToString();
     }
 

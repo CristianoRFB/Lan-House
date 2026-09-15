@@ -4,6 +4,14 @@ Todas as alterações relevantes deste projeto serão documentadas neste arquivo
 
 ## [Unreleased]
 
+### Implantação de produção
+
+- adicionada rejeição de HTTP aberto quando o servidor tenta expor a LAN em produção;
+- adicionado carregamento de certificado por thumbprint do Windows e configuração externa do Admin;
+- adicionados scripts de publicação self-contained, instalação com firewall restrito, rollback, cópia off-machine e restauração guiada;
+- adicionada checklist de entrega para registrar evidências do ambiente do cliente;
+- corrigido o restore do runtime `win-x64` no pacote de release e removida a combinação inválida de self-contained/RID do build do Admin.
+
 ### Segurança
 
 - removidos do índice artefatos de build, logs e banco de runtime; adicionada proteção no `.gitignore`;

@@ -8,5 +8,6 @@ public sealed class AdrenalinaServerHostOptions
     public string? DataRootPath { get; init; }
     public string? Urls { get; init; }
     public string? EnvironmentName { get; init; }
+    public string? CertificateThumbprint { get; init; }
     public bool UseHttpsRedirection { get; init; } = true;
 }

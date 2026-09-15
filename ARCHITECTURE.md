@@ -2,7 +2,7 @@
 
 ## Objetivo arquitetural
 
-O Adrenalina é um produto desktop Windows com servidor local. A arquitetura favorece implantação simples em uma única lan house, operação offline da internet e isolamento entre administração e estações. O banco pertence exclusivamente ao Server; Clients acessam o sistema somente pela API HTTP.
+O Adrenalina é um produto desktop Windows com servidor local. A arquitetura favorece implantação simples em uma única lan house, operação offline da internet e isolamento entre administração e estações. O banco pertence exclusivamente ao Server; Clients acessam o sistema somente pela API HTTP local ou HTTPS na LAN de produção.
 
 ## Componentes suportados
 
@@ -125,7 +125,7 @@ Não existe ainda um pipeline formal de EF Migrations com rollback. Essa é uma 
 - redelivery é deduplicado no Client pelo identificador;
 - login nunca é armazenado para tentativa offline.
 
-O protocolo ainda usa HTTP em LAN e a chave da máquina não é uma credencial criptográfica. TLS e provisionamento de credenciais por estação pertencem ao roadmap de segurança.
+Em produção, a exposição na LAN usa HTTPS com certificado externo ou certificado do repositório do Windows configurado pelo pacote de implantação. A chave individual da máquina é usada em uma prova HMAC com nonce e janela temporal; ela deve ser rotacionada pelo operador quando houver suspeita de exposição.
 
 ## Segurança
 
@@ -136,7 +136,7 @@ O protocolo ainda usa HTTP em LAN e a chave da máquina não é uma credencial c
 - respostas genéricas de login evitam enumeração direta;
 - Data Protection isolado no diretório do Admin;
 - comandos de reinício, logout, captura e limpeza são rejeitados;
-- nenhum componente suportado altera firewall, Registro, serviços ou processos do Windows.
+- o aplicativo não altera Registro, serviços ou processos do Windows; o instalador de produção cria apenas a regra de firewall documentada e limitada ao perfil Private/LocalSubnet.
 
 ## Observabilidade
 

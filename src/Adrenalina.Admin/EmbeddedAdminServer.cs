@@ -14,6 +14,7 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
     private readonly string _contentRootPath;
     private readonly string _dataRootPath;
     private readonly bool _listenOnLocalNetwork;
+    private readonly AdminServerDeploymentOptions _deploymentOptions;
     private WebApplication? _app;
     private int _currentPort = DefaultPort;
 
@@ -21,14 +22,19 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
     {
         _contentRootPath = Path.Combine(AppContext.BaseDirectory, "ServerContent");
         _dataRootPath = AdrenalinaPaths.GetAdminDataRoot();
-        _listenOnLocalNetwork = listenOnLocalNetwork;
+        _deploymentOptions = AdminServerDeploymentOptionsStore.Load();
+        _listenOnLocalNetwork = listenOnLocalNetwork || _deploymentOptions.ListenOnLocalNetwork;
     }
 
-    public Uri BaseAddress => new($"http://127.0.0.1:{_currentPort}/");
+    private string Scheme => _listenOnLocalNetwork && _deploymentOptions.UseHttps ? "https" : "http";
+
+    public string ConnectionScheme => Scheme;
+
+    public Uri BaseAddress => new($"{Scheme}://127.0.0.1:{_currentPort}/");
 
     public string ListenUrl => _listenOnLocalNetwork
-        ? $"http://0.0.0.0:{_currentPort}"
-        : $"http://127.0.0.1:{_currentPort}";
+        ? $"{Scheme}://0.0.0.0:{_currentPort}"
+        : $"{Scheme}://127.0.0.1:{_currentPort}";
 
     public bool ListenOnLocalNetwork => _listenOnLocalNetwork;
 
@@ -73,6 +79,7 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
                     WebRootPath = Path.Combine(_contentRootPath, "wwwroot"),
                     DataRootPath = _dataRootPath,
                     Urls = ListenUrl,
+                    CertificateThumbprint = _deploymentOptions.CertificateThumbprint,
                     UseHttpsRedirection = false
                 });
 
@@ -88,7 +95,9 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
                         : $"Servidor local iniciado na porta {_currentPort}.";
                     if (_listenOnLocalNetwork)
                     {
-                        StartupMessage += " LAN ativa em HTTP; configure HTTPS com certificado antes de expor a uma rede nao confiavel.";
+                        StartupMessage += Scheme == "https"
+                            ? " LAN ativa com HTTPS."
+                            : " LAN local ativa sem HTTPS porque o ambiente foi marcado como Development.";
                     }
                     return;
                 }

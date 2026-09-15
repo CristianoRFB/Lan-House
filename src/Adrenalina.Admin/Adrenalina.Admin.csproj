@@ -44,8 +44,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseAppHost>true</UseAppHost>
     <BaseOutputPath Condition="'$(Configuration)' == 'Debug'">artifacts\debug-output\</BaseOutputPath>
-    <RuntimeIdentifier Condition="'$(Configuration)' == 'Release' and '$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
-    <SelfContained Condition="'$(Configuration)' == 'Release'">true</SelfContained>
   </PropertyGroup>
 
 </Project>

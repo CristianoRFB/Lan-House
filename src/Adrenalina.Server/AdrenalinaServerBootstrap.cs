@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Threading.RateLimiting;
+using System.Security.Cryptography.X509Certificates;
 using Adrenalina.Server.Infrastructure;
 
 namespace Adrenalina.Server;
@@ -29,11 +30,23 @@ public static class AdrenalinaServerBootstrap
 
         var certificatePath = builder.Configuration["Kestrel:Certificates:Default:Path"];
         var certificatePassword = builder.Configuration["Kestrel:Certificates:Default:Password"];
-        var usesHttps = options.Urls?.Contains("https://", StringComparison.OrdinalIgnoreCase) == true;
-        if (usesHttps && string.IsNullOrWhiteSpace(certificatePath))
+        var certificateThumbprint = options.CertificateThumbprint ?? builder.Configuration["Kestrel:Certificates:Default:Thumbprint"];
+        var configuredUrls = options.Urls ?? builder.Configuration["urls"] ?? builder.Configuration["ASPNETCORE_URLS"];
+        var usesHttps = configuredUrls?.Contains("https://", StringComparison.OrdinalIgnoreCase) == true;
+        var listensOnAllInterfaces = configuredUrls?.Contains("0.0.0.0", StringComparison.OrdinalIgnoreCase) == true ||
+                                     configuredUrls?.Contains('*') == true ||
+                                     configuredUrls?.Contains('+') == true;
+        if (usesHttps && string.IsNullOrWhiteSpace(certificatePath) && string.IsNullOrWhiteSpace(certificateThumbprint))
         {
             throw new InvalidOperationException(
-                "Um binding HTTPS exige Kestrel:Certificates:Default:Path configurado fora do repositorio.");
+                "Um binding HTTPS exige Kestrel:Certificates:Default:Path ou Thumbprint configurado fora do repositorio.");
+        }
+
+        if (listensOnAllInterfaces && usesHttps is false && !string.Equals(options.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(builder.Environment.EnvironmentName, "Development", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "A exposição na LAN exige HTTPS em produção. Configure um certificado antes de habilitar a rede local.");
         }
 
         // O servidor embutido precisa rodar sem depender de acesso ao Event Log do Windows.
@@ -52,11 +65,9 @@ public static class AdrenalinaServerBootstrap
             builder.Configuration["Adrenalina:RootDirectory"] = options.DataRootPath;
         }
 
-        if (!string.IsNullOrWhiteSpace(options.Urls))
+        if (!string.IsNullOrWhiteSpace(configuredUrls))
         {
-            builder.WebHost.UseUrls(options.Urls);
-            var listensOnAllInterfaces = options.Urls.Contains("0.0.0.0", StringComparison.OrdinalIgnoreCase) ||
-                                         options.Urls.Contains('*') || options.Urls.Contains('+');
+            builder.WebHost.UseUrls(configuredUrls);
             if (!listensOnAllInterfaces)
             {
                 builder.Configuration["AllowedHosts"] = "localhost;127.0.0.1";
@@ -133,10 +144,15 @@ public static class AdrenalinaServerBootstrap
             {
                 kestrelOptions.ConfigureHttpsDefaults(httpsOptions =>
                 {
-                    httpsOptions.ServerCertificate = new System.Security.Cryptography.X509Certificates.X509Certificate2(
+                    httpsOptions.ServerCertificate = new X509Certificate2(
                         certificatePath,
                         certificatePassword);
                 });
+            }
+            else if (!string.IsNullOrWhiteSpace(certificateThumbprint))
+            {
+                var certificate = FindCertificate(certificateThumbprint);
+                kestrelOptions.ConfigureHttpsDefaults(httpsOptions => httpsOptions.ServerCertificate = certificate);
             }
 
             kestrelOptions.Limits.MaxRequestBodySize = 64 * 1024;
@@ -203,6 +219,27 @@ public static class AdrenalinaServerBootstrap
             pattern: "{controller=Dashboard}/{action=Index}/{id?}");
 
         return app;
+    }
+
+    private static X509Certificate2 FindCertificate(string thumbprint)
+    {
+        var normalized = thumbprint.Replace(" ", string.Empty, StringComparison.Ordinal).Trim();
+        foreach (var location in new[] { StoreLocation.CurrentUser, StoreLocation.LocalMachine })
+        {
+            using var store = new X509Store(StoreName.My, location);
+            store.Open(OpenFlags.ReadOnly);
+            var certificate = store.Certificates
+                .Find(X509FindType.FindByThumbprint, normalized, validOnly: false)
+                .OfType<X509Certificate2>()
+                .FirstOrDefault();
+            if (certificate is not null)
+            {
+                return certificate;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"O certificado HTTPS com thumbprint '{normalized}' não foi encontrado em CurrentUser\\My ou LocalMachine\\My.");
     }
 
     public static async Task InitializeAsync(WebApplication app, CancellationToken cancellationToken = default)

@@ -11,6 +11,36 @@ namespace Adrenalina.Tests;
 public sealed class ServerApiTests
 {
     [Fact]
+    public void ProductionLanBindingRejectsPlainHttp()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "Adrenalina.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "wwwroot"));
+
+        try
+        {
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                AdrenalinaServerBootstrap.BuildApplication(new AdrenalinaServerHostOptions
+                {
+                    ContentRootPath = root,
+                    WebRootPath = Path.Combine(root, "wwwroot"),
+                    DataRootPath = Path.Combine(root, "admin-data"),
+                    Urls = "http://0.0.0.0:0",
+                    EnvironmentName = "Production",
+                    UseHttpsRedirection = false
+                }));
+
+            Assert.Contains("exposição na LAN exige HTTPS", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task HealthIsAnonymousAndAdministrativeRoutesRequireAuthentication()
     {
         var root = Path.Combine(Path.GetTempPath(), "Adrenalina.Tests", Guid.NewGuid().ToString("N"));

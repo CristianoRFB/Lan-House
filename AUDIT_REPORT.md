@@ -73,7 +73,7 @@ Não foram criados seis projetos `Shared.*`. A decisão detalhada está em `ARCH
 ### Riscos restantes
 
 - o acesso inicial aleatório ainda depende de o operador trocar a senha; falta bloqueio obrigatório de primeiro acesso;
-- HTTP na LAN não garante confidencialidade ou integridade contra atacante local;
+- uma instalação LAN sem executar o pacote HTTPS continua insegura contra atacante local; o bootstrap agora recusa binding HTTP aberto em produção;
 - a chave da máquina identifica, mas não autentica criptograficamente;
 - PIN de quatro dígitos depende fortemente de rate limiting e segurança da rede;
 - logs em arquivo não possuem proteção criptográfica contra adulteração.
@@ -88,10 +88,10 @@ Implementado:
 - upgrade aditivo que preserva banco existente;
 - backup consistente via `VACUUM INTO` e retenção somente durante ação manual.
 
-Pendente:
+Pendente no ambiente-alvo:
 
 - migrations formais e ensaio de upgrade entre todas as versões;
-- `PRAGMA integrity_check` agendado/acionável e restauração guiada;
+- ensaio de restauração com `deployment\Restore-Backup.ps1` e evidência do resultado;
 - teste de concorrência sustentada;
 - política documentada de retenção fiscal e LGPD;
 - limpeza opcional da tabela antiga de snapshots de processos em bases já existentes.
