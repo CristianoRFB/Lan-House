@@ -1,140 +1,133 @@
+@model HelpPageViewModel
 @{
-    ViewData["Title"] = "Tutorial";
+    ViewData["Title"] = "Ajuda";
+    var visibleChecklist = Model.Checklist.Where(item => !item.AdminOnly || User.IsInRole("Admin")).ToArray();
 }
 
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Guia completo</p>
-        <h2>Guia do administrador</h2>
-        <p class="text-secondary">Implantação segura do Admin, cadastro das máquinas e conexão dos Clients.</p>
-    </div>
-    <div class="button-row">
-        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-light">Voltar ao painel</a>
-        <a asp-controller="Settings" asp-action="Index" class="btn btn-accent">Abrir configurações</a>
-    </div>
-</section>
+<div class="help-page" data-help-page data-help-version="@Model.Version">
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Autoatendimento do ADMIN</p>
+            <h2>Central de ajuda</h2>
+            <p class="text-secondary">Orientações curtas para configurar, operar e resolver problemas no Adrenalina.</p>
+        </div>
+        <div class="button-row">
+            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-light">Voltar ao painel</a>
+            <button type="button" class="btn btn-accent" data-help-restart>Refazer guia</button>
+        </div>
+    </section>
 
-<section class="callout-card">
-    <div>
-        <p class="eyebrow mb-2">Fluxo recomendado</p>
-        <h3 class="mb-2">Ordem ideal para colocar a lan house para funcionar</h3>
-        <ol class="tutorial-list mb-0">
-            <li>Abra o aplicativo desktop <strong>Adrenalina.Admin</strong>.</li>
-            <li>Clique em <strong>Iniciar servidor e abrir painel</strong>.</li>
-            <li>Ative explicitamente o acesso pela rede local, reinicie o servidor e confira o endereço exibido.</li>
-            <li>Cadastre cada máquina no painel antes de configurar o Client com a mesma chave.</li>
-            <li>Entre no painel web com a conta inicial ou com sua conta administrativa.</li>
-            <li>Revise configuracoes, cadastre usuarios e acompanhe maquinas e sessoes pelo painel.</li>
-        </ol>
-    </div>
-</section>
+    <section class="help-welcome panel" data-help-welcome hidden>
+        <div>
+            <p class="eyebrow mb-2">Primeiro acesso</p>
+            <h3>Bem-vindo ao painel do Adrenalina</h3>
+            <p class="text-secondary mb-0">Aqui você acompanha máquinas, sessões, usuários, solicitações, relatórios e configurações em um único lugar.</p>
+        </div>
+        <div class="button-row">
+            <button type="button" class="btn btn-accent" data-help-start>Começar guia</button>
+            <button type="button" class="btn btn-outline-light" data-help-explore>Explorar sozinho</button>
+        </div>
+    </section>
 
-<section class="tutorial-grid">
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">1</span>
-        <h3>Comecando pelo desktop do ADMIN</h3>
-        <ul class="tutorial-list">
-            <li><strong>Iniciar servidor e abrir painel</strong> inicia servidor, banco local e painel.</li>
-            <li><strong>Painel local</strong> mostra onde o administrador entra no sistema.</li>
-            <li><strong>Clientes na rede</strong> fica disponível somente quando o acesso à LAN é habilitado.</li>
-            <li><strong>Abrir painel no navegador</strong> funciona mesmo sem WebView2.</li>
-            <li><strong>Backup manual</strong> gera backup do banco local.</li>
-        </ul>
-    </article>
+    <section class="help-toolbar panel" aria-label="Buscar ajuda">
+        <div class="help-search-field">
+            <label for="help-search" class="form-label">Como podemos ajudar?</label>
+            <input id="help-search" class="form-control" type="search" placeholder="Buscar por máquina, sessão, senha..." autocomplete="off" data-help-search />
+        </div>
+        <div>
+            <span class="form-label d-block">Categorias</span>
+            <div class="help-category-list" role="group" aria-label="Filtrar categorias">
+                <button type="button" class="btn btn-sm btn-category active" data-help-category="*">Tudo</button>
+                @foreach (var category in Model.Categories)
+                {
+                    <button type="button" class="btn btn-sm btn-category" data-help-category="@category">@category</button>
+                }
+            </div>
+        </div>
+        <p class="help-search-status text-secondary mb-0" data-help-search-status aria-live="polite"></p>
+    </section>
 
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">2</span>
-        <h3>Login inicial e seguranca</h3>
-        <ul class="tutorial-list">
-            <li>O primeiro acesso usa a conta <code>admin</code> e os dados aleatórios de <code>initial-admin-access.txt</code>.</li>
-            <li>Troque a senha em <strong>Usuários</strong>; o arquivo inicial será removido automaticamente.</li>
-            <li>Se precisar de ajuda depois, o tutorial pode ser reaberto tanto no app desktop quanto neste painel.</li>
-        </ul>
-    </article>
+    <section class="help-checklist panel" data-help-checklist>
+        <div class="help-section-heading">
+            <div>
+                <p class="eyebrow mb-2">Roteiro de implantação</p>
+                <h3>Vamos configurar sua operação</h3>
+                <p class="text-secondary mb-0">Marque cada etapa quando ela estiver pronta. O progresso fica salvo neste navegador.</p>
+            </div>
+            <strong class="help-progress-label" data-help-progress>0 de @visibleChecklist.Length concluídos</strong>
+        </div>
+        <div class="progress help-progress" role="progressbar" aria-label="Progresso da configuração" aria-valuemin="0" aria-valuemax="@visibleChecklist.Length" aria-valuenow="0">
+            <div class="progress-bar" data-help-progress-bar style="width: 0%"></div>
+        </div>
+        <div class="help-checklist-grid">
+            @foreach (var item in visibleChecklist)
+            {
+                <label class="help-check-item">
+                    <input type="checkbox" value="@item.Id" data-help-check />
+                    <span>
+                        <strong>@item.Label</strong>
+                        <a href="#help-@item.ArticleId" data-help-related="@item.ArticleId">Ver orientação</a>
+                    </span>
+                </label>
+            }
+        </div>
+    </section>
 
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">3</span>
-        <h3>Painel</h3>
-        <ul class="tutorial-list">
-            <li>Acompanhe maquinas online, maquinas em uso, sessoes ativas e solicitacoes pendentes.</li>
-            <li>Use os graficos para entender uso por dia e por maquina.</li>
-            <li>Aprove ou rejeite pedidos de cadastro e mais tempo.</li>
-            <li>Consulte os logs recentes para ver o que aconteceu no sistema.</li>
-        </ul>
-    </article>
-
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">4</span>
-        <h3>Usuarios</h3>
-        <ul class="tutorial-list">
-            <li>Cadastre e atualize usuarios com nome, login, PIN, senha do painel e perfil.</li>
-            <li>Perfis disponiveis: Admin, Especial, Ghost e Comum.</li>
-            <li>Defina saldo, limite de anotacao, conta temporaria e observacoes.</li>
-            <li>Use <strong>Lancamento financeiro</strong> para creditos, debitos, anotacoes e promessas.</li>
-        </ul>
-    </article>
-
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">5</span>
-        <h3>Máquinas</h3>
-        <ul class="tutorial-list">
-            <li>Cadastre nome, chave única, tipo, grupo e observações antes de preparar o Client.</li>
-            <li>Acompanhe hostname, IP, último contato e estado atual.</li>
-            <li>Envie avisos ou alterne a exibição do tempo. O sistema não executa ações administrativas no Windows.</li>
-        </ul>
-    </article>
-
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">6</span>
-        <h3>Sessoes</h3>
-        <ul class="tutorial-list">
-            <li>Inicie sessoes escolhendo maquina, usuario, minutos e valor por hora.</li>
-            <li>Use <strong>Nome livre</strong> para atendimentos sem conta formal.</li>
-            <li>Use <strong>Não contabilizar cobrança</strong> apenas quando a operação exigir uso livre.</li>
-            <li>Durante uma sessao ativa, ajuste minutos ou anotacao e encerre quando precisar.</li>
-        </ul>
-    </article>
-
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">7</span>
-        <h3>Relatorios</h3>
-        <ul class="tutorial-list">
-            <li>Escolha periodo e formato de exportacao.</li>
-            <li>Gere arquivos em TXT, Excel ou PDF.</li>
-            <li>Revise solicitacoes em aberto e o log completo recente para auditoria.</li>
-        </ul>
-    </article>
-
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">8</span>
-        <h3>Configuracoes</h3>
-        <ul class="tutorial-list">
-            <li>Defina nome da lan house, valores e retenção dos backups manuais.</li>
-            <li>Configure valores padrao de PC e console.</li>
-            <li>Edite mensagens de boas-vindas, saida e bloqueio.</li>
-            <li>Revise as mensagens exibidas no Client e o tempo padrão mostrado ao usuário.</li>
-        </ul>
-    </article>
-
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">9</span>
-        <h3>Como preparar os clientes</h3>
-        <ul class="tutorial-list">
-            <li>Abra o <strong>Adrenalina.Client</strong> em cada maquina cliente.</li>
-            <li>Informe exatamente o endereço mostrado no ADMIN em <strong>Clientes na rede</strong>.</li>
-            <li>Use o mesmo nome e a mesma chave do cadastro da máquina, teste a conexão e salve.</li>
-            <li>Pedidos de cadastro e mais tempo aparecem no painel do administrador para aprovacao.</li>
-        </ul>
-    </article>
-
-    <article class="panel tutorial-step">
-        <span class="tutorial-step-number">10</span>
-        <h3>Rotina diaria do administrador</h3>
-        <ul class="tutorial-list">
-            <li>Comece pelo Painel para ver o estado geral.</li>
-            <li>Use Maquinas e Sessoes para controlar operacao em tempo real.</li>
-            <li>Use Usuarios para manter contas e financeiro organizados.</li>
-            <li>Use Relatorios e backup manual no fechamento ou conferencias.</li>
-        </ul>
-    </article>
-</section>
+    <section class="help-articles" aria-labelledby="help-articles-title">
+        <div class="help-section-heading">
+            <div>
+                <p class="eyebrow mb-2">Dúvidas frequentes</p>
+                <h3 id="help-articles-title">Orientações do sistema</h3>
+            </div>
+            <span class="text-secondary">@Model.Articles.Count artigos disponíveis para seu perfil</span>
+        </div>
+        <div class="help-article-grid">
+            @foreach (var article in Model.Articles)
+            {
+                var searchText = string.Join(" ", new[] { article.Title, article.Summary }.Concat(article.Steps).Concat(article.Keywords));
+                <article id="help-@article.Id" class="panel help-article" data-help-article data-help-id="@article.Id" data-help-category-value="@article.Category" data-help-search-text="@searchText">
+                    <div class="help-article-heading">
+                        <span class="status-pill">@article.Category</span>
+                        <h4>@article.Title</h4>
+                    </div>
+                    <p class="text-secondary">@article.Summary</p>
+                    <details>
+                        <summary>Ver passo a passo</summary>
+                        <ol class="tutorial-list">
+                            @foreach (var step in article.Steps)
+                            {
+                                <li>@step</li>
+                            }
+                        </ol>
+                    </details>
+                    @if (article.Related.Count > 0)
+                    {
+                        <div class="help-related">
+                            <span class="small text-secondary">Talvez você também queira saber</span>
+                            <div class="mini-inline">
+                                @foreach (var relatedId in article.Related)
+                                {
+                                    var related = Model.Articles.FirstOrDefault(candidate => candidate.Id == relatedId);
+                                    if (related is not null)
+                                    {
+                                        <a href="#help-@related.Id" data-help-related="@related.Id">@related.Title</a>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+                    <div class="help-feedback" data-help-feedback>
+                        <span class="small text-secondary">Isso respondeu sua dúvida?</span>
+                        <button type="button" class="btn btn-sm btn-outline-success" data-help-feedback-action="yes">Sim</button>
+                        <button type="button" class="btn btn-sm btn-outline-light" data-help-feedback-action="no">Ainda não</button>
+                    </div>
+                </article>
+            }
+        </div>
+        <div class="help-empty panel" data-help-empty hidden>
+            <h4>Não encontramos uma resposta para sua busca.</h4>
+            <p class="text-secondary">Tente outras palavras, consulte todas as categorias ou fale com o responsável pelo ADMIN.</p>
+            <button type="button" class="btn btn-outline-light" data-help-clear>Limpar busca</button>
+        </div>
+    </section>
+</div>

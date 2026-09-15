@@ -2,13 +2,31 @@ namespace Adrenalina.Admin;
 
 public sealed class AdminTutorialForm : Form
 {
+    private static readonly (string Title, string Body)[] Steps =
+    [
+        ("1. Inicie o ambiente", "Clique em Iniciar servidor e abrir painel para subir o servidor local, preparar o banco e abrir o painel web. O endereço em Clientes na rede é o que será usado pelos Clients."),
+        ("2. Faça o primeiro acesso", "Abra initial-admin-access.txt na pasta de dados do Admin e use as credenciais geradas. Entre no painel e troque a senha imediatamente em Usuários."),
+        ("3. Configure a operação", "Revise Configurações para nome da lan house, valores, mensagens e backups. Cadastre usuários quando necessário e crie as máquinas em Máquinas."),
+        ("4. Conecte os Clients", "Em cada máquina, abra Adrenalina.Client, informe a URL do ADMIN e a mesma chave cadastrada. Teste a conexão e salve. A sincronização passa a ser automática."),
+        ("5. Opere no painel", "Use Painel para o resumo, Máquinas para conexão, Sessões para tempo de uso, Usuários para perfis e financeiro e Relatórios para exportações e auditoria."),
+        ("6. Quando precisar de ajuda", "Reabra este guia pelo botão Tutorial ou pelas Configurações do app. No painel web, use Ajuda para buscar orientações, consultar o checklist e refazer o guia.")
+    ];
+
+    private readonly Label _stepLabel = new();
+    private readonly Label _progressLabel = new();
+    private readonly Button _backButton = new();
+    private readonly Button _skipButton = new();
+    private readonly Button _nextButton = new();
+    private readonly Button _finishButton = new();
+    private int _currentStep;
+
     public AdminTutorialForm()
     {
         Text = "Tutorial do administrador";
-        Width = 940;
-        Height = 720;
+        Width = 900;
+        Height = 620;
         StartPosition = FormStartPosition.CenterParent;
-        MinimumSize = new Size(820, 620);
+        MinimumSize = new Size(760, 520);
         FormBorderStyle = FormBorderStyle.Sizable;
         BackColor = Color.FromArgb(15, 20, 31);
         ForeColor = Color.White;
@@ -28,176 +46,126 @@ public sealed class AdminTutorialForm : Form
         var headerPanel = new Panel
         {
             Dock = DockStyle.Fill,
-            Height = 96
+            Height = 86
         };
-
         headerPanel.Controls.Add(new Label
         {
             Dock = DockStyle.Top,
             AutoSize = true,
             Text = "Primeiros passos do ADMIN",
             Font = new Font("Segoe UI Semibold", 20f, FontStyle.Bold),
-            ForeColor = Color.White,
-            Margin = new Padding(0, 0, 0, 10)
+            ForeColor = Color.White
         });
+        _progressLabel.Dock = DockStyle.Bottom;
+        _progressLabel.AutoSize = true;
+        _progressLabel.ForeColor = Color.FromArgb(127, 217, 199);
+        _progressLabel.Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold);
+        headerPanel.Controls.Add(_progressLabel);
 
-        headerPanel.Controls.Add(new Label
-        {
-            Dock = DockStyle.Bottom,
-            AutoSize = true,
-            MaximumSize = new Size(840, 0),
-            Text = "Este guia cobre o aplicativo desktop do administrador e tambem o painel web. Sempre que precisar, reabra o tutorial nas configuracoes do app ou use o menu Tutorial dentro do painel.",
-            Font = new Font("Segoe UI", 10f),
-            ForeColor = Color.FromArgb(193, 204, 220)
-        });
-
-        var tutorialTextBox = new RichTextBox
+        var stepPanel = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ReadOnly = true,
-            BorderStyle = BorderStyle.None,
-            BackColor = Color.FromArgb(19, 27, 43),
-            ForeColor = Color.FromArgb(230, 236, 246),
-            Font = new Font("Segoe UI", 10.5f),
-            ScrollBars = RichTextBoxScrollBars.Vertical,
-            DetectUrls = false,
-            Text = BuildTutorialText()
+            ColumnCount = 1,
+            RowCount = 2,
+            Padding = new Padding(22),
+            BackColor = Color.FromArgb(19, 27, 43)
         };
+        stepPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        stepPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        _stepLabel.Dock = DockStyle.Fill;
+        _stepLabel.AutoSize = false;
+        _stepLabel.Padding = new Padding(0, 0, 0, 14);
+        _stepLabel.Font = new Font("Segoe UI Semibold", 15f, FontStyle.Bold);
+        _stepLabel.ForeColor = Color.White;
+        _stepLabel.MaximumSize = new Size(780, 0);
+        stepPanel.Controls.Add(_stepLabel, 0, 0);
+
+        var footerText = new Label
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = false,
+            ForeColor = Color.FromArgb(193, 204, 220),
+            Font = new Font("Segoe UI", 11f),
+            Padding = new Padding(0, 4, 0, 0),
+            MaximumSize = new Size(780, 0)
+        };
+        stepPanel.Controls.Add(footerText, 0, 1);
 
         var footerPanel = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.RightToLeft,
             AutoSize = true,
-            WrapContents = false
+            WrapContents = false,
+            Padding = new Padding(0, 16, 0, 0)
         };
 
-        var closeButton = new Button
+        ConfigureButton(_finishButton, "Concluir", Color.FromArgb(52, 132, 84));
+        ConfigureButton(_nextButton, "Próximo", Color.FromArgb(57, 96, 168));
+        ConfigureButton(_skipButton, "Pular", Color.FromArgb(70, 84, 106));
+        ConfigureButton(_backButton, "Voltar", Color.FromArgb(70, 84, 106));
+
+        _finishButton.Click += (_, _) => CloseWithResult();
+        _skipButton.Click += (_, _) => CloseWithResult();
+        _backButton.Click += (_, _) =>
         {
-            Text = "Concluir",
-            AutoSize = true,
-            Padding = new Padding(18, 8, 18, 8),
-            FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(52, 132, 84),
-            ForeColor = Color.White,
-            Margin = new Padding(10, 0, 0, 0)
+            if (_currentStep > 0)
+            {
+                _currentStep--;
+                UpdateStep(footerText);
+            }
         };
-        closeButton.FlatAppearance.BorderSize = 0;
-        closeButton.Click += (_, _) =>
+        _nextButton.Click += (_, _) =>
         {
-            DialogResult = DialogResult.OK;
-            Close();
+            if (_currentStep < Steps.Length - 1)
+            {
+                _currentStep++;
+                UpdateStep(footerText);
+            }
         };
 
-        footerPanel.Controls.Add(closeButton);
+        footerPanel.Controls.Add(_finishButton);
+        footerPanel.Controls.Add(_nextButton);
+        footerPanel.Controls.Add(_skipButton);
+        footerPanel.Controls.Add(_backButton);
 
         layout.Controls.Add(headerPanel, 0, 0);
-        layout.Controls.Add(tutorialTextBox, 0, 1);
+        layout.Controls.Add(stepPanel, 0, 1);
         layout.Controls.Add(footerPanel, 0, 2);
-
         Controls.Add(layout);
+
+        Shown += (_, _) => UpdateStep(footerText);
     }
 
-    private static string BuildTutorialText()
+    private void UpdateStep(Label bodyLabel)
     {
-        return string.Join(
-            Environment.NewLine,
-            [
-                "1. COMO COMECAR",
-                "",
-                "- Abra o Adrenalina.Admin no computador do administrador.",
-                "- Clique em Iniciar servidor e abrir painel para iniciar o servidor local, preparar o banco SQLite e abrir o painel.",
-                "- No topo do aplicativo voce sempre encontra dois enderecos importantes:",
-                "  Painel local: usado pelo proprio administrador no computador principal.",
-                "  Clientes na rede: endereco/IP que deve ser informado nas maquinas cliente.",
-                "",
-                "2. LOGIN INICIAL",
-                "",
-                "- No primeiro acesso, abra initial-admin-access.txt na pasta de dados do Admin.",
-                "- Use o login admin, a senha e o PIN aleatorios mostrados no arquivo.",
-                "- Troque a senha do admin em Usuarios; o arquivo inicial sera removido.",
-                "- Se o painel embutido nao abrir, use Abrir painel no navegador. O sistema continua funcionando normalmente.",
-                "",
-                "3. FUNCOES DO APP DESKTOP DO ADMIN",
-                "",
-                "- Iniciar servidor e abrir painel: sobe o servidor local, valida o banco e abre o painel quando voce quiser.",
-                "- Abrir painel no navegador: usa o navegador padrao quando voce preferir ou quando o modo embutido nao estiver disponivel.",
-                "- Copiar enderecos: copia somente os enderecos do painel e dos clientes, sem credenciais.",
-                "- Backup manual: gera um backup do banco local do sistema.",
-                "- Configuracoes: permite reativar o tutorial e escolher abrir o painel direto no navegador.",
-                "- Tutorial: reabre este passo a passo a qualquer momento.",
-                "- Fechar sistema: mostra confirmacao para encerrar o aplicativo e, se quiser, gerar um backup final antes de sair.",
-                "",
-                "4. FLUXO RECOMENDADO DE OPERACAO",
-                "",
-                "- Abra o ADMIN, clique em Iniciar servidor e abrir painel e confirme o endereco exibido em Clientes na rede.",
-                "- Abra o painel e entre com a conta de administrador.",
-                "- Revise Configuracoes para nome da lan house, valores, mensagens e backups manuais.",
-                "- Cadastre usuarios antes de liberar as primeiras maquinas, quando necessario.",
-                "- Informe o IP do ADMIN nas maquinas cliente.",
-                "- Acompanhe solicitacoes, sessoes e maquinas pelo painel web.",
-                "",
-                "5. O QUE EXISTE NO PAINEL WEB",
-                "",
-                "- Painel: mostra maquinas online, sessoes ativas, solicitacoes pendentes, uso recente e logs.",
-                "- Usuarios: cadastra usuarios, define perfil, PIN, senha, saldo, limite de anotacao e observacoes.",
-                "- Maquinas: acompanha status, ultimo contato e permite enviar avisos ou alternar o tempo.",
-                "- Sessoes: inicia, ajusta e encerra sessoes de PCs e consoles.",
-                "- Relatorios: exporta arquivos e revisa solicitacoes e logs.",
-                "- Configuracoes: define comportamento geral do sistema.",
-                "- Tutorial: abre o guia completo dentro do proprio painel web.",
-                "",
-                "6. COMO USAR A TELA USUARIOS",
-                "",
-                "- Use Salvar usuario para criar ou atualizar contas.",
-                "- Perfis disponiveis:",
-                "  Admin: acesso total ao painel.",
-                "  Especial: operacao administrativa com permissoes elevadas.",
-                "  Ghost: uso livre sem cobranca normal.",
-                "  Comum: cliente padrao com saldo, anotacao e tempo.",
-                "- Use Lancamento financeiro para registrar creditos, debitos, anotacoes e promessas.",
-                "",
-                "7. COMO USAR A TELA MAQUINAS",
-                "",
-                "- Veja se a maquina esta online, em sessao, bloqueada ou offline.",
-                "- Consulte hostname, IP, tipo da maquina e ultimo contato.",
-                "- O Client nao reinicia, encerra sessoes do Windows nem remove arquivos da maquina.",
-                "- Envie avisos personalizados quando precisar falar com uma maquina especifica.",
-                "",
-                "8. COMO USAR A TELA SESSOES",
-                "",
-                "- Escolha a maquina, o usuario e a quantidade de minutos.",
-                "- Defina valor por hora, se a cobranca sera contabilizada e se o cronometro deve aparecer no cliente.",
-                "- Em sessoes ativas, use Ajustar para adicionar minutos ou anotacao.",
-                "- Use Encerrar para finalizar a sessao quando necessario.",
-                "",
-                "9. COMO USAR RELATORIOS",
-                "",
-                "- Escolha o periodo e o formato do arquivo.",
-                "- Gere exportacoes em TXT, Excel ou PDF.",
-                "- Consulte tambem o log recente e as solicitacoes em aberto para auditoria.",
-                "",
-                "10. COMO USAR CONFIGURACOES",
-                "",
-                "- Ajuste nome da lan house, valores, mensagens e retencao dos backups manuais.",
-                "- Defina valores padrao de PC e console.",
-                "- Configure mensagem de boas-vindas, saida e bloqueio.",
-                "- Revise lista branca e lista negra de programas.",
-                "- Salve as configuracoes antes de colocar as maquinas em uso.",
-                "",
-                "11. COMO O CLIENTE ENTRA NO SISTEMA",
-                "",
-                "- Abra o Adrenalina.Client em cada maquina cliente.",
-                "- No primeiro uso, informe o endereco mostrado no ADMIN em Clientes na rede.",
-                "- Salve a configuracao da maquina.",
-                "- O cliente faz login com usuario e PIN.",
-                "- Pedidos de cadastro ou mais tempo chegam para aprovacao no painel do administrador.",
-                "",
-                "12. ONDE ENCONTRAR AJUDA DEPOIS",
-                "",
-                "- No app desktop: use Configuracoes ou Tutorial.",
-                "- No painel web: use o menu Tutorial.",
-                "- Para operacao diaria, comece pelo Painel e depois use Usuarios, Maquinas, Sessoes, Relatorios e Configuracoes conforme a necessidade."
-            ]);
+        var step = Steps[_currentStep];
+        _progressLabel.Text = $"Etapa {_currentStep + 1} de {Steps.Length}";
+        _stepLabel.Text = step.Title;
+        bodyLabel.Text = step.Body;
+        _backButton.Visible = _currentStep > 0;
+        _nextButton.Visible = _currentStep < Steps.Length - 1;
+        _finishButton.Visible = _currentStep == Steps.Length - 1;
+        (_currentStep == Steps.Length - 1 ? _finishButton : _nextButton).Focus();
+    }
+
+    private void CloseWithResult()
+    {
+        DialogResult = DialogResult.OK;
+        Close();
+    }
+
+    private static void ConfigureButton(Button button, string text, Color backColor)
+    {
+        button.Text = text;
+        button.AutoSize = true;
+        button.Padding = new Padding(16, 8, 16, 8);
+        button.Margin = new Padding(8, 0, 0, 0);
+        button.FlatStyle = FlatStyle.Flat;
+        button.BackColor = backColor;
+        button.ForeColor = Color.White;
+        button.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+        button.FlatAppearance.BorderSize = 0;
     }
 }

@@ -8,4 +8,5 @@ public sealed class ClientConnectionOptions
     public int SyncIntervalSeconds { get; set; } = 10;
     public bool SetupCompleted { get; set; }
     public bool ShowTutorialOnNextLaunch { get; set; }
+    public int OnboardingVersion { get; set; } = 1;
 }

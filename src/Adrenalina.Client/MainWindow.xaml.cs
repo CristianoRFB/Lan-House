@@ -10,6 +10,16 @@ namespace Adrenalina.Client;
 
 public partial class MainWindow : Window
 {
+    private const int CurrentOnboardingVersion = 1;
+    private static readonly (string Title, string Body)[] TutorialSteps =
+    [
+        ("1. Preparar a máquina", "No primeiro uso, informe o endereço mostrado no app ADMIN, o nome desta máquina e a chave cadastrada. Use Testar conexão antes de salvar."),
+        ("2. Entrar na sessão", "Depois de conectado, preencha usuário e PIN e selecione Entrar. O ADMIN controla a sessão, o tempo, o saldo e as anotações exibidos aqui."),
+        ("3. Pedir ajuda ao atendimento", "Abra Outras opções para solicitar cadastro ou mais tempo. Escreva uma mensagem clara; a equipe verá o pedido no painel do ADMIN."),
+        ("4. Entender a tela", "A tela principal mostra o usuário atual, perfil, tempo, saldo, anotações e avisos recentes. Se a conexão cair, o Client tenta sincronizar novamente automaticamente."),
+        ("5. Reabrir este guia", "Use Tutorial no topo ou Configurações da máquina para revisar este conteúdo. As configurações ficam somente neste Client.")
+    ];
+
     private readonly ClientConnectionOptions _options;
     private readonly IClientRuntimeStore _runtimeStore;
     private readonly ClientServerGateway _gateway;
@@ -19,6 +29,7 @@ public partial class MainWindow : Window
 
     private ClientRuntimeState _lastKnownState = new();
     private bool _localHideTimer;
+    private int _tutorialStep;
 
     public MainWindow(
         ClientConnectionOptions options,
@@ -55,6 +66,13 @@ public partial class MainWindow : Window
         {
             ShowSetupOverlay();
             return;
+        }
+
+        if (_options.OnboardingVersion < CurrentOnboardingVersion)
+        {
+            _options.OnboardingVersion = CurrentOnboardingVersion;
+            _options.ShowTutorialOnNextLaunch = true;
+            ClientOptionsStore.Save(_options);
         }
 
         if (_options.ShowTutorialOnNextLaunch)
@@ -345,14 +363,35 @@ public partial class MainWindow : Window
 
     private void CloseTutorialButton_Click(object sender, RoutedEventArgs e)
     {
-        TutorialOverlay.Visibility = Visibility.Collapsed;
+        CompleteTutorial();
+    }
 
-        if (_options.ShowTutorialOnNextLaunch)
+    private void TutorialSkipButton_Click(object sender, RoutedEventArgs e)
+    {
+        CompleteTutorial();
+    }
+
+    private void TutorialBackButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_tutorialStep <= 0)
         {
-            _options.ShowTutorialOnNextLaunch = false;
-            ClientOptionsStore.Save(_options);
-            PopulateSettingsFields();
+            return;
         }
+
+        _tutorialStep -= 1;
+        RenderTutorialStep();
+    }
+
+    private void TutorialNextButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_tutorialStep >= TutorialSteps.Length - 1)
+        {
+            CompleteTutorial();
+            return;
+        }
+
+        _tutorialStep += 1;
+        RenderTutorialStep();
     }
 
     private void HandlePinBoxKeyDown(object sender, KeyEventArgs e)
@@ -379,6 +418,37 @@ public partial class MainWindow : Window
         SetupOverlay.Visibility = Visibility.Collapsed;
         TutorialOverlay.Visibility = Visibility.Visible;
         SettingsOverlay.Visibility = Visibility.Collapsed;
+        _tutorialStep = 0;
+        RenderTutorialStep();
+    }
+
+    private void RenderTutorialStep()
+    {
+        var step = TutorialSteps[Math.Clamp(_tutorialStep, 0, TutorialSteps.Length - 1)];
+        TutorialStepTitleText.Text = step.Title;
+        TutorialStepBodyText.Text = step.Body;
+        TutorialProgressText.Text = $"Etapa {_tutorialStep + 1} de {TutorialSteps.Length}";
+        TutorialStepNumberText.Text = $"{_tutorialStep + 1:D2}";
+        TutorialBackButton.Visibility = _tutorialStep == 0 ? Visibility.Collapsed : Visibility.Visible;
+        TutorialNextButton.Visibility = _tutorialStep == TutorialSteps.Length - 1 ? Visibility.Collapsed : Visibility.Visible;
+        TutorialFinishButton.Visibility = _tutorialStep == TutorialSteps.Length - 1 ? Visibility.Visible : Visibility.Collapsed;
+        if (TutorialNextButton.Visibility == Visibility.Visible)
+        {
+            TutorialNextButton.Focus();
+        }
+        else
+        {
+            TutorialFinishButton.Focus();
+        }
+    }
+
+    private void CompleteTutorial()
+    {
+        TutorialOverlay.Visibility = Visibility.Collapsed;
+        _options.ShowTutorialOnNextLaunch = false;
+        _options.OnboardingVersion = CurrentOnboardingVersion;
+        ClientOptionsStore.Save(_options);
+        PopulateSettingsFields();
     }
 
     private void PopulateSetupFields()
