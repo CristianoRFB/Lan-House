@@ -2,8 +2,11 @@
 SE ESTA E A MAQUINA ADMIN, LEIA E EXECUTE
 ============================================================
 
-1. Abra somente a pasta publicada artifacts\release\ADMIN.
-2. Confirme que Adrenalina.Admin.exe e Install-Production.ps1 estao nessa pasta.
+1. Se voce baixou o pacote publicado, abra a pasta artifacts\release\ADMIN.
+   Se voce baixou o codigo do GitHub, abra a pasta deployment do repositorio.
+2. Nao copie somente o .bat. No codigo do GitHub, ele baixa e valida o pacote
+   ADMIN automaticamente; se nao houver internet, sera necessario gerar o
+   release com o .NET 8 SDK ou usar o pacote publicado completo.
 3. Execute o arquivo INSTALAR_ADMIN.bat.
 4. Autorize a janela do Windows quando aparecer.
 5. O instalador copia o pacote ADMIN para C:\Program Files\Adrenalina\.

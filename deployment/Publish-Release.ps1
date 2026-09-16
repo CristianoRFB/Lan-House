@@ -58,10 +58,10 @@ Copy-Item (Join-Path $publishRoot 'Agent\*') $clientPackage -Recurse -Force
 Copy-Item (Join-Path $publishRoot 'Launcher\*') $clientPackage -Recurse -Force
 Remove-Item -LiteralPath $publishRoot -Recurse -Force
 
-foreach ($file in 'Install-Production.ps1', 'Validate-Production.ps1', 'Rollback-Production.ps1', 'Copy-LatestBackup.ps1', 'Restore-Backup.ps1', 'Run-Installer.ps1', 'Uninstall-Adrenalina.ps1', 'INSTALAR_ADMIN.bat', 'DESINSTALAR.bat', 'DESINSTALAR_COMPLETO.bat', 'SE VAI INSTALAR EM ADMIN CLICA AQUI.txt', 'SE VAI DESINSTALAR CLICA AQUI.txt') {
+foreach ($file in 'Install-Production.ps1', 'Validate-Production.ps1', 'Rollback-Production.ps1', 'Copy-LatestBackup.ps1', 'Restore-Backup.ps1', 'Run-Installer.ps1', 'Download-ReleasePackage.ps1', 'Uninstall-Adrenalina.ps1', 'INSTALAR_ADMIN.bat', 'DESINSTALAR.bat', 'DESINSTALAR_COMPLETO.bat', 'SE VAI INSTALAR EM ADMIN CLICA AQUI.txt', 'SE VAI DESINSTALAR CLICA AQUI.txt') {
     Copy-Item (Join-Path $PSScriptRoot $file) $adminPackage
 }
-foreach ($file in 'Install-ClientAgent.ps1', 'Uninstall-ClientAgent.ps1', 'Run-Installer.ps1', 'Uninstall-Adrenalina.ps1', 'Install-ClientStation.ps1', 'Install-ClientCertificate.ps1', 'INSTALAR_CLIENTE.bat', 'DESINSTALAR.bat', 'DESINSTALAR_COMPLETO.bat', 'SE VAI INSTALAR EM CLIENTE CLICA AQUI.txt', 'SE VAI DESINSTALAR CLICA AQUI.txt') {
+foreach ($file in 'Install-ClientAgent.ps1', 'Uninstall-ClientAgent.ps1', 'Run-Installer.ps1', 'Download-ReleasePackage.ps1', 'Uninstall-Adrenalina.ps1', 'Install-ClientStation.ps1', 'Install-ClientCertificate.ps1', 'INSTALAR_CLIENTE.bat', 'DESINSTALAR.bat', 'DESINSTALAR_COMPLETO.bat', 'SE VAI INSTALAR EM CLIENTE CLICA AQUI.txt', 'SE VAI DESINSTALAR CLICA AQUI.txt') {
     Copy-Item (Join-Path $PSScriptRoot $file) $clientPackage
 }
 Copy-Item (Join-Path $repoRoot 'README.txt') $OutputRoot

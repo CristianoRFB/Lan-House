@@ -3,8 +3,11 @@ SE ESTA E A MAQUINA CLIENTE, LEIA E EXECUTE
 ============================================================
 
 1. Confirme que o ADMIN ja foi instalado e esta ligado.
-2. Abra somente a pasta publicada artifacts\release\CLIENTE.
-3. Confirme que Adrenalina.Client.exe e Install-ClientStation.ps1 estao nessa pasta.
+2. Se voce baixou o pacote publicado, abra a pasta artifacts\release\CLIENTE.
+   Se voce baixou o codigo do GitHub, abra a pasta deployment do repositorio.
+3. Nao copie somente o .bat. No codigo do GitHub, ele baixa e valida o pacote
+   CLIENTE automaticamente; se nao houver internet, sera necessario gerar o
+   release com o .NET 8 SDK ou usar o pacote publicado completo.
 4. Execute o arquivo INSTALAR_CLIENTE.bat.
 5. Autorize a janela do Windows quando aparecer.
 6. O instalador copia o pacote CLIENTE para C:\Program Files\Adrenalina\.

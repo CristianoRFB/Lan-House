@@ -26,10 +26,12 @@ funções diferentes.
 
 Os arquivos `.bat` devem ser executados dentro do pacote publicado. A pasta
 `deployment` do repositório contém os modelos dos instaladores; ela não contém
-os executáveis finais até que `Publish-Release.ps1` seja executado. Se o `.bat`
-for executado diretamente dentro de `deployment` e o .NET 8 SDK estiver
-instalado, ele tenta gerar o pacote automaticamente em `artifacts\release`.
-Sem o SDK, use o pacote publicado completo; não copie somente o `.bat`.
+os executáveis finais. Se o `.bat` for executado diretamente dentro de
+`deployment`, ele tenta primeiro baixar e validar o pacote publicado mais
+recente em `artifacts\release`; se o download não estiver disponível, tenta
+gerar o pacote automaticamente quando o .NET 8 SDK estiver instalado. Sem
+internet e sem o SDK, use o pacote publicado completo; não copie somente o
+`.bat`.
 Em caso de falha, o motivo fica registrado em
 `C:\ProgramData\Adrenalina\logs\Install-ADMIN.latest.log` ou
 `Install-CLIENTE.latest.log`.

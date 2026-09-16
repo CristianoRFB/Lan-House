@@ -150,7 +150,10 @@ substituir arquivos que estao abertos.
 Nao misture os pacotes e nao mova executaveis para fora dos arquivos de suporte
 publicados.
 Os arquivos .bat devem ser executados dentro da pasta ADMIN ou CLIENTE
-publicada. A pasta deployment do repositorio contem apenas os modelos.
+publicada. Se forem executados diretamente na pasta deployment de um clone do
+GitHub, eles tentam baixar e validar automaticamente o pacote publicado. Se
+nao houver internet, tentam compilar com o .NET 8 SDK instalado. A pasta
+deployment contem apenas os modelos; nao copie somente o .bat.
 Se a instalacao falhar, o motivo completo fica em
 %ProgramData%\Adrenalina\logs\Install-ADMIN.latest.log ou
 %ProgramData%\Adrenalina\logs\Install-CLIENTE.latest.log.

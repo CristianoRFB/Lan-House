@@ -6,6 +6,11 @@ echo O Windows pode solicitar permissao de Administrador.
 set "ADRENALINA_PACKAGE_ROOT="
 if exist "%~dp0Adrenalina.Admin.exe" set "ADRENALINA_PACKAGE_ROOT=%~dp0"
 if not defined ADRENALINA_PACKAGE_ROOT if exist "%~dp0..\artifacts\release\ADMIN\Adrenalina.Admin.exe" set "ADRENALINA_PACKAGE_ROOT=%~dp0..\artifacts\release\ADMIN\"
+if not defined ADRENALINA_PACKAGE_ROOT if exist "%~dp0..\Adrenalina.slnx" if exist "%~dp0Download-ReleasePackage.ps1" (
+    echo Pacote ADMIN nao encontrado. Baixando a versao publicada...
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Download-ReleasePackage.ps1" -Role ADMIN -DestinationRoot "%~dp0..\artifacts\release"
+    if not errorlevel 1 if exist "%~dp0..\artifacts\release\ADMIN\Adrenalina.Admin.exe" set "ADRENALINA_PACKAGE_ROOT=%~dp0..\artifacts\release\ADMIN\"
+)
 if not defined ADRENALINA_PACKAGE_ROOT if exist "%~dp0..\Adrenalina.slnx" if exist "%~dp0Publish-Release.ps1" (
     where dotnet.exe >nul 2>&1
     if not errorlevel 1 (
@@ -18,7 +23,7 @@ if not defined ADRENALINA_PACKAGE_ROOT (
     echo.
     echo ERRO: pacote ADMIN nao encontrado.
     echo Execute este arquivo dentro de artifacts\release\ADMIN.
-    echo Se voce baixou o codigo do GitHub, use o pacote publicado ADMIN ou instale o .NET 8 SDK e execute novamente.
+    echo Se voce baixou somente o codigo do GitHub, verifique a internet ou instale o .NET 8 SDK e execute novamente.
     pause
     exit /b 2
 )
