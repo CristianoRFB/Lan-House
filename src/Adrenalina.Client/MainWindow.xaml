@@ -217,6 +217,17 @@
                             <TextBlock Text="Chave da máquina" />
                             <TextBox x:Name="SetupMachineKeyTextBox" Margin="0,6,0,14" Padding="10" />
 
+                            <Border Margin="0,8,0,18" Padding="16" Background="#18233B" BorderBrush="#2F3D5C" BorderThickness="1" CornerRadius="16">
+                                <StackPanel>
+                                    <TextBlock Text="Configuração segura da estação" FontWeight="SemiBold" />
+                                    <TextBlock Margin="0,8,0,12" Foreground="#B3C2D9" Text="Prefira o código temporário exibido no ADMIN. A credencial será protegida pelo Windows e nunca será salva em texto puro." TextWrapping="Wrap" />
+                                    <TextBlock Text="Código do ADMIN" />
+                                    <TextBox x:Name="PairingCodeTextBox" Margin="0,6,0,10" Padding="10" MaxLength="12" />
+                                    <Button x:Name="PairingButton" Content="PAREAR CONFIGURAÇÃO" Padding="16,12" Click="PairingButton_Click" />
+                                    <TextBlock x:Name="PairingStatusText" Margin="0,10,0,0" Foreground="#7FD9C7" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
                             <Button Content="Salvar e iniciar cliente"
                                     Padding="16,12"
                                     Margin="0,0,0,12"

@@ -59,9 +59,15 @@ public enum NotificationSeverity
 public enum RemoteCommandType
 {
     LockScreen = 1,
+    UnlockStation = 2,
+    RestartStation = 3,
+    ShutdownStation = 4,
+    LogoffStation = 5,
     RefreshConfiguration = 6,
     ShowMessage = 7,
-    ToggleTimerVisibility = 8
+    ToggleTimerVisibility = 8,
+    EnterMaintenance = 9,
+    ExitMaintenance = 10
 }
 
 public enum RemoteCommandStatus
@@ -161,6 +167,9 @@ public sealed class Machine : Entity
 {
     public string MachineKey { get; set; } = Guid.NewGuid().ToString("N");
     public string MachineCredentialHash { get; set; } = string.Empty;
+    public string MachineCredentialId { get; set; } = Guid.NewGuid().ToString("N");
+    public int MachineCredentialVersion { get; set; } = 1;
+    public bool IsRevoked { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Hostname { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;
@@ -176,6 +185,26 @@ public sealed class Machine : Entity
     public DateTime? LastSeenUtc { get; set; }
     public string LastCommandSummary { get; set; } = string.Empty;
     public string Observations { get; set; } = string.Empty;
+    public string ClientVersion { get; set; } = string.Empty;
+    public string AgentVersion { get; set; } = string.Empty;
+    public int ProtocolVersion { get; set; } = 1;
+    public bool AgentHealthy { get; set; }
+    public DateTime? LastAgentSeenUtc { get; set; }
+    public int PolicyVersion { get; set; } = 1;
+}
+
+public sealed class MachinePairingSession : Entity
+{
+    public Guid MachineId { get; set; }
+    public string CodeHash { get; set; } = string.Empty;
+    public DateTime ExpiresAtUtc { get; set; }
+    public DateTime? RequestedAtUtc { get; set; }
+    public DateTime? ApprovedAtUtc { get; set; }
+    public DateTime? CompletedAtUtc { get; set; }
+    public Guid? ApprovedByUserId { get; set; }
+    public string Hostname { get; set; } = string.Empty;
+    public string MachineFingerprint { get; set; } = string.Empty;
+    public string Status { get; set; } = "WAITING";
 }
 
 public sealed class SessionRecord : Entity
@@ -226,6 +255,7 @@ public sealed class RemoteCommand : Entity
     public string Message { get; set; } = string.Empty;
     public string PayloadJson { get; set; } = string.Empty;
     public DateTime RequestedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? ExpiresAtUtc { get; set; }
     public DateTime? ExecutedAtUtc { get; set; }
     public string ResultSummary { get; set; } = string.Empty;
 }

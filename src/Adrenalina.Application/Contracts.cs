@@ -7,7 +7,7 @@ namespace Adrenalina.Application;
 
 public static class ProtocolContract
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
     public const int MinimumSupportedVersion = 1;
 }
 
@@ -57,6 +57,7 @@ public sealed record DatabaseIntegrityResult(bool Healthy, string Detail, DateTi
 public sealed record BackupValidationResult(bool Valid, string Detail, DateTime CheckedAtUtc);
 
 public sealed record AuthenticatedAdmin(Guid Id, string Login, string DisplayName, UserProfileType ProfileType);
+public sealed record AdminAccessRecoveryResult(string TemporaryPassword, string AccessFilePath);
 
 public sealed class DashboardDto
 {
@@ -94,6 +95,15 @@ public sealed class MachineDto
     public string LastCommandSummary { get; init; } = string.Empty;
     public string Observations { get; init; } = string.Empty;
     public DateTime? LastSeenUtc { get; init; }
+    public string MachineCredentialId { get; init; } = string.Empty;
+    public int MachineCredentialVersion { get; init; }
+    public bool IsRevoked { get; init; }
+    public string ClientVersion { get; init; } = string.Empty;
+    public string AgentVersion { get; init; } = string.Empty;
+    public int ProtocolVersion { get; init; }
+    public bool AgentHealthy { get; init; }
+    public DateTime? LastAgentSeenUtc { get; init; }
+    public int PolicyVersion { get; init; }
 }
 
 public sealed class UserDto
@@ -208,6 +218,51 @@ public sealed class MachineUpsertRequest
     public string Observations { get; init; } = string.Empty;
 }
 
+public sealed class MachinePairingStartRequest
+{
+    public Guid MachineId { get; init; }
+}
+
+public sealed class MachinePairingSessionDto
+{
+    public Guid Id { get; init; }
+    public Guid MachineId { get; init; }
+    public string MachineName { get; init; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public DateTime ExpiresAtUtc { get; init; }
+    public DateTime? RequestedAtUtc { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public string Hostname { get; init; } = string.Empty;
+    public string MachineFingerprint { get; init; } = string.Empty;
+}
+
+public sealed class ClientPairingRequest
+{
+    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
+    public string Code { get; init; } = string.Empty;
+    public string Hostname { get; init; } = string.Empty;
+    public string MachineFingerprint { get; init; } = string.Empty;
+}
+
+public sealed class ClientPairingPollRequest
+{
+    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
+    public Guid PairingSessionId { get; init; }
+    public string Code { get; init; } = string.Empty;
+}
+
+public sealed class ClientPairingResponse
+{
+    public bool Success { get; init; }
+    public bool AwaitingApproval { get; init; }
+    public string Message { get; init; } = string.Empty;
+    public Guid PairingSessionId { get; init; }
+    public Guid MachineId { get; init; }
+    public string MachineCredentialId { get; init; } = string.Empty;
+    public string MachineSecret { get; init; } = string.Empty;
+    public DateTime? ExpiresAtUtc { get; init; }
+}
+
 public sealed class LedgerEntryRequest
 {
     public Guid UserAccountId { get; init; }
@@ -289,11 +344,17 @@ public sealed class ClientHeartbeatRequest
 {
     public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
+    public Guid? MachineId { get; init; }
+    public string MachineCredentialId { get; init; } = string.Empty;
     public DateTime RequestTimestampUtc { get; init; }
     public string Nonce { get; init; } = string.Empty;
     public string MachineProof { get; init; } = string.Empty;
     public string Hostname { get; init; } = string.Empty;
     public string IpAddress { get; init; } = string.Empty;
+    public string ClientVersion { get; init; } = string.Empty;
+    public string AgentVersion { get; init; } = string.Empty;
+    public bool AgentHealthy { get; init; }
+    public int PolicyVersion { get; init; }
     public MachineStatus Status { get; init; } = MachineStatus.Offline;
     public IReadOnlyList<Guid> AcknowledgedCommandIds { get; init; } = [];
     public IReadOnlyList<Guid> AcknowledgedNotificationIds { get; init; } = [];
@@ -315,6 +376,8 @@ public sealed class ClientLoginRequest
 {
     public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
+    public Guid? MachineId { get; init; }
+    public string MachineCredentialId { get; init; } = string.Empty;
     public DateTime RequestTimestampUtc { get; init; }
     public string Nonce { get; init; } = string.Empty;
     public string MachineProof { get; init; } = string.Empty;
@@ -334,6 +397,8 @@ public sealed class ClientRequestBatchRequest
 {
     public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
+    public Guid? MachineId { get; init; }
+    public string MachineCredentialId { get; init; } = string.Empty;
     public DateTime RequestTimestampUtc { get; init; }
     public string Nonce { get; init; } = string.Empty;
     public string MachineProof { get; init; } = string.Empty;
@@ -376,9 +441,28 @@ public sealed class ClientRuntimeState
     public IReadOnlyList<NotificationEnvelope> Notifications { get; init; } = [];
 }
 
-public sealed record RemoteCommandEnvelope(Guid Id, RemoteCommandType Type, string Title, string Message, string PayloadJson);
+public sealed record RemoteCommandEnvelope(Guid Id, RemoteCommandType Type, string Title, string Message, string PayloadJson, DateTime? ExpiresAtUtc = null);
 
 public sealed record NotificationEnvelope(Guid Id, string Title, string Message, NotificationSeverity Severity, bool PlaySound);
+
+public static class StationAgentProtocol
+{
+    public const string PipeName = "Adrenalina.Agent";
+    public const string Version = "v1";
+}
+
+public sealed class StationAgentRequest
+{
+    public string Protocol { get; init; } = StationAgentProtocol.Version;
+    public string Action { get; init; } = string.Empty;
+    public Guid? MachineId { get; init; }
+    public bool SessionActive { get; init; }
+    public DateTime IssuedAtUtc { get; init; }
+    public string Nonce { get; init; } = string.Empty;
+    public string Proof { get; init; } = string.Empty;
+}
+
+public sealed record StationAgentResponse(bool Success, bool Healthy, string Message);
 
 public sealed class LocalClientStoragePaths
 {
@@ -397,6 +481,8 @@ public interface IClientRuntimeStore
 public interface IAdminAuthService
 {
     Task<AuthenticatedAdmin?> ValidateAsync(string login, string password, CancellationToken cancellationToken = default);
+    Task<AdminAccessRecoveryResult?> RecoverAdminAccessAsync(CancellationToken cancellationToken = default);
+    Task<OperationResult> ChangeAdminPasswordAsync(Guid adminId, string newPassword, CancellationToken cancellationToken = default);
     Task<UserDto?> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default);
 }
 
@@ -413,6 +499,12 @@ public interface ICafeManagementService
     Task<OperationResult> SaveSettingsAsync(SettingsUpdateRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> UpsertUserAsync(UserUpsertRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> UpsertMachineAsync(MachineUpsertRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
+    Task<OperationResult> RevokeMachineAsync(Guid machineId, Guid actorUserId, CancellationToken cancellationToken = default);
+    Task<MachinePairingSessionDto?> StartMachinePairingAsync(MachinePairingStartRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
+    Task<MachinePairingSessionDto?> GetMachinePairingAsync(Guid pairingSessionId, CancellationToken cancellationToken = default);
+    Task<OperationResult> ApproveMachinePairingAsync(Guid pairingSessionId, Guid actorUserId, CancellationToken cancellationToken = default);
+    Task<ClientPairingResponse> RequestMachinePairingAsync(ClientPairingRequest request, CancellationToken cancellationToken = default);
+    Task<ClientPairingResponse> PollMachinePairingAsync(ClientPairingPollRequest request, CancellationToken cancellationToken = default);
     Task<OperationResult> AddLedgerEntryAsync(LedgerEntryRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> StartSessionAsync(SessionStartRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> AdjustSessionAsync(SessionAdjustRequest request, Guid actorUserId, CancellationToken cancellationToken = default);

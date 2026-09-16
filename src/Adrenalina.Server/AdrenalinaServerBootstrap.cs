@@ -134,6 +134,16 @@ public static class AdrenalinaServerBootstrap
                         QueueLimit = 0,
                         AutoReplenishment = true
                     }));
+            rateLimiterOptions.AddPolicy("client-pairing", context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    context.Connection.RemoteIpAddress?.ToString() ?? "local",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 12,
+                        Window = TimeSpan.FromMinutes(10),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
         });
         builder.Services.AddControllersWithViews();
         builder.Services.AddAdrenalinaServerPlatform(builder.Configuration, builder.Environment);

@@ -1,0 +1,36 @@
+============================================================
+SE ESTA E A MAQUINA CLIENTE, LEIA E EXECUTE
+============================================================
+
+1. Confirme que o ADMIN ja foi instalado e esta ligado.
+2. Abra somente a pasta publicada artifacts\release\CLIENTE.
+3. Confirme que Adrenalina.Client.exe e Install-ClientStation.ps1 estao nessa pasta.
+4. Execute o arquivo INSTALAR_CLIENTE.bat.
+5. Autorize a janela do Windows quando aparecer.
+6. O instalador copia o pacote CLIENTE para C:\Program Files\Adrenalina\.
+7. Ele cria atalho na area de trabalho e inicializacao automatica.
+8. Abra o Adrenalina.Launcher.exe pelo atalho.
+9. Escolha CLIENTE.
+10. Informe a URL do ADMIN, se solicitado.
+11. Use PAREAR CONFIGURACAO e informe o codigo mostrado no ADMIN.
+12. Aguarde o administrador aprovar a estacao.
+13. Depois da aprovacao, o proprio Client inicia a instalacao do Agent.
+14. Autorize a janela UAC do Windows quando aparecer.
+15. Nao feche o Client enquanto o pareamento e a instalacao terminam.
+
+Se aparecer "Falha na instalacao", leia o log mostrado pelo proprio .bat ou
+abra:
+
+C:\ProgramData\Adrenalina\logs\Install-CLIENTE.latest.log
+
+Depois disso, o Client e o Agent iniciarao automaticamente com o Windows.
+
+Arquivos principais depois da instalacao:
+
+C:\Program Files\Adrenalina\Adrenalina.Launcher.exe
+C:\Program Files\Adrenalina\Adrenalina.Client.exe
+C:\Program Files\Adrenalina\Adrenalina.Agent.exe
+
+O pacote CLIENTE nao contem Adrenalina.Admin.exe. O Agent e um servico, nao
+abra o executavel dele com duplo clique.
+============================================================

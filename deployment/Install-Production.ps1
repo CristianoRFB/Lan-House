@@ -14,12 +14,9 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 $PackageRoot = (Resolve-Path -LiteralPath $PackageRoot).Path
-$adminSource = Join-Path $PackageRoot 'Admin'
-$clientSource = Join-Path $PackageRoot 'Client'
-$launcherSource = Join-Path $PackageRoot 'Launcher'
-if (-not (Test-Path (Join-Path $adminSource 'Adrenalina.Admin.exe'))) { throw "Publicação do Admin não encontrada em $adminSource." }
-if (-not (Test-Path (Join-Path $clientSource 'Adrenalina.Client.exe'))) { throw "Publicação do Client não encontrada em $clientSource." }
-if (-not (Test-Path (Join-Path $launcherSource 'Adrenalina.Launcher.exe'))) { throw "Publicação do Launcher não encontrada em $launcherSource." }
+if (-not (Test-Path (Join-Path $PackageRoot 'Adrenalina.Admin.exe'))) { throw "Publicação do Admin não encontrada em $PackageRoot." }
+if (-not (Test-Path (Join-Path $PackageRoot 'Adrenalina.Launcher.exe'))) { throw "Publicação do Launcher não encontrada em $PackageRoot." }
+if (-not (Test-Path (Join-Path $PackageRoot 'Adrenalina.Server.exe'))) { throw "Publicação do servidor não encontrada em $PackageRoot." }
 
 foreach ($name in 'Adrenalina.Admin', 'Adrenalina.Client') {
     if (Get-Process -Name $name -ErrorAction SilentlyContinue) { throw "Feche $name antes de atualizar a instalação." }
@@ -32,12 +29,26 @@ if (Test-Path $InstallRoot) { New-Item -ItemType Directory -Path $previousRoot -
 
 if (Test-Path $InstallRoot) { Remove-Item -LiteralPath $InstallRoot -Recurse -Force }
 New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
-Copy-Item "$adminSource\*" $InstallRoot -Recurse -Force
-New-Item -ItemType Directory -Path (Join-Path $InstallRoot 'Client') -Force | Out-Null
-Copy-Item "$clientSource\*" (Join-Path $InstallRoot 'Client') -Recurse -Force
-Copy-Item "$launcherSource\*" $InstallRoot -Recurse -Force
+Copy-Item "$PackageRoot\*" $InstallRoot -Recurse -Force
+
+function New-AdrenalinaShortcut([string]$ShortcutPath, [string]$TargetPath, [string]$Description) {
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($ShortcutPath)
+    $shortcut.TargetPath = $TargetPath
+    $shortcut.WorkingDirectory = Split-Path -Parent $TargetPath
+    $shortcut.Description = $Description
+    $shortcut.Save()
+}
+
+$publicDesktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+$commonPrograms = [Environment]::GetFolderPath('CommonPrograms')
+$commonStartup = Join-Path $commonPrograms 'Startup'
+New-Item -ItemType Directory -Path $publicDesktop, $commonPrograms, $commonStartup -Force | Out-Null
+New-AdrenalinaShortcut (Join-Path $publicDesktop 'Adrenalina Launcher.lnk') (Join-Path $InstallRoot 'Adrenalina.Launcher.exe') 'Abrir o sistema Adrenalina'
+New-AdrenalinaShortcut (Join-Path $commonStartup 'Adrenalina Admin.lnk') (Join-Path $InstallRoot 'Adrenalina.Admin.exe') 'Iniciar o servidor Adrenalina automaticamente'
 
 $thumbprint = $null
+$certificateManagedByAdrenalina = $false
 if ($CertificatePath) {
     if (-not $CertificatePassword) { $CertificatePassword = Read-Host 'Senha do certificado PFX' -AsSecureString }
     $certificate = Import-PfxCertificate -FilePath (Resolve-Path -LiteralPath $CertificatePath) -CertStoreLocation Cert:\CurrentUser\My -Password $CertificatePassword
@@ -54,12 +65,14 @@ if ($CertificatePath) {
     $publicCertificatePath = Join-Path $DataRoot "certs\$dnsName.cer"
     Export-Certificate -Cert $certificate -FilePath $publicCertificatePath -Force | Out-Null
     Import-Certificate -FilePath $publicCertificatePath -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+    $certificateManagedByAdrenalina = $true
 }
 
 $settings = [ordered]@{
     ListenOnLocalNetwork = [bool]$EnableLan
     UseHttps = [bool]$EnableLan
     CertificateThumbprint = $thumbprint
+    CertificateManagedByAdrenalina = $certificateManagedByAdrenalina
 }
 $settingsPath = Join-Path $DataRoot 'server-settings.json'
 $settings | ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding UTF8

@@ -8,17 +8,21 @@ Sistema de gerenciamento de lan house com dois aplicativos independentes:
 
 ## Segurança do fluxo atual
 
-O cliente principal não controla o Windows. O estado “bloqueado” é somente visual e a janela continua fechável. O executável principal não:
+O Client não controla o Windows diretamente. O estado de estação é aplicado
+por `Adrenalina.Agent`, um serviço Windows opt-in, autenticado por named pipe e
+credencial protegida por DPAPI. Quando o Agent está instalado e provisionado,
+o estado bloqueado aplica políticas Windows reversíveis e a UI usa modo de
+tela cheia sem fechamento normal. Sem Agent provisionado, o sistema permanece
+em modo seguro de desenvolvimento e não é considerado controle validado.
 
-- bloqueia teclado ou mouse;
-- esconde a barra de tarefas;
-- encerra processos;
-- altera o Registro;
-- reinicia, desliga ou faz logoff;
-- instala serviço ou tarefa agendada;
-- modifica firewall ou reserva URL com `netsh`.
+O produto não faz automaticamente estas ações invasivas: bloqueio global de
+teclado/mouse, encerramento indiscriminado de processos, instalação remota de
+serviço/tarefa, ou alteração remota de firewall/URL ACL. O Agent usa apenas a
+política Registry allowlisted e ações explícitas autorizadas.
 
-Os antigos componentes de quiosque, serviço, watchdog, hooks, scripts de instalação e o target de encerramento de processos foram removidos do repositório durante a auditoria de segurança.
+Os antigos componentes de quiosque, serviço, watchdog, hooks e scripts foram
+consultados no histórico, mas não foram restaurados cegamente. O Agent atual é
+uma implementação nova, allowlisted, auditável e reversível.
 
 ## Arquitetura
 
@@ -26,6 +30,7 @@ Os antigos componentes de quiosque, serviço, watchdog, hooks, scripts de instal
 |---|---|
 | `Adrenalina.Admin` | Inicializa e encerra o servidor embutido, mostra status, URL, painel, backup e configurações do Admin |
 | `Adrenalina.Client` | Configuração da estação, login por PIN, estado da sessão, saldo, avisos e solicitações |
+| `Adrenalina.Agent` | Serviço Windows separado para políticas reversíveis, watchdog, IPC e ações autorizadas da estação |
 | `Adrenalina.Server` | API do cliente, health check, autenticação por cookie e painel administrativo MVC |
 | `Adrenalina.Application` | Contratos, DTOs, validações simples e caminhos compartilhados |
 | `Adrenalina.Domain` | Entidades e enumerações de negócio |
@@ -88,7 +93,7 @@ Todas as páginas administrativas exigem autenticação.
 ## Funcionalidades do Client
 
 - tela de preparação no primeiro uso;
-- URL do servidor, nome, chave e tipo da máquina;
+- URL do servidor, nome e tipo da máquina;
 - validação da URL e botão `Testar conexão` com timeout;
 - sincronização assíncrona e reconexão sem travar a interface;
 - solicitações idempotentes e mensagens reenviadas até confirmação;
@@ -99,9 +104,11 @@ Todas as páginas administrativas exigem autenticação.
 - pedido de minutos adicionais;
 - edição posterior do endereço do servidor;
 - configurações armazenadas separadamente do Admin;
-- estado “bloqueado” somente visual e seguro.
+- estado bloqueado integrado ao Agent quando provisionado; sem Agent, fail-safe.
+- pareamento temporário com aprovação administrativa e credencial individual.
 
-A chave informada no Client precisa existir no cadastro de máquinas do Admin. O heartbeat não cadastra máquinas desconhecidas automaticamente.
+O novo pareamento usa código temporário e credencial individual protegida pelo
+Windows. O heartbeat não cadastra máquinas desconhecidas automaticamente.
 
 ## Primeiro uso
 
@@ -117,24 +124,24 @@ Por padrão, o servidor aceita apenas conexões deste computador. Para clientes 
 
 ### 2. Entrar no painel
 
-Na primeira inicialização, o sistema cria somente a conta `admin`, com senha forte e PIN aleatórios. Consulte:
+Na primeira inicialização, o sistema cria somente a conta `admin` com a senha inicial `admin admin` e PIN aleatório. Consulte:
 
 ```text
 %LocalAppData%\Adrenalina\Admin\initial-admin-access.txt
 ```
 
-Entre com os dados do arquivo e altere a senha do `admin` em `Usuários`. Quando a nova senha é salva, o arquivo inicial é removido. Senhas e PINs ficam no banco como PBKDF2 com salt; contas de demonstração não são criadas em produção.
+Entre com os dados do arquivo e altere a senha do `admin` pelo botão `Trocar senha` no menu lateral. Quando a nova senha é salva, o arquivo inicial é removido. Se o arquivo não existir ou a senha for perdida, clique em `Recuperar acesso` na tela de login do próprio computador ADMIN; o botão restaura `admin admin`, recria o arquivo e desbloqueia o administrador. A recuperação não fica disponível pela rede. Senhas e PINs ficam no banco como PBKDF2 com salt; contas de demonstração não são criadas em produção.
 
 ### 3. Cadastrar a máquina
 
 No painel, abra `Máquinas` e cadastre:
 
 - nome da estação;
-- chave aleatória da máquina com pelo menos 16 caracteres;
+- chave aleatória somente para compatibilidade com instalações anteriores;
 - tipo (`Pc` ou `Console`);
 - grupo e observações opcionais.
 
-Guarde a chave exatamente como cadastrada.
+Para novas estações, use `INICIAR CONFIGURAÇÃO` e o código temporário.
 
 ### 4. Preparar o Client
 
@@ -145,9 +152,14 @@ dotnet run --project src/Adrenalina.Client
 Na tela `Preparar Client`:
 
 1. informe a URL mostrada pelo Admin;
-2. informe o mesmo nome e a mesma chave cadastrados no painel;
-3. use `Testar conexão`;
-4. clique em `Salvar e iniciar cliente`.
+2. informe o nome desta máquina;
+3. use `PAREAR CONFIGURAÇÃO` e digite o código temporário;
+4. aprove a solicitação no Admin;
+5. verifique novamente para receber a credencial protegida pelo Windows.
+
+O botão legado `Salvar e iniciar cliente` continua disponível para instalações
+anteriores que ainda usam chave cadastrada, mas não é o fluxo recomendado para
+uma nova estação.
 
 Se o servidor estiver fora do ar, a configuração ainda pode ser salva e o Client mostrará o erro, permanecendo responsivo e tentando sincronizar novamente.
 
@@ -198,9 +210,9 @@ de produção exige HTTPS e limita a regra de firewall ao perfil `Private` e à
 sub-rede local.
 
 Após a instalação, abra `Adrenalina.Launcher.exe` e escolha `ADMIN` ou
-`CLIENTE`. Ao abrir o Client pela primeira vez com o Admin disponível na LAN,
-o endereço HTTPS é descoberto automaticamente; a chave da estação ainda deve
-ser cadastrada no Admin para autenticar a máquina.
+`CLIENTE`. Cadastre a estação no Admin e conclua o fluxo `INICIAR CONFIGURAÇÃO`
+→ `PAREAR CONFIGURAÇÃO`; esse é o caminho recomendado para criar a credencial
+individual. A chave legada permanece somente para compatibilidade.
 
 Não é necessário instalar WebView2 para usar o Admin: o navegador padrão é o fallback suportado.
 
@@ -224,11 +236,14 @@ produto. Elas não são capturas reais de uma execução:
 - a rede local depende da rede e das políticas já existentes; o aplicativo não altera firewall, e o instalador cria somente a regra limitada ao perfil `Private` e `LocalSubnet`;
 - para produção HTTPS, use certificado PFX externo ou thumbprint de certificado no repositório do Windows; o certificado e a senha nunca devem ser commitados;
 - o protocolo Client/Server possui versão explícita e rejeita versões incompatíveis;
-- o bloqueio da estação é uma representação visual, não um recurso de segurança do Windows;
+- o controle real depende de Agent instalado, segredo provisionado, edição do Windows e validação autorizada;
 - não há recuperação automática de senha; proteja o arquivo de acesso inicial, o banco e os backups;
 - o protocolo de LAN usa HTTPS quando a exposição é de produção; a autenticação da máquina usa prova HMAC com nonce e janela temporal;
 - o instalador preserva a versão anterior para rollback e a inicialização aplica upgrades aditivos; restauração do banco ativo continua sendo uma operação deliberada e deve ser exercitada no procedimento operacional;
 - arquivos gerados antigos (`bin`, `obj`, logs e banco de demonstração) ainda podem existir em históricos anteriores do repositório, embora `.gitignore` impeça novas inclusões comuns;
 Não execute instaladores ou ferramentas externas de controle da estação em computadores institucionais.
 
-Consulte também [ARCHITECTURE.md](ARCHITECTURE.md), [AUDIT_REPORT.md](AUDIT_REPORT.md), [ROADMAP.md](ROADMAP.md) e [CHANGELOG.md](CHANGELOG.md).
+Consulte também [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md),
+[OPERATIONS.md](OPERATIONS.md), [docs/INSTALLATION.md](docs/INSTALLATION.md),
+[docs/FIELD_TEST.md](docs/FIELD_TEST.md), [AUDIT_REPORT.md](AUDIT_REPORT.md),
+[ROADMAP.md](ROADMAP.md) e [CHANGELOG.md](CHANGELOG.md).

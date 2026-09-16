@@ -5,9 +5,9 @@ public sealed class AdminTutorialForm : Form
     private static readonly (string Title, string Body)[] Steps =
     [
         ("1. Inicie o ambiente", "Clique em Iniciar servidor e abrir painel para subir o servidor local, preparar o banco e abrir o painel web. O endereço em Clientes na rede é o que será usado pelos Clients."),
-        ("2. Faça o primeiro acesso", "Abra initial-admin-access.txt na pasta de dados do Admin e use as credenciais geradas. Entre no painel e troque a senha imediatamente em Usuários."),
+        ("2. Faça o primeiro acesso", "Abra initial-admin-access.txt na pasta de dados do Admin e use as credenciais geradas. Se ele não existir, abra o login e clique em Recuperar acesso neste computador ADMIN. Entre no painel e troque a senha imediatamente em Usuários."),
         ("3. Configure a operação", "Revise Configurações para nome da lan house, valores, mensagens e backups. Cadastre usuários quando necessário e crie as máquinas em Máquinas."),
-        ("4. Conecte os Clients", "Em cada máquina, abra Adrenalina.Client, informe a URL do ADMIN e a mesma chave cadastrada. Teste a conexão e salve. A sincronização passa a ser automática."),
+        ("4. Conecte os Clients", "Em cada máquina, abra Adrenalina.Client, informe a URL do ADMIN e use PAREAR CONFIGURAÇÃO. Aprove a solicitação no painel; a sincronização passa a ser automática."),
         ("5. Opere no painel", "Use Painel para o resumo, Máquinas para conexão, Sessões para tempo de uso, Usuários para perfis e financeiro e Relatórios para exportações e auditoria."),
         ("6. Quando precisar de ajuda", "Reabra este guia pelo botão Tutorial ou pelas Configurações do app. No painel web, use Ajuda para buscar orientações, consultar o checklist e refazer o guia.")
     ];

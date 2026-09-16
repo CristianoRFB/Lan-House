@@ -32,6 +32,8 @@ public sealed class ClientSyncController(
 
     private async Task<bool> IsMachineAuthenticatedAsync(
         string machineKey,
+        Guid? machineId,
+        string machineCredentialId,
         DateTime timestampUtc,
         string nonce,
         string proof,
@@ -46,7 +48,9 @@ public sealed class ClientSyncController(
         }
 
         var machine = await db.Machines.AsNoTracking()
-            .Where(machine => machine.MachineKey == machineKey)
+            .Where(machine => (machineId.HasValue && machine.Id == machineId.Value && machine.MachineCredentialId == machineCredentialId) ||
+                              (!machineId.HasValue && machine.MachineKey == machineKey))
+            .Where(machine => !machine.IsRevoked)
             .Select(machine => new { machine.MachineCredentialHash })
             .FirstOrDefaultAsync(cancellationToken);
         if (machine is null)
@@ -89,7 +93,7 @@ public sealed class ClientSyncController(
             return BadRequest(ProtocolError());
         }
 
-        if (!await IsMachineAuthenticatedAsync(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "heartbeat", cancellationToken))
+        if (!await IsMachineAuthenticatedAsync(request.MachineKey, request.MachineId, request.MachineCredentialId, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "heartbeat", cancellationToken))
         {
             return Unauthorized(new { success = false, message = "Autenticação da máquina inválida ou expirada." });
         }
@@ -97,12 +101,18 @@ public sealed class ClientSyncController(
         var observedRequest = new ClientHeartbeatRequest
         {
             MachineKey = request.MachineKey,
+            MachineId = request.MachineId,
+            MachineCredentialId = request.MachineCredentialId,
             RequestTimestampUtc = request.RequestTimestampUtc,
             Nonce = request.Nonce,
             MachineProof = request.MachineProof,
             Hostname = request.Hostname,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? request.IpAddress,
             Status = request.Status,
+            ClientVersion = request.ClientVersion,
+            AgentVersion = request.AgentVersion,
+            AgentHealthy = request.AgentHealthy,
+            PolicyVersion = request.PolicyVersion,
             AcknowledgedCommandIds = request.AcknowledgedCommandIds,
             AcknowledgedNotificationIds = request.AcknowledgedNotificationIds
         };
@@ -119,7 +129,7 @@ public sealed class ClientSyncController(
             return BadRequest(ProtocolError());
         }
 
-        if (!await IsMachineAuthenticatedAsync(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "login", cancellationToken))
+        if (!await IsMachineAuthenticatedAsync(request.MachineKey, request.MachineId, request.MachineCredentialId, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "login", cancellationToken))
         {
             return Unauthorized(new { success = false, message = "Autenticação da máquina inválida ou expirada." });
         }
@@ -136,12 +146,36 @@ public sealed class ClientSyncController(
             return BadRequest(ProtocolError());
         }
 
-        if (!await IsMachineAuthenticatedAsync(request.MachineKey, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "requests", cancellationToken))
+        if (!await IsMachineAuthenticatedAsync(request.MachineKey, request.MachineId, request.MachineCredentialId, request.RequestTimestampUtc, request.Nonce, request.MachineProof, "requests", cancellationToken))
         {
             return Unauthorized(new { success = false, message = "Autenticação da máquina inválida ou expirada." });
         }
 
         var response = await cafeService.SubmitClientRequestsAsync(request, cancellationToken);
         return Ok(response);
+    }
+
+    [HttpPost("pairing/request")]
+    [EnableRateLimiting("client-pairing")]
+    public async Task<ActionResult<ClientPairingResponse>> PairingRequest([FromBody] ClientPairingRequest request, CancellationToken cancellationToken)
+    {
+        if (!IsProtocolSupported(request.ProtocolVersion))
+        {
+            return BadRequest(ProtocolError());
+        }
+
+        return Ok(await cafeService.RequestMachinePairingAsync(request, cancellationToken));
+    }
+
+    [HttpPost("pairing/poll")]
+    [EnableRateLimiting("client-pairing")]
+    public async Task<ActionResult<ClientPairingResponse>> PairingPoll([FromBody] ClientPairingPollRequest request, CancellationToken cancellationToken)
+    {
+        if (!IsProtocolSupported(request.ProtocolVersion))
+        {
+            return BadRequest(ProtocolError());
+        }
+
+        return Ok(await cafeService.PollMachinePairingAsync(request, cancellationToken));
     }
 }

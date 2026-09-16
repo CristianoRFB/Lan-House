@@ -68,6 +68,8 @@ public sealed class MainForm : Form
             AdminDesktopOptionsStore.Save(_desktopOptions);
             BeginInvoke(new Action(ShowTutorial));
         }
+
+        BeginInvoke(new Action(() => _ = PrepareEnvironmentAsync(openPanel: true)));
     }
 
     protected override void OnResize(EventArgs e)
@@ -275,7 +277,7 @@ public sealed class MainForm : Form
         ConfigureButton(_sidebarTutorialButton, "Tutorial", Color.FromArgb(84, 101, 61));
 
         var credentialsCard = CreateCard("Conexão");
-        credentialsCard.Controls.Add(CreateTextLabel("No primeiro uso, abra initial-admin-access.txt na pasta de dados do Admin. Troque a senha imediatamente."));
+        credentialsCard.Controls.Add(CreateTextLabel("No primeiro uso, abra initial-admin-access.txt na pasta de dados do Admin. Se perder a senha, use Recuperar acesso na tela de login. Troque a senha imediatamente."));
         credentialsCard.Controls.Add(CreateSpacer());
         credentialsCard.Controls.Add(_copyCredentialsButton);
         credentialsCard.Controls.Add(CreateSpacer(10));

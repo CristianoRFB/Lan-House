@@ -40,10 +40,11 @@ checks that require the target Windows/LAN environment.
 1. Run the deployment scripts on the target server, use a certificate issued by
    the client's CA when available, install trust on every station, and record
    the output of `Validate-Production.ps1`.
-2. The shipped Client deliberately does not implement Windows kiosk or process
-   control. If the client requires Assigned Access, Shell Launcher, or another
-   authorized station policy, the client's IT owner must configure and test it
-   outside this application, including recovery of administrative access.
+2. The shipped Client delegates station control to the separately published
+   `Adrenalina.Agent` Windows service. The Agent applies only reversible,
+   allowlisted policies and explicit restart/shutdown/logoff actions. Assigned
+   Access, Shell Launcher, edition compatibility and recovery still require
+   validation by the client's authorized IT owner on Windows.
 3. Test firewall scope, client enrollment, clock synchronization, reconnects,
    simultaneous stations, and operation under a non-administrator account.
 4. Confirm backup retention, off-machine copy, restore procedure, and a recent

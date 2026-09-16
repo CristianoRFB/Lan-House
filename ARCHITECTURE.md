@@ -18,7 +18,10 @@ flowchart LR
     Infrastructure --> SQLite[(SQLite)]
 ```
 
-Os antigos `Adrenalina.ClientShell` e `Adrenalina.ClientAgent` foram removidos por duplicarem responsabilidades e conterem caminhos de controle do Windows incompatíveis com o produto seguro.
+Os antigos `Adrenalina.ClientShell` e `Adrenalina.ClientAgent` foram removidos
+por duplicarem responsabilidades e conterem caminhos incompatíveis com o
+produto seguro. O novo `Adrenalina.Agent` é separado, opt-in, allowlisted e
+fail-safe: sem credencial local provisionada, não libera a estação.
 
 ## Responsabilidades
 
@@ -41,6 +44,9 @@ Não deve conter regras de cobrança, persistência SQLite nem controle do Windo
 - fila local de solicitações;
 - retry, heartbeat e confirmação de mensagens;
 - `Client.log`.
+- chamada ao Agent por contrato fechado e prova HMAC;
+- credencial individual armazenada com DPAPI;
+- modo bloqueado de tela cheia com fechamento normal cancelado.
 
 O Client não deve abrir o banco do Admin, executar comandos administrativos do Windows ou depender de UI do Admin.
 
@@ -50,6 +56,17 @@ O Client não deve abrir o banco do Admin, executar comandos administrativos do 
 - autenticação, autorização, CSRF, cookies e rate limiting;
 - composição do host, health check e limites HTTP;
 - `Server.log`.
+- sessões de pareamento de uso único e expiráveis;
+- identificação separada por `MachineId` e `MachineCredentialId`;
+- comandos administrativos allowlisted, idempotentes e auditáveis.
+
+### Adrenalina.Agent
+
+- serviço Windows com privilégio somente na estação autorizada;
+- named pipe `Adrenalina.Agent` com ACL e prova HMAC;
+- lock, unlock, manutenção, restart, shutdown e logoff como ações fechadas;
+- políticas Windows com backup local e rollback;
+- recovery explícito por `--recover`, sem backdoor ou shell remoto.
 
 Controllers devem apenas validar a borda HTTP, chamar casos de uso e traduzir resultados.
 
@@ -136,7 +153,10 @@ Em produção, a exposição na LAN usa HTTPS com certificado externo ou certifi
 - respostas genéricas de login evitam enumeração direta;
 - Data Protection isolado no diretório do Admin;
 - comandos de reinício, logout, captura e limpeza são rejeitados;
-- o aplicativo não altera Registro, serviços ou processos do Windows; o instalador de produção cria apenas a regra de firewall documentada e limitada ao perfil Private/LocalSubnet.
+- o Client não altera Registro, serviços ou processos diretamente;
+- o Agent modifica somente valores allowlisted, guarda o estado anterior e restaura no recovery/uninstall;
+- firewall e URL ACL continuam restritos ao installer autorizado;
+- proteção completa só é considerada validada após teste em Windows autorizado.
 
 ## Observabilidade
 

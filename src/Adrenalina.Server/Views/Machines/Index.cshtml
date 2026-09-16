@@ -14,6 +14,36 @@
     </div>
 </section>
 
+@if (Model.Pairing is not null)
+{
+    <section class="panel mb-4" aria-live="polite">
+        <p class="eyebrow">Pareamento seguro</p>
+        <h3>INICIAR CONFIGURAÇÃO · @Model.Pairing.MachineName</h3>
+        <p>Use este código temporário no Client. Ele expira em @Model.Pairing.ExpiresAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss").</p>
+        @if (Model.Pairing.Status == "WAITING")
+        {
+            <p class="status-pill">Aguardando estação</p>
+        }
+        else if (Model.Pairing.Status == "REQUESTED")
+        {
+            <p class="status-pill">Solicitação recebida: @Model.Pairing.Hostname</p>
+            <form asp-action="ApprovePairing" method="post" class="button-row">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="pairingId" value="@Model.Pairing.Id" />
+                <button type="submit" class="btn btn-accent">Aprovar pareamento</button>
+            </form>
+        }
+        else
+        {
+            <p class="status-pill">Estado: @Model.Pairing.Status</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(Model.Pairing.Code))
+        {
+            <div class="display-4 letter-spacing-wide" aria-label="código de pareamento">@Model.Pairing.Code</div>
+        }
+    </section>
+}
+
 <section class="panel mb-4">
     <h3>Cadastrar ou editar máquina</h3>
     <form asp-action="Save" method="post" class="form-grid compact-grid">
@@ -64,10 +94,24 @@
             <p class="small text-secondary">@machine.Observations</p>
             <p class="small">Chave do cliente: <code aria-label="chave protegida">************</code></p>
             <p class="small">Último contato: @(machine.LastSeenUtc.HasValue ? machine.LastSeenUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") : "ainda não conectado")</p>
+            <p class="small">Client: @(string.IsNullOrWhiteSpace(machine.ClientVersion) ? "não informado" : machine.ClientVersion) · Agent: @(string.IsNullOrWhiteSpace(machine.AgentVersion) ? "não informado" : machine.AgentVersion)</p>
+            <p class="small">Agent: @(machine.AgentHealthy ? "saudável" : "indisponível ou não validado") · Política: v@machine.PolicyVersion</p>
             <a asp-action="Index" asp-route-editId="@machine.Id" class="btn btn-outline-light btn-sm mb-3">Editar cadastro</a>
 
+            <form asp-action="StartPairing" method="post" class="mb-3">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="machineId" value="@machine.Id" />
+                <button type="submit" class="btn btn-accent btn-sm">INICIAR CONFIGURAÇÃO</button>
+            </form>
+
+            <form asp-action="Revoke" method="post" class="mb-3">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="machineId" value="@machine.Id" />
+                <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Revogar a credencial desta estação?');">Revogar credencial</button>
+            </form>
+
             <div class="button-row">
-                @foreach (var commandType in new[] { RemoteCommandType.ToggleTimerVisibility })
+                @foreach (var commandType in new[] { RemoteCommandType.LockScreen, RemoteCommandType.UnlockStation, RemoteCommandType.RestartStation, RemoteCommandType.ShutdownStation, RemoteCommandType.LogoffStation, RemoteCommandType.EnterMaintenance, RemoteCommandType.ExitMaintenance, RemoteCommandType.ToggleTimerVisibility })
                 {
                     <form asp-action="Command" method="post">
                         @Html.AntiForgeryToken()
@@ -75,7 +119,14 @@
                         <input type="hidden" name="Type" value="@commandType" />
                         <input type="hidden" name="Title" value="@commandType" />
                         <input type="hidden" name="Message" value="Comando enviado pelo administrador." />
-                        <button class="btn btn-outline-light btn-sm">Alternar exibição do tempo</button>
+                        @if (commandType is RemoteCommandType.RestartStation or RemoteCommandType.ShutdownStation or RemoteCommandType.LogoffStation)
+                        {
+                            <button class="btn btn-outline-light btn-sm" onclick="return confirm('Confirma esta ação?');">@commandType</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-light btn-sm">@commandType</button>
+                        }
                     </form>
                 }
             </div>

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -13,7 +15,7 @@ public partial class MainWindow : Window
     private const int CurrentOnboardingVersion = 1;
     private static readonly (string Title, string Body)[] TutorialSteps =
     [
-        ("1. Preparar a máquina", "No primeiro uso, informe o endereço mostrado no app ADMIN, o nome desta máquina e a chave cadastrada. Use Testar conexão antes de salvar."),
+        ("1. Preparar a máquina", "No primeiro uso, informe o endereço mostrado no app ADMIN, o nome desta máquina e use PAREAR CONFIGURAÇÃO com o código temporário."),
         ("2. Entrar na sessão", "Depois de conectado, preencha usuário e PIN e selecione Entrar. O ADMIN controla a sessão, o tempo, o saldo e as anotações exibidos aqui."),
         ("3. Pedir ajuda ao atendimento", "Abra Outras opções para solicitar cadastro ou mais tempo. Escreva uma mensagem clara; a equipe verá o pedido no painel do ADMIN."),
         ("4. Entender a tela", "A tela principal mostra o usuário atual, perfil, tempo, saldo, anotações e avisos recentes. Se a conexão cair, o Client tenta sincronizar novamente automaticamente."),
@@ -29,6 +31,8 @@ public partial class MainWindow : Window
 
     private ClientRuntimeState _lastKnownState = new();
     private bool _localHideTimer;
+    private bool _allowClose = false;
+    private bool _maintenanceMode = false;
     private int _tutorialStep;
 
     public MainWindow(
@@ -51,6 +55,7 @@ public partial class MainWindow : Window
         _refreshTimer.Tick += async (_, _) => await RefreshAsync();
 
         Loaded += HandleLoaded;
+        Closing += HandleClosing;
         PinBox.KeyDown += HandlePinBoxKeyDown;
     }
 
@@ -95,10 +100,12 @@ public partial class MainWindow : Window
             var state = await _runtimeStore.LoadStateAsync();
             _lastKnownState = state;
             var setupPending = !_options.SetupCompleted;
-            _stationEnforcement.ApplySessionState(!setupPending && !state.IsLocked);
+            var agentHealthy = _stationEnforcement.HealthCheck();
+            var effectiveLocked = !setupPending && (state.IsLocked || _options.RequireWindowsAgent && !agentHealthy);
+            _stationEnforcement.ApplySessionState(!setupPending && !effectiveLocked);
 
             ApplyTheme(state.Theme);
-            ApplyWindowMode(setupPending ? false : state.IsLocked, setupPending);
+            ApplyWindowMode(effectiveLocked, setupPending);
 
             MachineTitleText.Text = setupPending
             ? string.IsNullOrWhiteSpace(_options.MachineName) ? Environment.MachineName : _options.MachineName
@@ -126,10 +133,10 @@ public partial class MainWindow : Window
             .Select(item => $"{item.Title}: {item.Message}")
             .ToList();
 
-        LoginCard.Visibility = !setupPending && state.IsLocked ? Visibility.Visible : Visibility.Collapsed;
-        Grid.SetColumnSpan(SessionCard, !setupPending && state.IsLocked ? 1 : 2);
-        SessionCard.Margin = !setupPending && state.IsLocked ? new Thickness(0, 0, 14, 0) : new Thickness(0);
-        LoginButton.Content = !setupPending && state.IsLocked ? "Entrar" : "Atualizar sessão";
+        LoginCard.Visibility = effectiveLocked ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumnSpan(SessionCard, effectiveLocked ? 1 : 2);
+        SessionCard.Margin = effectiveLocked ? new Thickness(0, 0, 14, 0) : new Thickness(0);
+        LoginButton.Content = effectiveLocked ? "Entrar" : "Atualizar sessão";
         SettingsButton.Content = setupPending ? "Preparar Client" : "Configurações";
 
             if (setupPending)
@@ -182,6 +189,79 @@ public partial class MainWindow : Window
         }
 
         await RefreshAsync();
+    }
+
+    private async void PairingButton_Click(object sender, RoutedEventArgs e)
+    {
+        var code = PairingCodeTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(SetupServerUrlTextBox.Text) || code.Length is < 4 or > 12)
+        {
+            PairingStatusText.Text = "Informe o endereço do ADMIN e o código temporário exibido no painel.";
+            return;
+        }
+
+        if (!TryNormalizeServerUrl(SetupServerUrlTextBox.Text, out var serverUrl))
+        {
+            PairingStatusText.Text = "Informe uma URL HTTP ou HTTPS válida para o ADMIN.";
+            return;
+        }
+
+        _options.ServerBaseUrl = serverUrl;
+        _options.MachineName = string.IsNullOrWhiteSpace(SetupMachineNameTextBox.Text) ? Environment.MachineName : SetupMachineNameTextBox.Text.Trim();
+        ClientOptionsStore.Save(_options);
+        PairingButton.IsEnabled = false;
+        try
+        {
+            var response = _options.PairingSessionId.HasValue
+                ? await _gateway.PollPairingAsync(code)
+                : await _gateway.RequestPairingAsync(code);
+            PairingStatusText.Text = response.Message;
+            if (response.Success && !string.IsNullOrWhiteSpace(response.MachineSecret))
+            {
+                PairingStatusText.Text = "Pareamento concluído. Validando Agent e política da estação...";
+                StartAutomaticAgentInstallation();
+                SetupOverlay.Visibility = Visibility.Collapsed;
+                await RefreshAsync();
+            }
+        }
+        finally
+        {
+            PairingButton.IsEnabled = true;
+        }
+    }
+
+    private void StartAutomaticAgentInstallation()
+    {
+        var scriptPath = Path.Combine(AppContext.BaseDirectory, "Install-ClientAgent.ps1");
+        if (!File.Exists(scriptPath))
+        {
+            PairingStatusText.Text = "Pareamento concluído. Instale o Agent pelo pacote de instalação desta estação.";
+            return;
+        }
+
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                UseShellExecute = true,
+                Verb = "runas",
+                WorkingDirectory = AppContext.BaseDirectory
+            };
+            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-ExecutionPolicy");
+            startInfo.ArgumentList.Add("Bypass");
+            startInfo.ArgumentList.Add("-File");
+            startInfo.ArgumentList.Add(scriptPath);
+            startInfo.ArgumentList.Add("-AgentDirectory");
+            startInfo.ArgumentList.Add(AppContext.BaseDirectory);
+            Process.Start(startInfo);
+            PairingStatusText.Text = "Pareamento concluído. Autorize a instalação automática do Agent na janela do Windows.";
+        }
+        catch (Exception exception)
+        {
+            PairingStatusText.Text = $"Pareamento concluído, mas o Agent não foi instalado automaticamente: {exception.Message}";
+        }
     }
 
     private async void RequestRegistration_Click(object sender, RoutedEventArgs e)
@@ -301,6 +381,14 @@ public partial class MainWindow : Window
         else
         {
             Close();
+        }
+    }
+
+    private void HandleClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (!_allowClose && _options.SetupCompleted && _lastKnownState.IsLocked && !_maintenanceMode)
+        {
+            e.Cancel = true;
         }
     }
 
@@ -573,8 +661,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        // "Bloqueado" é apenas um estado visual. O cliente nunca toma controle do
-        // Windows, não fica topmost e continua podendo ser fechado pelo usuário.
+        if (isLocked && !_maintenanceMode)
+        {
+            Topmost = true;
+            ShowInTaskbar = false;
+            ResizeMode = ResizeMode.NoResize;
+            WindowStyle = WindowStyle.None;
+            WindowState = WindowState.Maximized;
+            return;
+        }
+
         Topmost = false;
         ShowInTaskbar = true;
         ResizeMode = ResizeMode.CanResize;

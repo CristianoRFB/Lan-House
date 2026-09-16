@@ -29,13 +29,14 @@ public static class ClientHostFactory
         var machineDirectory = Path.Combine(runtimeRoot, Environment.MachineName);
 
         services.AddSingleton(options);
+        services.AddSingleton<ClientCredentialStore>();
         services.AddSingleton(new LocalClientStoragePaths
         {
             StateFilePath = Path.Combine(machineDirectory, "client-state.json"),
             RequestQueueFilePath = Path.Combine(machineDirectory, "client-requests.json")
         });
         services.AddSingleton<IClientRuntimeStore, JsonClientRuntimeStore>();
-        services.AddSingleton<IStationEnforcementService, SafeNoOpStationEnforcementService>();
+        services.AddSingleton<IStationEnforcementService, WindowsAgentStationEnforcementService>();
         services.AddHttpClient(
             "adrenalina-server",
             client =>

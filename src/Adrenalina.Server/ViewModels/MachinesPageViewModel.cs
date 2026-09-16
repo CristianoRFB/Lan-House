@@ -6,4 +6,5 @@ public sealed class MachinesPageViewModel
 {
     public IReadOnlyList<MachineDto> Machines { get; init; } = [];
     public MachineUpsertRequest Form { get; init; } = new();
+    public MachinePairingSessionDto? Pairing { get; init; }
 }

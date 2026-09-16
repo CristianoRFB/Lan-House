@@ -1,0 +1,22 @@
+DESINSTALACAO DO ADRENALINA
+
+Use o arquivo DESINSTALAR.bat para a desinstalacao normal.
+
+Ele remove automaticamente:
+
+- Admin, Client, Launcher e Agent;
+- o servico AdrenalinaClientAgent, restaurando as politicas do Windows;
+- atalhos da Area de Trabalho e da inicializacao;
+- regras de firewall do Adrenalina.
+
+Por seguranca, os dados e backups ficam preservados em:
+
+   C:\Users\SEU_USUARIO\AppData\Local\Adrenalina\
+   C:\ProgramData\Adrenalina\
+
+Use DESINSTALAR_COMPLETO.bat somente se tiver certeza de que nao precisara dos
+backups. Ele tambem remove configuracoes, dados e o certificado configurado
+pelo Adrenalina.
+
+Os dois arquivos pedem permissao de Administrador automaticamente. Feche
+outros instaladores e aguarde a mensagem final antes de reiniciar o Windows.

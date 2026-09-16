@@ -30,6 +30,7 @@ public sealed class ManagementFlowTests
     {
         await using var environment = await TestEnvironment.CreateAsync();
         Assert.True(File.Exists(environment.DatabasePath));
+        Assert.Equal("admin admin", environment.InitialAdminPassword);
 
         await environment.RunAsync(service => service.EnsureInitializedAsync());
         await environment.RunAsync(service => service.EnsureInitializedAsync());
@@ -80,6 +81,51 @@ public sealed class ManagementFlowTests
     }
 
     [Fact]
+    public async Task LocalAdminAccessRecoveryCreatesTemporaryCredentialAndUnlocksAccount()
+    {
+        await using var environment = await TestEnvironment.CreateAsync();
+
+        var admin = (await environment.RunAsync(service => service.GetUsersAsync())).Single(user => user.Login == "admin");
+        var blockedResult = await environment.RunAsync(service => service.UpsertUserAsync(new UserUpsertRequest
+        {
+            Id = admin.Id,
+            DisplayName = admin.DisplayName,
+            Login = admin.Login,
+            ProfileType = admin.ProfileType,
+            IsBlocked = true
+        }, admin.Id));
+        Assert.True(blockedResult.Success);
+
+        var recovery = await environment.RunAsync(service =>
+            ((IAdminAuthService)service).RecoverAdminAccessAsync());
+
+        Assert.NotNull(recovery);
+        Assert.Equal("admin admin", recovery.TemporaryPassword);
+        Assert.True(File.Exists(recovery.AccessFilePath));
+        Assert.Contains($"Senha: {recovery.TemporaryPassword}", File.ReadAllText(recovery.AccessFilePath));
+        Assert.NotNull(await environment.RunAsync(service =>
+            ((IAdminAuthService)service).ValidateAsync("admin", recovery.TemporaryPassword)));
+    }
+
+    [Fact]
+    public async Task AdminCanChangeOwnPasswordFromDedicatedLocalFlow()
+    {
+        await using var environment = await TestEnvironment.CreateAsync();
+        var admin = (await environment.RunAsync(service => service.GetUsersAsync())).Single(user => user.Login == "admin");
+        const string newPassword = "Minha-Senha-Admin-2026!";
+
+        var result = await environment.RunAsync(service =>
+            ((IAdminAuthService)service).ChangeAdminPasswordAsync(admin.Id, newPassword));
+
+        Assert.True(result.Success);
+        Assert.False(File.Exists(Path.Combine(environment.RootPath, Adrenalina.Infrastructure.AdrenalinaDatabaseInitializer.InitialAccessFileName)));
+        Assert.Null(await environment.RunAsync(service =>
+            ((IAdminAuthService)service).ValidateAsync("admin", "admin admin")));
+        Assert.NotNull(await environment.RunAsync(service =>
+            ((IAdminAuthService)service).ValidateAsync("admin", newPassword)));
+    }
+
+    [Fact]
     public async Task MachineCanBeRegisteredQueriedAndSynchronized()
     {
         await using var environment = await TestEnvironment.CreateAsync();
@@ -112,6 +158,77 @@ public sealed class ManagementFlowTests
             MachineKey = "nao-cadastrada"
         }));
         Assert.False(unknown.Success);
+    }
+
+    [Fact]
+    public async Task PairingRequiresApprovalAndIssuesOneIndividualCredential()
+    {
+        await using var environment = await TestEnvironment.CreateAsync();
+        var adminId = await GetAdminIdAsync(environment);
+        Assert.True((await environment.RunAsync(service => service.UpsertMachineAsync(new MachineUpsertRequest
+        {
+            Name = "PC-PAREAMENTO",
+            MachineKey = "pc-pareamento-chave-01",
+            Kind = MachineKind.Pc
+        }, adminId))).Success);
+
+        var machine = (await environment.RunAsync(service => service.GetMachinesAsync())).Single();
+        var started = await environment.RunAsync(service => service.StartMachinePairingAsync(new MachinePairingStartRequest
+        {
+            MachineId = machine.Id
+        }, adminId));
+        Assert.NotNull(started);
+        Assert.Equal(6, started!.Code.Length);
+
+        var request = await environment.RunAsync(service => service.RequestMachinePairingAsync(new ClientPairingRequest
+        {
+            Code = started.Code,
+            Hostname = "HOST-PAREAMENTO"
+        }));
+        Assert.True(request.Success);
+        Assert.True(request.AwaitingApproval);
+
+        var beforeApproval = await environment.RunAsync(service => service.PollMachinePairingAsync(new ClientPairingPollRequest
+        {
+            PairingSessionId = request.PairingSessionId,
+            Code = started.Code
+        }));
+        Assert.True(beforeApproval.AwaitingApproval);
+
+        Assert.True((await environment.RunAsync(service => service.ApproveMachinePairingAsync(request.PairingSessionId, adminId))).Success);
+        var completed = await environment.RunAsync(service => service.PollMachinePairingAsync(new ClientPairingPollRequest
+        {
+            PairingSessionId = request.PairingSessionId,
+            Code = started.Code
+        }));
+        Assert.True(completed.Success);
+        Assert.NotEqual(Guid.Empty, completed.MachineId);
+        Assert.False(string.IsNullOrWhiteSpace(completed.MachineCredentialId));
+        Assert.True(completed.MachineSecret.Length >= 16);
+
+        var pairedRequest = await environment.RunAsync(service => service.SubmitClientRequestsAsync(new ClientRequestBatchRequest
+        {
+            MachineId = completed.MachineId,
+            MachineCredentialId = completed.MachineCredentialId,
+            Requests =
+            [
+                new ClientShellRequest
+                {
+                    Type = ClientRequestType.Registration,
+                    Login = "pareado",
+                    Pin = "1234",
+                    DisplayName = "Cliente Pareado"
+                }
+            ]
+        }));
+        Assert.True(pairedRequest.Success);
+
+        var replay = await environment.RunAsync(service => service.PollMachinePairingAsync(new ClientPairingPollRequest
+        {
+            PairingSessionId = request.PairingSessionId,
+            Code = started.Code
+        }));
+        Assert.False(replay.Success);
     }
 
     [Fact]
@@ -233,7 +350,7 @@ public sealed class ManagementFlowTests
             new MachineCommandRequest
             {
                 MachineId = machineId,
-                Type = (RemoteCommandType)2,
+                Type = (RemoteCommandType)99,
                 Title = "Reiniciar"
             },
             adminId));

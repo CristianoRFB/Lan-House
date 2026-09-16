@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ReleasePath = (Resolve-Path -LiteralPath $ReleasePath).Path
 if (-not (Test-Path (Join-Path $ReleasePath 'Adrenalina.Admin.exe'))) { throw "Release inválida: $ReleasePath" }
-if (-not (Test-Path (Join-Path $ReleasePath 'Client\Adrenalina.Client.exe'))) { throw "Release inválida: $ReleasePath" }
+if (-not (Test-Path (Join-Path $ReleasePath 'Adrenalina.Launcher.exe'))) { throw "Release inválida: $ReleasePath" }
 
 foreach ($name in 'Adrenalina.Admin', 'Adrenalina.Client') {
     if (Get-Process -Name $name -ErrorAction SilentlyContinue) { throw "Feche $name antes de executar o rollback." }

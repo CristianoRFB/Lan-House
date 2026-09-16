@@ -47,12 +47,13 @@ public static class HelpContent
             "login-inicial",
             "Começando",
             "Como entrar pela primeira vez",
-            "O acesso inicial é criado localmente pelo ADMIN e deve ser trocado logo no primeiro acesso.",
+            "O acesso inicial usa admin admin e deve ser trocado logo no primeiro acesso.",
             [
                 "Abra initial-admin-access.txt na pasta de dados do Admin.",
-                "Use login, senha e PIN informados no arquivo.",
-                "Depois de entrar, abra Usuários e salve uma nova senha para o administrador.",
-                "O arquivo de acesso inicial é removido automaticamente após a troca da senha."
+                "Use login, senha e PIN informados no arquivo; a senha inicial é admin admin.",
+                "Se o arquivo não existir ou você perdeu a senha, volte à tela de login e clique em Recuperar acesso.",
+                "A recuperação só funciona no próprio computador ADMIN, restaura admin admin e desbloqueia o admin.",
+                "Depois de entrar, clique em Trocar senha no menu lateral e salve uma nova senha; o arquivo temporário é removido automaticamente."
             ],
             ["login", "senha", "pin", "acesso"],
             ["seguranca", "usuarios"]),
@@ -60,12 +61,12 @@ public static class HelpContent
             "conectar-clientes",
             "Máquinas",
             "Como conectar uma máquina cliente",
-            "O Client usa a URL e a chave cadastradas no ADMIN para sincronizar automaticamente.",
+            "O Client usa a URL do ADMIN e o pareamento aprovado para sincronizar automaticamente.",
             [
-                "No ADMIN, abra Máquinas e cadastre nome, chave, tipo e grupo.",
+                "No ADMIN, abra Máquinas e cadastre nome, tipo e grupo.",
                 "No Client, informe o endereço mostrado em Clientes na rede.",
-                "Use o mesmo nome e a mesma chave do cadastro. A chave deve ter entre 16 e 100 caracteres.",
-                "Clique em Testar conexão e depois em Salvar e iniciar cliente.",
+                "No ADMIN, clique em INICIAR CONFIGURAÇÃO e copie o código temporário.",
+                "No Client, clique em PAREAR CONFIGURAÇÃO, informe o código e aguarde aprovação.",
                 "O Client continuará tentando sincronizar no intervalo configurado."
             ],
             ["client", "máquina", "lan", "rede", "conexão", "sincronização"],
@@ -185,11 +186,11 @@ public static class HelpContent
             "problemas-conexao",
             "Erros e problemas",
             "O que fazer quando o Client fica offline",
-            "O Client foi desenhado para continuar tentando sincronizar sem bloquear o computador.",
+            "Sem Server, a estação sem sessão permanece bloqueada; o Client tenta sincronizar novamente.",
             [
                 "Confira se o ADMIN está aberto e se o servidor está ativo.",
                 "Confirme se a URL usa o endereço da rede local, não localhost.",
-                "Verifique se nome e chave do Client são iguais ao cadastro em Máquinas.",
+                "Verifique se o pareamento foi aprovado e se o Agent está instalado e saudável.",
                 "Use Testar conexão nas configurações do Client.",
                 "Se persistir, confira firewall, certificado HTTPS quando a LAN estiver em produção e o log do servidor."
             ],

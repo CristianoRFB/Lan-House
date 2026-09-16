@@ -13,7 +13,9 @@ public sealed class ClientServerGateway(
     ClientConnectionOptions options,
     IHttpClientFactory httpClientFactory,
     IClientRuntimeStore runtimeStore,
-    ILogger<ClientServerGateway> logger)
+    ILogger<ClientServerGateway> logger,
+    ClientCredentialStore? credentialStore = null,
+    IStationEnforcementService? stationEnforcement = null)
 {
     private readonly SemaphoreSlim _syncGate = new(1, 1);
     private readonly HashSet<Guid> _commandAcknowledgements = [];
@@ -21,6 +23,79 @@ public sealed class ClientServerGateway(
 
     public bool IsServerOnline { get; private set; }
     public string ConnectionStatusText { get; private set; } = "Conexão aguardando a primeira sincronização.";
+
+    public async Task<ClientPairingResponse> RequestPairingAsync(string code, CancellationToken cancellationToken = default)
+    {
+        if (!Uri.TryCreate(options.ServerBaseUrl?.Trim(), UriKind.Absolute, out var serverUri) ||
+            (serverUri.Scheme != Uri.UriSchemeHttp && serverUri.Scheme != Uri.UriSchemeHttps) ||
+            code is null || code.Trim().Length is < 4 or > 12)
+        {
+            return new ClientPairingResponse { Success = false, Message = "Informe uma conexão válida e o código temporário do ADMIN." };
+        }
+
+        try
+        {
+            using var client = new HttpClient { BaseAddress = serverUri, Timeout = TimeSpan.FromSeconds(5) };
+            var response = await client.PostAsJsonAsync("api/client/pairing/request", new ClientPairingRequest
+            {
+                Code = code.Trim(),
+                Hostname = Environment.MachineName,
+                MachineFingerprint = Environment.MachineName
+            }, JsonDefaults.Options, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var payload = await response.Content.ReadFromJsonAsync<ClientPairingResponse>(JsonDefaults.Options, cancellationToken) ?? new();
+            if (payload.PairingSessionId != Guid.Empty)
+            {
+                options.PairingSessionId = payload.PairingSessionId;
+                ClientOptionsStore.Save(options);
+            }
+
+            return payload;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Falha ao solicitar pareamento.");
+            return new ClientPairingResponse { Success = false, Message = "Não foi possível solicitar o pareamento agora." };
+        }
+    }
+
+    public async Task<ClientPairingResponse> PollPairingAsync(string code, CancellationToken cancellationToken = default)
+    {
+        if (!options.PairingSessionId.HasValue)
+        {
+            return new ClientPairingResponse { Success = false, Message = "Inicie o pareamento antes de verificar a aprovação." };
+        }
+
+        try
+        {
+            using var client = new HttpClient { BaseAddress = new Uri(options.ServerBaseUrl), Timeout = TimeSpan.FromSeconds(5) };
+            var response = await client.PostAsJsonAsync("api/client/pairing/poll", new ClientPairingPollRequest
+            {
+                PairingSessionId = options.PairingSessionId.Value,
+                Code = code.Trim()
+            }, JsonDefaults.Options, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var payload = await response.Content.ReadFromJsonAsync<ClientPairingResponse>(JsonDefaults.Options, cancellationToken) ?? new();
+            if (payload.Success && !string.IsNullOrWhiteSpace(payload.MachineSecret) && credentialStore is not null)
+            {
+                credentialStore.Save(payload.MachineCredentialId, payload.MachineSecret);
+                options.MachineId = payload.MachineId;
+                options.MachineCredentialId = payload.MachineCredentialId;
+                options.MachineKey = string.Empty;
+                options.SetupCompleted = true;
+                options.RequireWindowsAgent = true;
+                options.PairingSessionId = null;
+                ClientOptionsStore.Save(options);
+            }
+
+            return payload;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Falha ao verificar pareamento.");
+            return new ClientPairingResponse { Success = false, Message = "Não foi possível verificar a aprovação agora." };
+        }
+    }
 
     public async Task SyncOnceAsync(CancellationToken cancellationToken = default)
     {
@@ -58,6 +133,8 @@ public sealed class ClientServerGateway(
                 new ClientLoginRequest
                 {
                     MachineKey = options.MachineKey,
+                    MachineId = options.MachineId,
+                    MachineCredentialId = options.MachineCredentialId,
                     RequestTimestampUtc = loginTimestamp,
                     Nonce = loginNonce,
                     MachineProof = loginProof,
@@ -200,11 +277,17 @@ public sealed class ClientServerGateway(
             var heartbeat = new ClientHeartbeatRequest
             {
                 MachineKey = options.MachineKey,
+                MachineId = options.MachineId,
+                MachineCredentialId = options.MachineCredentialId,
                 RequestTimestampUtc = heartbeatTimestamp,
                 Nonce = heartbeatNonce,
                 MachineProof = heartbeatProof,
                 Hostname = Environment.MachineName,
                 IpAddress = ResolveLocalIpAddress(),
+                ClientVersion = typeof(ClientServerGateway).Assembly.GetName().Version?.ToString() ?? "dev",
+                AgentVersion = "named-pipe-v1",
+                AgentHealthy = stationEnforcement?.HealthCheck() == true,
+                PolicyVersion = 1,
                 Status = await ResolveMachineStatusAsync(cancellationToken),
                 AcknowledgedCommandIds = _commandAcknowledgements.ToList(),
                 AcknowledgedNotificationIds = _notificationAcknowledgements.ToList()
@@ -271,6 +354,8 @@ public sealed class ClientServerGateway(
         return new ClientRequestBatchRequest
         {
             MachineKey = options.MachineKey,
+            MachineId = options.MachineId,
+            MachineCredentialId = options.MachineCredentialId,
             RequestTimestampUtc = timestamp,
             Nonce = nonce,
             MachineProof = proof,
@@ -282,7 +367,8 @@ public sealed class ClientServerGateway(
     {
         var timestamp = DateTime.UtcNow;
         var nonce = Guid.NewGuid().ToString("N");
-        return (timestamp, nonce, MachineAuthentication.CreateProof(options.MachineKey, timestamp, nonce, operation));
+        var secret = credentialStore?.Load(options.MachineCredentialId) ?? options.MachineKey;
+        return (timestamp, nonce, MachineAuthentication.CreateProof(secret, timestamp, nonce, operation));
     }
 
     private async Task<MachineStatus> ResolveMachineStatusAsync(CancellationToken cancellationToken)
@@ -309,6 +395,28 @@ public sealed class ClientServerGateway(
             {
                 case RemoteCommandType.LockScreen:
                     working = CloneState(working, isLocked: true, sessionMessage: command.Message, lockMessage: command.Message);
+                    stationEnforcement?.ApplySessionState(false);
+                    break;
+                case RemoteCommandType.UnlockStation:
+                    working = CloneState(working, isLocked: false, sessionMessage: command.Message);
+                    stationEnforcement?.ApplySessionState(true);
+                    break;
+                case RemoteCommandType.EnterMaintenance:
+                    working = CloneState(working, isLocked: false, sessionMessage: "Modo de manutenção autorizado.");
+                    stationEnforcement?.EnterMaintenance();
+                    break;
+                case RemoteCommandType.ExitMaintenance:
+                    working = CloneState(working, isLocked: true, sessionMessage: "Manutenção encerrada.");
+                    stationEnforcement?.ExitMaintenance();
+                    break;
+                case RemoteCommandType.RestartStation:
+                    stationEnforcement?.Restart();
+                    break;
+                case RemoteCommandType.ShutdownStation:
+                    stationEnforcement?.Shutdown();
+                    break;
+                case RemoteCommandType.LogoffStation:
+                    stationEnforcement?.Logoff();
                     break;
                 case RemoteCommandType.ToggleTimerVisibility:
                     working = CloneState(working, showRemainingTime: ParseShowFlag(command.PayloadJson));

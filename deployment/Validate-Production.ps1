@@ -10,8 +10,8 @@ $failures = [System.Collections.Generic.List[string]]::new()
 function Check([bool]$Condition, [string]$Message) { if (-not $Condition) { $failures.Add($Message) } }
 
 Check (Test-Path (Join-Path $InstallRoot 'Adrenalina.Admin.exe')) 'Executável do Admin ausente.'
-Check (Test-Path (Join-Path $InstallRoot 'Client\Adrenalina.Client.exe')) 'Executável do Client ausente.'
 Check (Test-Path (Join-Path $InstallRoot 'Adrenalina.Launcher.exe')) 'Launcher do Adrenalina ausente.'
+Check (Test-Path (Join-Path $InstallRoot 'Adrenalina.Server.exe')) 'Executável do servidor ausente.'
 Check (Test-Path (Join-Path $DataRoot 'server-settings.json')) 'Configuração de implantação ausente.'
 Check ($ServerUrl.StartsWith('https://', [StringComparison]::OrdinalIgnoreCase)) 'A URL de produção precisa usar HTTPS.'
 

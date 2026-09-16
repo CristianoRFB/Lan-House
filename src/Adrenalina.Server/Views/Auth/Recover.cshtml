@@ -1,0 +1,53 @@
+@model AdminAccessRecoveryViewModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recuperar acesso - Adrenalina</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="login-body">
+    <main class="login-panel">
+        <div class="login-copy">
+            <p class="eyebrow">Recuperação local</p>
+            <h1>Recuperar acesso</h1>
+            <p>Restaure a senha local inicial do administrador quando o arquivo inicial não estiver disponível.</p>
+        </div>
+        <section class="panel form-grid">
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+                <a href="/auth/login" class="btn btn-outline-light">Voltar para o login</a>
+            }
+            else if (!string.IsNullOrWhiteSpace(Model.TemporaryPassword))
+            {
+                <div class="alert alert-success" role="alert">Acesso recuperado. Use a senha abaixo para entrar.</div>
+                <div>
+                    <label class="form-label">Login</label>
+                    <input class="form-control" value="admin" readonly />
+                </div>
+                <div>
+                    <label class="form-label">Senha temporária</label>
+                    <input class="form-control" value="@Model.TemporaryPassword" readonly onclick="this.select();" />
+                </div>
+                <p class="small text-secondary">Também foi recriado: <code>@Model.AccessFilePath</code>. Troque a senha imediatamente em Usuários; o arquivo será removido.</p>
+                <a href="/auth/login" class="btn btn-accent">Ir para o login</a>
+            }
+            else
+            {
+                <div class="alert alert-warning" role="alert">Use este botão somente no computador ADMIN. Ele invalida a senha atual e restaura a senha local <strong>admin admin</strong>.</div>
+                <form method="post" class="form-grid">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-accent">Gerar nova senha temporária</button>
+                </form>
+                <a href="/auth/login" class="btn btn-outline-light">Voltar para o login</a>
+            }
+        </section>
+    </main>
+</body>
+</html>

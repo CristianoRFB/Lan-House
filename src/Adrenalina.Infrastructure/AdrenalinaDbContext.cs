@@ -16,6 +16,7 @@ public sealed class AdrenalinaDbContext(DbContextOptions<AdrenalinaDbContext> op
     public DbSet<ClientRequestRecord> ClientRequests => Set<ClientRequestRecord>();
     public DbSet<BackupSnapshot> Backups => Set<BackupSnapshot>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<MachinePairingSession> MachinePairingSessions => Set<MachinePairingSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +42,19 @@ public sealed class AdrenalinaDbContext(DbContextOptions<AdrenalinaDbContext> op
 
         modelBuilder.Entity<Machine>()
             .HasIndex(entity => entity.LastSeenUtc);
+
+        modelBuilder.Entity<Machine>()
+            .HasIndex(entity => entity.MachineCredentialId)
+            .IsUnique();
+
+        modelBuilder.Entity<MachinePairingSession>()
+            .HasIndex(entity => new { entity.CodeHash, entity.Status });
+
+        modelBuilder.Entity<MachinePairingSession>()
+            .HasOne<Machine>()
+            .WithMany()
+            .HasForeignKey(entity => entity.MachineId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<LedgerEntry>()
             .Property(property => property.Amount)

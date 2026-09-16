@@ -35,7 +35,8 @@
                 <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
             }
             <button type="submit" class="btn btn-accent">Entrar</button>
-            <p class="small text-secondary">No primeiro uso, consulte <code>initial-admin-access.txt</code> na pasta de dados do Admin e troque a senha imediatamente.</p>
+            <a href="/auth/recover" class="btn btn-outline-light">Recuperar acesso</a>
+            <p class="small text-secondary">No primeiro uso, consulte <code>initial-admin-access.txt</code>. Se ele não existir ou você perdeu a senha, use Recuperar acesso neste computador ADMIN.</p>
         </form>
     </main>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

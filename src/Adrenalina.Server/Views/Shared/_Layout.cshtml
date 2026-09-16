@@ -29,6 +29,7 @@
                 @if (User.IsInRole("Admin"))
                 {
                     <a class="@NavClass("Users")" asp-controller="Users" asp-action="Index">Usuários</a>
+                    <a class="@NavClass("Auth")" asp-controller="Auth" asp-action="ChangePassword">Trocar senha</a>
                     <a class="@NavClass("Reports")" asp-controller="Reports" asp-action="Index">Relatórios</a>
                     <a class="@NavClass("Settings")" asp-controller="Settings" asp-action="Index">Configurações</a>
                 }

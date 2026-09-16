@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text;
 using System.Security.Cryptography;
 using Adrenalina.Application;
 using Adrenalina.Domain;
@@ -58,6 +59,90 @@ public sealed class CafeManagementService(
         await db.SaveChangesAsync(cancellationToken);
 
         return new AuthenticatedAdmin(user.Id, user.Login, user.DisplayName, user.ProfileType);
+    }
+
+    public async Task<AdminAccessRecoveryResult?> RecoverAdminAccessAsync(CancellationToken cancellationToken = default)
+    {
+        await databaseInitializer.InitializeAsync(cancellationToken);
+
+        var admin = await db.Users.FirstOrDefaultAsync(
+            account => account.Login == "admin" && account.ProfileType == UserProfileType.Admin,
+            cancellationToken);
+        if (admin is null)
+        {
+            return null;
+        }
+
+        var temporaryPassword = AdrenalinaDatabaseInitializer.DefaultAdminPassword;
+        admin.PasswordHash = PasswordHasher.Hash(temporaryPassword);
+        admin.IsBlocked = false;
+        admin.FailedLoginAttempts = 0;
+        admin.LockedUntilUtc = null;
+        admin.Touch();
+
+        await LogAsync(
+            "Seguranca",
+            "RecuperacaoAcessoAdmin",
+            null,
+            null,
+            admin.Id,
+            "Acesso local do administrador recuperado; uma senha temporária foi gerada.",
+            cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+
+        var root = Path.GetDirectoryName(storagePaths.DatabaseFilePath)
+            ?? throw new InvalidOperationException("A pasta de dados do Admin não está configurada.");
+        Directory.CreateDirectory(root);
+        var accessFilePath = Path.Combine(root, AdrenalinaDatabaseInitializer.InitialAccessFileName);
+        var payload = string.Join(Environment.NewLine,
+        [
+            "ADRENALINA - RECUPERAÇÃO DE ACESSO",
+            "Login: admin",
+            $"Senha: {temporaryPassword}",
+            "",
+            "Esta senha foi gerada pelo botão Recuperar acesso no computador ADMIN.",
+            "Entre no painel e troque a senha imediatamente. Este arquivo será removido após a troca."
+        ]);
+        var temporaryPath = accessFilePath + ".tmp";
+        await File.WriteAllTextAsync(temporaryPath, payload, cancellationToken);
+        File.Move(temporaryPath, accessFilePath, overwrite: true);
+
+        return new AdminAccessRecoveryResult(temporaryPassword, accessFilePath);
+    }
+
+    public async Task<OperationResult> ChangeAdminPasswordAsync(
+        Guid adminId,
+        string newPassword,
+        CancellationToken cancellationToken = default)
+    {
+        if (newPassword.Length is < 12 or > 256)
+        {
+            return new OperationResult(false, "A nova senha precisa ter entre 12 e 256 caracteres.");
+        }
+
+        var admin = await db.Users.FirstOrDefaultAsync(
+            account => account.Id == adminId && account.ProfileType == UserProfileType.Admin,
+            cancellationToken);
+        if (admin is null)
+        {
+            return new OperationResult(false, "A conta admin não foi encontrada.");
+        }
+
+        admin.PasswordHash = PasswordHasher.Hash(newPassword);
+        admin.FailedLoginAttempts = 0;
+        admin.LockedUntilUtc = null;
+        admin.Touch();
+        await LogAsync(
+            "Seguranca",
+            "AlteracaoSenhaAdmin",
+            admin.Id,
+            null,
+            admin.Id,
+            "Senha do administrador alterada pelo fluxo local de segurança.",
+            cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        DeleteInitialAccessFile();
+        return new OperationResult(true, "Senha do administrador alterada.");
     }
 
     public async Task<UserDto?> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -400,6 +485,13 @@ public sealed class CafeManagementService(
 
         machine.MachineKey = machineKey;
         machine.MachineCredentialHash = MachineAuthentication.DeriveSigningKey(machineKey);
+        if (string.IsNullOrWhiteSpace(machine.MachineCredentialId))
+        {
+            machine.MachineCredentialId = Guid.NewGuid().ToString("N");
+        }
+        machine.IsRevoked = false;
+        machine.MachineCredentialVersion = Math.Max(1, machine.MachineCredentialVersion);
+        machine.ProtocolVersion = ProtocolContract.CurrentVersion;
         machine.Name = name;
         machine.Kind = request.Kind;
         machine.GroupName = TextSanitizer.Normalize(request.GroupName);
@@ -409,6 +501,234 @@ public sealed class CafeManagementService(
         await LogAsync("Maquina", isNew ? "Criacao" : "Atualizacao", actorUserId, machine.Id, null, $"Máquina {machine.Name} salva.", cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return new OperationResult(true, isNew ? "Máquina cadastrada." : "Máquina atualizada.");
+    }
+
+    public async Task<MachinePairingSessionDto?> StartMachinePairingAsync(
+        MachinePairingStartRequest request,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var machine = await db.Machines.FirstOrDefaultAsync(item => item.Id == request.MachineId, cancellationToken);
+        if (machine is null || machine.IsRevoked)
+        {
+            return null;
+        }
+
+        var previous = await db.MachinePairingSessions
+            .Where(item => item.MachineId == machine.Id && (item.Status == "WAITING" || item.Status == "REQUESTED" || item.Status == "APPROVED"))
+            .ToListAsync(cancellationToken);
+        foreach (var item in previous)
+        {
+            item.Status = "CANCELLED";
+            item.Touch();
+        }
+
+        string code;
+        string codeHash;
+        do
+        {
+            code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6", CultureInfo.InvariantCulture);
+            codeHash = HashPairingCode(code);
+        }
+        while (await db.MachinePairingSessions.AnyAsync(item => item.CodeHash == codeHash && item.ExpiresAtUtc > DateTime.UtcNow, cancellationToken));
+
+        var pairing = new MachinePairingSession
+        {
+            MachineId = machine.Id,
+            CodeHash = codeHash,
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(10),
+            Status = "WAITING"
+        };
+        db.MachinePairingSessions.Add(pairing);
+        await LogAsync("Pareamento", "Iniciado", actorUserId, machine.Id, null, $"Pareamento iniciado para {machine.Name}.", cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new MachinePairingSessionDto
+        {
+            Id = pairing.Id,
+            MachineId = machine.Id,
+            MachineName = machine.Name,
+            Code = code,
+            ExpiresAtUtc = pairing.ExpiresAtUtc,
+            Status = pairing.Status
+        };
+    }
+
+    public async Task<OperationResult> RevokeMachineAsync(Guid machineId, Guid actorUserId, CancellationToken cancellationToken = default)
+    {
+        var machine = await db.Machines.FirstOrDefaultAsync(item => item.Id == machineId, cancellationToken);
+        if (machine is null)
+        {
+            return new OperationResult(false, "Máquina não encontrada.");
+        }
+
+        machine.IsRevoked = true;
+        machine.MachineCredentialVersion = Math.Max(1, machine.MachineCredentialVersion + 1);
+        machine.Status = MachineStatus.Locked;
+        machine.CurrentSessionId = null;
+        machine.LastCommandSummary = "Credencial revogada";
+        machine.Touch();
+        await LogAsync("Pareamento", "Revogado", actorUserId, machine.Id, null, $"Credencial da máquina {machine.Name} revogada.", cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return new OperationResult(true, "Máquina revogada. A credencial anterior não é mais válida.");
+    }
+
+    public async Task<MachinePairingSessionDto?> GetMachinePairingAsync(Guid pairingSessionId, CancellationToken cancellationToken = default)
+    {
+        var pairing = await db.MachinePairingSessions.AsNoTracking().FirstOrDefaultAsync(item => item.Id == pairingSessionId, cancellationToken);
+        if (pairing is null)
+        {
+            return null;
+        }
+
+        if (pairing.ExpiresAtUtc <= DateTime.UtcNow && pairing.Status is "WAITING" or "REQUESTED")
+        {
+            pairing.Status = "EXPIRED";
+        }
+
+        var machineName = await db.Machines.AsNoTracking()
+            .Where(item => item.Id == pairing.MachineId)
+            .Select(item => item.Name)
+            .FirstOrDefaultAsync(cancellationToken) ?? "Desconhecida";
+
+        return new MachinePairingSessionDto
+        {
+            Id = pairing.Id,
+            MachineId = pairing.MachineId,
+            MachineName = machineName,
+            ExpiresAtUtc = pairing.ExpiresAtUtc,
+            RequestedAtUtc = pairing.RequestedAtUtc,
+            Status = pairing.Status,
+            Hostname = pairing.Hostname,
+            MachineFingerprint = pairing.MachineFingerprint
+        };
+    }
+
+    public async Task<OperationResult> ApproveMachinePairingAsync(Guid pairingSessionId, Guid actorUserId, CancellationToken cancellationToken = default)
+    {
+        var pairing = await db.MachinePairingSessions.FirstOrDefaultAsync(item => item.Id == pairingSessionId, cancellationToken);
+        if (pairing is null || pairing.ExpiresAtUtc <= DateTime.UtcNow)
+        {
+            return new OperationResult(false, "O pareamento não existe ou expirou.");
+        }
+
+        if (pairing.Status != "REQUESTED")
+        {
+            return new OperationResult(false, "O pareamento ainda não tem uma solicitação pendente.");
+        }
+
+        pairing.Status = "APPROVED";
+        pairing.ApprovedAtUtc = DateTime.UtcNow;
+        pairing.ApprovedByUserId = actorUserId;
+        pairing.Touch();
+        await LogAsync("Pareamento", "Aprovado", actorUserId, pairing.MachineId, null, "Pareamento aprovado pelo administrador.", cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return new OperationResult(true, "Pareamento aprovado. O Client receberá a credencial na próxima verificação.");
+    }
+
+    public async Task<ClientPairingResponse> RequestMachinePairingAsync(ClientPairingRequest request, CancellationToken cancellationToken = default)
+    {
+        var requestCode = request.Code?.Trim() ?? string.Empty;
+        if (requestCode.Length != 6 || !requestCode.All(char.IsDigit))
+        {
+            return new ClientPairingResponse { Success = false, Message = "Código de pareamento inválido." };
+        }
+
+        var codeHash = HashPairingCode(requestCode);
+        var pairing = await db.MachinePairingSessions.FirstOrDefaultAsync(item => item.CodeHash == codeHash, cancellationToken);
+        if (pairing is null || pairing.ExpiresAtUtc <= DateTime.UtcNow || pairing.Status is "CANCELLED" or "EXPIRED" or "COMPLETED")
+        {
+            return new ClientPairingResponse { Success = false, Message = "Código inválido, expirado ou já utilizado." };
+        }
+
+        if (pairing.Status != "WAITING")
+        {
+            return new ClientPairingResponse
+            {
+                Success = false,
+                AwaitingApproval = pairing.Status is "REQUESTED" or "APPROVED",
+                PairingSessionId = pairing.Id,
+                Message = pairing.Status == "APPROVED" ? "Pareamento aprovado. Verifique novamente para receber a credencial." : "Aguardando aprovação do administrador."
+            };
+        }
+
+        pairing.Hostname = TextSanitizer.Normalize(request.Hostname);
+        pairing.MachineFingerprint = TextSanitizer.Normalize(request.MachineFingerprint);
+        pairing.RequestedAtUtc = DateTime.UtcNow;
+        pairing.Status = "REQUESTED";
+        pairing.Touch();
+        await LogAsync("Pareamento", "Solicitado", null, pairing.MachineId, null, "Uma estação solicitou pareamento.", cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return new ClientPairingResponse
+        {
+            Success = true,
+            AwaitingApproval = true,
+            PairingSessionId = pairing.Id,
+            ExpiresAtUtc = pairing.ExpiresAtUtc,
+            Message = "Aguardando aprovação do administrador."
+        };
+    }
+
+    public async Task<ClientPairingResponse> PollMachinePairingAsync(ClientPairingPollRequest request, CancellationToken cancellationToken = default)
+    {
+        var requestCode = request.Code?.Trim() ?? string.Empty;
+        if (requestCode.Length != 6 || !requestCode.All(char.IsDigit))
+        {
+            return new ClientPairingResponse { Success = false, Message = "Código de pareamento inválido." };
+        }
+
+        var pairing = await db.MachinePairingSessions.FirstOrDefaultAsync(item => item.Id == request.PairingSessionId, cancellationToken);
+        if (pairing is null || pairing.CodeHash != HashPairingCode(requestCode) || pairing.ExpiresAtUtc <= DateTime.UtcNow)
+        {
+            return new ClientPairingResponse { Success = false, Message = "Sessão de pareamento inválida ou expirada." };
+        }
+
+        if (pairing.Status != "APPROVED")
+        {
+            return new ClientPairingResponse
+            {
+                Success = pairing.Status == "REQUESTED",
+                AwaitingApproval = pairing.Status == "REQUESTED",
+                PairingSessionId = pairing.Id,
+                ExpiresAtUtc = pairing.ExpiresAtUtc,
+                Message = pairing.Status == "REQUESTED" ? "Aguardando aprovação do administrador." : "O pareamento ainda não foi aprovado."
+            };
+        }
+
+        var machine = await db.Machines.FirstOrDefaultAsync(item => item.Id == pairing.MachineId, cancellationToken);
+        if (machine is null || machine.IsRevoked)
+        {
+            return new ClientPairingResponse { Success = false, Message = "A estação não está disponível para pareamento." };
+        }
+
+        var secret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        machine.MachineKey = secret;
+        machine.MachineCredentialHash = MachineAuthentication.DeriveSigningKey(machine.MachineKey);
+        machine.MachineKey = $"paired:{machine.MachineCredentialId}";
+        machine.MachineCredentialVersion = Math.Max(1, machine.MachineCredentialVersion + 1);
+        machine.Status = MachineStatus.Locked;
+        machine.AgentHealthy = false;
+        machine.Touch();
+        pairing.Status = "COMPLETED";
+        pairing.CompletedAtUtc = DateTime.UtcNow;
+        pairing.Touch();
+        await LogAsync("Pareamento", "Concluído", pairing.ApprovedByUserId, machine.Id, null, "Credencial individual criada para a estação.", cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return new ClientPairingResponse
+        {
+            Success = true,
+            PairingSessionId = pairing.Id,
+            MachineId = machine.Id,
+            MachineCredentialId = machine.MachineCredentialId,
+            MachineSecret = secret,
+            Message = "Pareamento concluído. Credencial protegida recebida pelo Client."
+        };
+    }
+
+    private static string HashPairingCode(string code)
+    {
+        var normalized = new string((code ?? string.Empty).Where(char.IsDigit).Take(12).ToArray());
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
     }
 
     public async Task<OperationResult> AddLedgerEntryAsync(LedgerEntryRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
@@ -660,7 +980,9 @@ public sealed class CafeManagementService(
 
     public async Task<OperationResult> QueueMachineCommandAsync(MachineCommandRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
     {
-        if (request.Type is not (RemoteCommandType.LockScreen or RemoteCommandType.RefreshConfiguration or
+        if (request.Type is not (RemoteCommandType.LockScreen or RemoteCommandType.UnlockStation or
+            RemoteCommandType.RestartStation or RemoteCommandType.ShutdownStation or RemoteCommandType.LogoffStation or
+            RemoteCommandType.EnterMaintenance or RemoteCommandType.ExitMaintenance or RemoteCommandType.RefreshConfiguration or
             RemoteCommandType.ShowMessage or RemoteCommandType.ToggleTimerVisibility))
         {
             return new OperationResult(false, "Esse tipo de comando não é permitido pelo cliente seguro.");
@@ -672,6 +994,27 @@ public sealed class CafeManagementService(
             return new OperationResult(false, "Máquina não encontrada.");
         }
 
+        var payload = string.Empty;
+        if (request.Type == RemoteCommandType.ToggleTimerVisibility)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(request.PayloadJson ?? string.Empty);
+                if (document.RootElement.ValueKind != JsonValueKind.Object ||
+                    !document.RootElement.TryGetProperty("show", out var show) ||
+                    show.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                {
+                    return new OperationResult(false, "A política do comando de exibição é inválida.");
+                }
+
+                payload = JsonSerializer.Serialize(new { show = show.GetBoolean() }, JsonDefaults.Options);
+            }
+            catch (JsonException)
+            {
+                return new OperationResult(false, "A política do comando é inválida.");
+            }
+        }
+
         db.RemoteCommands.Add(new RemoteCommand
         {
             MachineId = machine.Id,
@@ -679,14 +1022,23 @@ public sealed class CafeManagementService(
             Type = request.Type,
             Title = TextSanitizer.Normalize(request.Title),
             Message = TextSanitizer.Normalize(request.Message),
-            PayloadJson = request.PayloadJson ?? string.Empty,
-            RequestedAtUtc = DateTime.UtcNow
+            PayloadJson = payload,
+            RequestedAtUtc = DateTime.UtcNow,
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
         });
 
         machine.LastCommandSummary = $"{request.Type} às {DateTime.Now:HH:mm}";
-        if (request.Type == RemoteCommandType.LockScreen)
+        if (request.Type is RemoteCommandType.LockScreen or RemoteCommandType.ShutdownStation or RemoteCommandType.LogoffStation)
         {
             machine.Status = MachineStatus.Locked;
+        }
+        else if (request.Type == RemoteCommandType.UnlockStation)
+        {
+            machine.Status = MachineStatus.Idle;
+        }
+        else if (request.Type == RemoteCommandType.EnterMaintenance)
+        {
+            machine.Status = MachineStatus.Maintenance;
         }
 
         await LogAsync("Maquina", request.Type.ToString(), actorUserId, machine.Id, null, $"Comando {request.Type} enviado para {machine.Name}.", cancellationToken);
@@ -897,7 +1249,10 @@ public sealed class CafeManagementService(
             return new ClientLoginResponse { Success = false, Message = "Identificação da máquina inválida." };
         }
 
-        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey, cancellationToken);
+        var machine = request.MachineId.HasValue && !string.IsNullOrWhiteSpace(request.MachineCredentialId)
+            ? await db.Machines.FirstOrDefaultAsync(entry => entry.Id == request.MachineId.Value &&
+                entry.MachineCredentialId == request.MachineCredentialId && !entry.IsRevoked, cancellationToken)
+            : await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey && !entry.IsRevoked, cancellationToken);
         if (machine is null)
         {
             return new ClientLoginResponse
@@ -1022,7 +1377,10 @@ public sealed class CafeManagementService(
             return new ClientHeartbeatResponse { Success = false, Message = "Heartbeat inválido." };
         }
 
-        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey, cancellationToken);
+        var machine = request.MachineId.HasValue && !string.IsNullOrWhiteSpace(request.MachineCredentialId)
+            ? await db.Machines.FirstOrDefaultAsync(entry => entry.Id == request.MachineId.Value &&
+                entry.MachineCredentialId == request.MachineCredentialId && !entry.IsRevoked, cancellationToken)
+            : await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey && !entry.IsRevoked, cancellationToken);
         if (machine is null)
         {
             return new ClientHeartbeatResponse
@@ -1038,13 +1396,22 @@ public sealed class CafeManagementService(
         machine.IpAddress = ipAddress[..Math.Min(64, ipAddress.Length)];
         machine.Status = request.Status;
         machine.LastSeenUtc = DateTime.UtcNow;
+        var clientVersion = TextSanitizer.Normalize(request.ClientVersion);
+        var agentVersion = TextSanitizer.Normalize(request.AgentVersion);
+        machine.ClientVersion = clientVersion[..Math.Min(32, clientVersion.Length)];
+        machine.AgentVersion = agentVersion[..Math.Min(32, agentVersion.Length)];
+        machine.AgentHealthy = request.AgentHealthy;
+        machine.LastAgentSeenUtc = request.AgentHealthy ? DateTime.UtcNow : machine.LastAgentSeenUtc;
+        machine.PolicyVersion = Math.Max(1, request.PolicyVersion);
+        machine.ProtocolVersion = request.ProtocolVersion;
         machine.Touch();
 
         var acknowledgedCommandIds = request.AcknowledgedCommandIds.Take(100).ToList();
         if (acknowledgedCommandIds.Count > 0)
         {
             var acknowledgedCommands = await db.RemoteCommands
-                .Where(entry => entry.MachineId == machine.Id && acknowledgedCommandIds.Contains(entry.Id))
+                .Where(entry => entry.MachineId == machine.Id && acknowledgedCommandIds.Contains(entry.Id) &&
+                                (!entry.ExpiresAtUtc.HasValue || entry.ExpiresAtUtc > DateTime.UtcNow))
                 .ToListAsync(cancellationToken);
             foreach (var command in acknowledgedCommands)
             {
@@ -1089,9 +1456,23 @@ public sealed class CafeManagementService(
                 ? MachineStatus.Locked
                 : request.Status;
 
+        var now = DateTime.UtcNow;
+        var expiredCommands = await db.RemoteCommands
+            .Where(entry => entry.MachineId == machine.Id &&
+                            (entry.Status == RemoteCommandStatus.Pending || entry.Status == RemoteCommandStatus.Delivered) &&
+                            entry.ExpiresAtUtc.HasValue && entry.ExpiresAtUtc <= now)
+            .ToListAsync(cancellationToken);
+        foreach (var command in expiredCommands)
+        {
+            command.Status = RemoteCommandStatus.Failed;
+            command.ResultSummary = "Expirado antes da execução.";
+            command.Touch();
+        }
+
         var commands = await db.RemoteCommands
             .Where(entry => entry.MachineId == machine.Id &&
-                            (entry.Status == RemoteCommandStatus.Pending || entry.Status == RemoteCommandStatus.Delivered))
+                            (entry.Status == RemoteCommandStatus.Pending || entry.Status == RemoteCommandStatus.Delivered) &&
+                            (!entry.ExpiresAtUtc.HasValue || entry.ExpiresAtUtc > now))
             .OrderBy(entry => entry.RequestedAtUtc)
             .ToListAsync(cancellationToken);
 
@@ -1115,7 +1496,7 @@ public sealed class CafeManagementService(
             MachineId = machine.Id,
             Settings = MapSettings(settings),
             RuntimeState = BuildRuntimeState(settings, machine, session, user, notifications),
-            Commands = commands.Select(entry => new RemoteCommandEnvelope(entry.Id, entry.Type, entry.Title, entry.Message, entry.PayloadJson)).ToList(),
+            Commands = commands.Select(entry => new RemoteCommandEnvelope(entry.Id, entry.Type, entry.Title, entry.Message, entry.PayloadJson, entry.ExpiresAtUtc)).ToList(),
             Notifications = notifications.Select(entry => new NotificationEnvelope(entry.Id, entry.Title, entry.Message, entry.Severity, entry.PlaySound)).ToList()
         };
     }
@@ -1128,7 +1509,10 @@ public sealed class CafeManagementService(
             return new OperationResult(false, "Identificação da máquina inválida.");
         }
 
-        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey, cancellationToken);
+        var machine = request.MachineId.HasValue && !string.IsNullOrWhiteSpace(request.MachineCredentialId)
+            ? await db.Machines.FirstOrDefaultAsync(entry => entry.Id == request.MachineId.Value &&
+                entry.MachineCredentialId == request.MachineCredentialId && !entry.IsRevoked, cancellationToken)
+            : await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey && !entry.IsRevoked, cancellationToken);
         if (machine is null)
         {
             return new OperationResult(false, "Máquina não registrada.");
@@ -1297,7 +1681,8 @@ public sealed class CafeManagementService(
                             Status = RemoteCommandStatus.Pending,
                             Title = "Tempo encerrado",
                             Message = settings.LockMessage,
-                            RequestedAtUtc = DateTime.UtcNow
+                            RequestedAtUtc = DateTime.UtcNow,
+                            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
                         });
                     }
 
@@ -1551,7 +1936,16 @@ public sealed class CafeManagementService(
         BandwidthLimitKbps = machine.BandwidthLimitKbps,
         LastCommandSummary = machine.LastCommandSummary,
         Observations = machine.Observations,
-        LastSeenUtc = machine.LastSeenUtc
+        LastSeenUtc = machine.LastSeenUtc,
+        MachineCredentialId = machine.MachineCredentialId,
+        MachineCredentialVersion = machine.MachineCredentialVersion,
+        IsRevoked = machine.IsRevoked,
+        ClientVersion = machine.ClientVersion,
+        AgentVersion = machine.AgentVersion,
+        ProtocolVersion = machine.ProtocolVersion,
+        AgentHealthy = machine.AgentHealthy,
+        LastAgentSeenUtc = machine.LastAgentSeenUtc,
+        PolicyVersion = machine.PolicyVersion
     };
 
     private static UserDto MapUser(UserAccount entry) => new()

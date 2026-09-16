@@ -1,0 +1,32 @@
+============================================================
+SE ESTA E A MAQUINA ADMIN, LEIA E EXECUTE
+============================================================
+
+1. Abra somente a pasta publicada artifacts\release\ADMIN.
+2. Confirme que Adrenalina.Admin.exe e Install-Production.ps1 estao nessa pasta.
+3. Execute o arquivo INSTALAR_ADMIN.bat.
+4. Autorize a janela do Windows quando aparecer.
+5. O instalador copia o pacote ADMIN para C:\Program Files\Adrenalina\.
+6. Ele cria atalho do Launcher na area de trabalho.
+7. Ele configura o ADMIN para iniciar automaticamente com o Windows.
+8. Abra o Launcher e escolha ADMIN na primeira vez.
+9. Use o arquivo de acesso inicial criado pelo sistema. A senha inicial e admin admin.
+10. Se o arquivo nao existir ou a senha for perdida, clique em Recuperar acesso na tela de login do proprio ADMIN.
+11. Clique em Trocar senha no menu lateral e defina uma senha nova com pelo menos 12 caracteres.
+12. Cadastre as estacoes no painel e use INICIAR CONFIGURACAO.
+
+Se aparecer "Falha na instalacao", leia o log mostrado pelo proprio .bat ou
+abra:
+
+C:\ProgramData\Adrenalina\logs\Install-ADMIN.latest.log
+
+Nao instale o Agent na maquina ADMIN, a menos que ela tambem seja uma estacao
+cliente. O Agent e necessario nas maquinas CLIENTE.
+
+Arquivos principais depois da instalacao ADMIN:
+
+C:\Program Files\Adrenalina\Adrenalina.Launcher.exe
+C:\Program Files\Adrenalina\Adrenalina.Admin.exe
+
+O Admin e o servidor. Ele deve ficar ligado para as estacoes se comunicarem.
+============================================================

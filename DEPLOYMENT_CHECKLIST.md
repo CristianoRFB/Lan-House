@@ -10,6 +10,9 @@ itens do ambiente-alvo tiverem evidência.
 | Certificado emitido/importado e válido | | thumbprint e validade | |
 | Certificado confiável em todas as estações | | lista de máquinas | |
 | Firewall Private/LocalSubnet validado | | saída do `Validate-Production.ps1` | |
+| Agent instalado, provisionado e saudável | | `docs/FIELD_TEST.md` | |
+| Pairing aprovado e credencial DPAPI validada | | `docs/FIELD_TEST.md` | |
+| Recovery/uninstall restaura as políticas | | `docs/FIELD_TEST.md` | |
 | `/health` e `/health/ready` aprovados | | saída do validador | |
 | Cada estação cadastrada e sincronizada | | lista de máquinas no Admin | |
 | Reconexão, relógio e múltiplas estações testados | | roteiro assinado | |
