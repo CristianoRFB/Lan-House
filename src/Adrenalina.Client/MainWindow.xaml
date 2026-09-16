@@ -132,6 +132,10 @@
 
                             <TextBlock Text="Usuário" />
                             <TextBox x:Name="LoginTextBox" Margin="0,6,0,12" Padding="10" />
+                            <TextBlock Margin="0,-8,0,12"
+                                       Foreground="#8FB2D8"
+                                       Text="Use letras e, se quiser, números, ponto, hífen ou sublinhado. Não use espaços."
+                                       TextWrapping="Wrap" />
 
                             <TextBlock Text="PIN de 4 dígitos" />
                             <PasswordBox x:Name="PinBox" Margin="0,6,0,18" Padding="10" />

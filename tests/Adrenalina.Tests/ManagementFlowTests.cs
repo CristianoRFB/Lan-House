@@ -41,6 +41,26 @@ public sealed class ManagementFlowTests
     }
 
     [Fact]
+    public async Task UserLoginAcceptsNumbersAndSimpleSeparators()
+    {
+        await using var environment = await TestEnvironment.CreateAsync();
+        var adminId = (await environment.RunAsync(service => service.GetUsersAsync())).Single(user => user.Login == "admin").Id;
+
+        foreach (var login in new[] { "cliente01", "joao.silva", "pc-01", "aluno_teste" })
+        {
+            var result = await environment.RunAsync(service => service.UpsertUserAsync(new UserUpsertRequest
+            {
+                DisplayName = login,
+                Login = login,
+                Pin = "3333",
+                ProfileType = UserProfileType.Common
+            }, adminId));
+
+            Assert.True(result.Success, $"O login {login} deveria ser aceito: {result.Message}");
+        }
+    }
+
+    [Fact]
     public async Task AdminAuthenticationAcceptsSeedAndRejectsBlockedAccount()
     {
         await using var environment = await TestEnvironment.CreateAsync();
@@ -284,7 +304,7 @@ public sealed class ManagementFlowTests
             Requests =
             [
                 new ClientShellRequest { Type = ClientRequestType.MoreTime, Login = "cliente", Amount = 15 },
-                new ClientShellRequest { Type = ClientRequestType.Registration, Login = "novo", Pin = "9876", DisplayName = "Novo Cliente" },
+                new ClientShellRequest { Type = ClientRequestType.Registration, Login = "novo01", Pin = "9876", DisplayName = "Novo Cliente" },
                 new ClientShellRequest { Type = ClientRequestType.Registration, Login = "rejeitado", Pin = "8765", DisplayName = "Rejeitado" }
             ]
         }));
@@ -292,7 +312,7 @@ public sealed class ManagementFlowTests
 
         var pending = await environment.RunAsync(service => service.GetPendingRequestsAsync());
         var moreTime = pending.Single(request => request.Type == ClientRequestType.MoreTime);
-        var registration = pending.Single(request => request.RequestedLogin == "novo");
+        var registration = pending.Single(request => request.RequestedLogin == "novo01");
         var rejectedRegistration = pending.Single(request => request.RequestedLogin == "rejeitado");
 
         Assert.True((await environment.RunAsync(service => service.ResolveClientRequestAsync(
@@ -305,7 +325,7 @@ public sealed class ManagementFlowTests
             new ClientRequestResolution { RequestId = rejectedRegistration.Id, Approve = false }, adminId))).Success);
 
         var users = await environment.RunAsync(service => service.GetUsersAsync());
-        Assert.Contains(users, user => user.Login == "novo");
+        Assert.Contains(users, user => user.Login == "novo01");
         Assert.DoesNotContain(users, user => user.Login == "rejeitado");
 
         var session = (await environment.RunAsync(service => service.GetSessionsAsync())).Single(item => item.Id == login.RuntimeState.CurrentSessionId);

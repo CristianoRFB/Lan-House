@@ -587,10 +587,33 @@ public static class LoginRules
     public static bool LooksLikeFourDigitPin(string pin) =>
         pin is { Length: 4 } && pin.All(character => character is >= '0' and <= '9');
 
-    public static bool LooksLikeLetterLogin(string login) =>
-        !string.IsNullOrWhiteSpace(login) &&
-        login.Length <= 64 &&
-        login.All(character => char.IsLetter(character) || character is '.' or '_' or '-');
+    public static bool LooksLikeLetterLogin(string login)
+    {
+        if (string.IsNullOrWhiteSpace(login) || login.Length > 64 || !login.Any(char.IsLetter))
+        {
+            return false;
+        }
+
+        var previousWasSeparator = false;
+        for (var index = 0; index < login.Length; index++)
+        {
+            var character = login[index];
+            if (char.IsLetterOrDigit(character))
+            {
+                previousWasSeparator = false;
+                continue;
+            }
+
+            if (character is not ('.' or '_' or '-') || index == 0 || index == login.Length - 1 || previousWasSeparator)
+            {
+                return false;
+            }
+
+            previousWasSeparator = true;
+        }
+
+        return true;
+    }
 }
 
 public static class TextSanitizer

@@ -303,6 +303,30 @@ public partial class MainWindow : Window
 
     private async Task QueueRequestAsync(ClientRequestType type)
     {
+        if (type == ClientRequestType.Registration)
+        {
+            var login = LoginTextBox.Text.Trim();
+            if (!LoginRules.LooksLikeLetterLogin(login))
+            {
+                MessageBox.Show(
+                    "O usuário deve conter letras e pode conter números, ponto, hífen ou sublinhado, sem espaços.",
+                    "Cadastro",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            if (!LoginRules.LooksLikeFourDigitPin(PinBox.Password.Trim()))
+            {
+                MessageBox.Show(
+                    "Informe um PIN com exatamente 4 dígitos para solicitar o cadastro.",
+                    "Cadastro",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+        }
+
         await _gateway.QueueRequestAsync(
             new ClientShellRequest
             {

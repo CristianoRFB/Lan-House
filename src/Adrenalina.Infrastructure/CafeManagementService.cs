@@ -325,7 +325,7 @@ public sealed class CafeManagementService(
         var login = TextSanitizer.Normalize(request.Login).ToLowerInvariant();
         if (!LoginRules.LooksLikeLetterLogin(login))
         {
-            return new OperationResult(false, "O login precisa conter apenas letras e separadores simples.");
+            return new OperationResult(false, "O login deve conter letras e pode conter números, ponto, hífen ou sublinhado, sem espaços.");
         }
 
         var displayName = TextSanitizer.Normalize(request.DisplayName);
