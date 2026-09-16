@@ -156,7 +156,7 @@ public sealed class ClientSyncController(
     }
 
     [HttpPost("pairing/request")]
-    [EnableRateLimiting("client-pairing")]
+    [EnableRateLimiting("client-pairing-request")]
     public async Task<ActionResult<ClientPairingResponse>> PairingRequest([FromBody] ClientPairingRequest request, CancellationToken cancellationToken)
     {
         if (!IsProtocolSupported(request.ProtocolVersion))
@@ -168,7 +168,7 @@ public sealed class ClientSyncController(
     }
 
     [HttpPost("pairing/poll")]
-    [EnableRateLimiting("client-pairing")]
+    [EnableRateLimiting("client-pairing-poll")]
     public async Task<ActionResult<ClientPairingResponse>> PairingPoll([FromBody] ClientPairingPollRequest request, CancellationToken cancellationToken)
     {
         if (!IsProtocolSupported(request.ProtocolVersion))

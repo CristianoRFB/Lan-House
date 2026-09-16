@@ -48,18 +48,21 @@ O equivalente manual, executado dentro da própria pasta `ADMIN`, é:
 
 O instalador cria um certificado local para o nome da máquina, grava somente o
 thumbprint em `%ProgramData%\Adrenalina\server-settings.json`, cria uma regra
-de firewall TCP limitada ao perfil Private e preserva a instalação anterior
+de firewall TCP para as portas 5076 a 5095 limitada ao perfil Private e preserva a instalação anterior
 para rollback. Para uma autoridade certificadora existente, use
 `-CertificatePath` e `-CertificatePassword`.
 
 Distribua o arquivo `.cer` gerado em `C:\ProgramData\Adrenalina\certs` para
-cada estação e instale-o em `Trusted Root Certification Authorities`. Em uma
-rede corporativa, prefira um certificado emitido pela CA da organização.
+cada estação. No Client, há o botão **INSTALAR CERTIFICADO DO ADMIN** para
+selecionar o arquivo e adicioná-lo às autoridades confiáveis do usuário atual.
+Em uma rede corporativa, prefira um certificado emitido pela CA da organização.
 
 Com o Admin ativo e a LAN habilitada, o Client tenta descobrir o servidor
 automaticamente via UDP e preenche a URL HTTPS. Para novas estações, use
-`INICIAR CONFIGURAÇÃO` no Admin e `PAREAR CONFIGURAÇÃO` no Client; a chave
-manual antiga permanece apenas para compatibilidade.
+`INICIAR CONFIGURAÇÃO` no Admin e `PAREAR CONFIGURAÇÃO` no Client; o Client
+consulta automaticamente a aprovação. Copie sempre a URL HTTPS exibida no
+Admin, em vez de digitar `localhost` ou uma URL de exemplo. A chave manual
+antiga permanece apenas para compatibilidade.
 
 ## Validar
 

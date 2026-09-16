@@ -208,12 +208,14 @@
                                        Text="Informe os dados cadastrados pelo administrador e valide a conexão antes de salvar."
                                        TextWrapping="Wrap" />
 
-                            <TextBlock Text="Servidor do ADMIN" ToolTip="Endereço do computador ADMIN na rede local. Exemplo: http://192.168.0.10:5076/" />
+                            <TextBlock Text="Servidor do ADMIN" ToolTip="Endereço mostrado no ADMIN. Na instalação padrão ele começa com https://, por exemplo https://192.168.0.10:5076/." />
                             <TextBox x:Name="SetupServerUrlTextBox" Margin="0,6,0,14" Padding="10" ToolTip="Digite o endereço do ADMIN. O ADMIN precisa estar ligado e acessível na rede." />
                             <TextBlock Margin="0,-8,0,14"
                                        Foreground="#8FB2D8"
-                                       Text="Use o endereço mostrado no app do administrador. Exemplo: http://192.168.0.10:5076/"
+                                       Text="Copie o endereço mostrado no app ADMIN. Na instalação padrão: https://192.168.0.10:5076/"
                                        TextWrapping="Wrap" />
+                            <TextBlock Margin="0,-8,0,6" Foreground="#8FB2D8" Text="Se o teste avisar sobre certificado, copie o arquivo .cer da pasta C:\ProgramData\Adrenalina\certs do ADMIN e use o botão abaixo." TextWrapping="Wrap" />
+                            <Button Content="INSTALAR CERTIFICADO DO ADMIN..." Padding="12,8" Margin="0,0,0,14" Click="InstallAdminCertificateButton_Click" ToolTip="Instala o arquivo .cer criado pelo seu ADMIN para que esta estação reconheça a conexão HTTPS segura." />
 
                             <TextBlock Text="Nome desta máquina" ToolTip="Nome usado pelo ADMIN para identificar este computador." />
                             <TextBox x:Name="SetupMachineNameTextBox" Margin="0,6,0,14" Padding="10" ToolTip="Use um nome fácil de reconhecer, como PC-01." />
@@ -227,8 +229,8 @@
                                     <TextBlock Text="Configuração segura da estação" FontWeight="SemiBold" />
                                     <TextBlock Margin="0,8,0,12" Foreground="#B3C2D9" Text="Prefira o código temporário exibido no ADMIN. A credencial será protegida pelo Windows e nunca será salva em texto puro." TextWrapping="Wrap" />
                                      <TextBlock Text="Código temporário do ADMIN" ToolTip="Código de 6 dígitos gerado no ADMIN em Máquinas > INICIAR CONFIGURAÇÃO." />
-                                     <TextBox x:Name="PairingCodeTextBox" Margin="0,6,0,10" Padding="10" MaxLength="12" ToolTip="Cole aqui o código de 6 dígitos mostrado no ADMIN." />
-                                     <Button x:Name="PairingButton" Content="PAREAR CONFIGURAÇÃO" Padding="16,12" Click="PairingButton_Click" ToolTip="Envia o código ao ADMIN e inicia o pareamento seguro desta estação." />
+                                     <TextBox x:Name="PairingCodeTextBox" Margin="0,6,0,10" Padding="10" MaxLength="6" ToolTip="Cole aqui os 6 números mostrados no ADMIN." />
+                                     <Button x:Name="PairingButton" Content="PAREAR CONFIGURAÇÃO" Padding="16,12" Click="PairingButton_Click" ToolTip="Envia o código ao ADMIN. Após sua aprovação, o Client verifica automaticamente e conclui a configuração." />
                                     <TextBlock x:Name="PairingStatusText" Margin="0,10,0,0" Foreground="#7FD9C7" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>

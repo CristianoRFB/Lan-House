@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -28,6 +29,7 @@ public partial class MainWindow : Window
     private readonly IStationEnforcementService _stationEnforcement;
     private readonly DispatcherTimer _refreshTimer;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private CancellationTokenSource? _pairingPollingCancellation;
 
     private ClientRuntimeState _lastKnownState = new();
     private bool _localHideTimer;
@@ -114,7 +116,7 @@ public partial class MainWindow : Window
             ? "Informe o endereço do ADMIN para conectar esta máquina ao sistema."
             : state.SessionMessage;
         ConnectivityText.Text = setupPending
-            ? "Use o endereço mostrado no app do administrador. Exemplo: http://192.168.0.10:5076/"
+            ? "Use o endereço mostrado no app do administrador. Exemplo: https://192.168.0.10:5076/"
             : _gateway.ConnectionStatusText;
         ConnectivityText.Foreground = _gateway.IsServerOnline
             ? new SolidColorBrush(Color.FromRgb(127, 217, 199))
@@ -194,9 +196,9 @@ public partial class MainWindow : Window
     private async void PairingButton_Click(object sender, RoutedEventArgs e)
     {
         var code = PairingCodeTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(SetupServerUrlTextBox.Text) || code.Length is < 4 or > 12)
+        if (string.IsNullOrWhiteSpace(SetupServerUrlTextBox.Text) || code.Length != 6 || !code.All(char.IsDigit))
         {
-            PairingStatusText.Text = "Informe o endereço do ADMIN e o código temporário exibido no painel.";
+            PairingStatusText.Text = "Informe o endereço do ADMIN e os 6 números do código exibido no painel.";
             return;
         }
 
@@ -210,11 +212,20 @@ public partial class MainWindow : Window
         _options.MachineName = string.IsNullOrWhiteSpace(SetupMachineNameTextBox.Text) ? Environment.MachineName : SetupMachineNameTextBox.Text.Trim();
         ClientOptionsStore.Save(_options);
         PairingButton.IsEnabled = false;
+        _pairingPollingCancellation?.Cancel();
+        using var pollingCancellation = new CancellationTokenSource();
+        _pairingPollingCancellation = pollingCancellation;
         try
         {
             var response = _options.PairingSessionId.HasValue
                 ? await _gateway.PollPairingAsync(code)
                 : await _gateway.RequestPairingAsync(code);
+
+            if (response.AwaitingApproval)
+            {
+                response = await WaitForPairingApprovalAsync(code, response.ExpiresAtUtc, pollingCancellation.Token);
+            }
+
             PairingStatusText.Text = response.Message;
             if (response.Success && !string.IsNullOrWhiteSpace(response.MachineSecret))
             {
@@ -224,10 +235,44 @@ public partial class MainWindow : Window
                 await RefreshAsync();
             }
         }
+        catch (OperationCanceledException)
+        {
+            PairingStatusText.Text = "Pareamento interrompido. Você pode tentar novamente com o mesmo código, enquanto ele estiver válido.";
+        }
         finally
         {
+            if (ReferenceEquals(_pairingPollingCancellation, pollingCancellation))
+            {
+                _pairingPollingCancellation = null;
+            }
             PairingButton.IsEnabled = true;
         }
+    }
+
+    private async Task<ClientPairingResponse> WaitForPairingApprovalAsync(
+        string code,
+        DateTime? expiresAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var expiresAt = expiresAtUtc ?? DateTime.UtcNow.AddMinutes(10);
+        while (DateTime.UtcNow < expiresAt)
+        {
+            PairingStatusText.Text = "Solicitação enviada. Aguarde a aprovação no ADMIN; estou verificando automaticamente.";
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+            var response = await _gateway.PollPairingAsync(code, cancellationToken);
+            if (!response.AwaitingApproval)
+            {
+                return response;
+            }
+
+            expiresAt = response.ExpiresAtUtc ?? expiresAt;
+        }
+
+        return new ClientPairingResponse
+        {
+            Success = false,
+            Message = "O código de pareamento expirou. Gere outro código no ADMIN e tente novamente."
+        };
     }
 
     private void StartAutomaticAgentInstallation()
@@ -410,6 +455,7 @@ public partial class MainWindow : Window
 
     private void HandleClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        _pairingPollingCancellation?.Cancel();
         if (!_allowClose && _options.SetupCompleted && _lastKnownState.IsLocked && !_maintenanceMode)
         {
             e.Cancel = true;
@@ -451,6 +497,34 @@ public partial class MainWindow : Window
     private async void TestSetupConnectionButton_Click(object sender, RoutedEventArgs e)
     {
         await ShowConnectionTestAsync(SetupServerUrlTextBox.Text);
+    }
+
+    private void InstallAdminCertificateButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Selecione o certificado .cer do ADMIN",
+            Filter = "Certificado do ADMIN (*.cer)|*.cer|Todos os arquivos (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            using var certificate = new X509Certificate2(dialog.FileName);
+            using var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
+            store.Open(OpenFlags.ReadWrite);
+            store.Add(certificate);
+            PairingStatusText.Text = "Certificado do ADMIN instalado. Agora use Testar conexão e depois PAREAR CONFIGURAÇÃO.";
+        }
+        catch (Exception exception)
+        {
+            PairingStatusText.Text = $"Não foi possível instalar o certificado selecionado: {exception.Message}";
+        }
     }
 
     private async void TestSettingsConnectionButton_Click(object sender, RoutedEventArgs e)
@@ -589,7 +663,7 @@ public partial class MainWindow : Window
     {
         if (!TryNormalizeServerUrl(serverUrlInput, out var serverUrl))
         {
-            message = "Informe uma URL válida para o servidor do ADMIN. Exemplo: http://192.168.0.10:5076/";
+            message = "Informe uma URL válida para o servidor do ADMIN. Exemplo: https://192.168.0.10:5076/";
             return false;
         }
 

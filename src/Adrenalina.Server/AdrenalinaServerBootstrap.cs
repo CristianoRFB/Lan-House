@@ -134,12 +134,22 @@ public static class AdrenalinaServerBootstrap
                         QueueLimit = 0,
                         AutoReplenishment = true
                     }));
-            rateLimiterOptions.AddPolicy("client-pairing", context =>
+            rateLimiterOptions.AddPolicy("client-pairing-request", context =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     context.Connection.RemoteIpAddress?.ToString() ?? "local",
                     _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = 12,
+                        Window = TimeSpan.FromMinutes(10),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    }));
+            rateLimiterOptions.AddPolicy("client-pairing-poll", context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    context.Connection.RemoteIpAddress?.ToString() ?? "local",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 150,
                         Window = TimeSpan.FromMinutes(10),
                         QueueLimit = 0,
                         AutoReplenishment = true

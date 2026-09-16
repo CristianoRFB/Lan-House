@@ -80,7 +80,7 @@ $settings | ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding UT
 $ruleName = 'Adrenalina Admin LAN (Private)'
 Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 if ($EnableLan) {
-    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5076 -Profile Private -RemoteAddress LocalSubnet | Out-Null
+    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort '5076-5095' -Profile Private -RemoteAddress LocalSubnet | Out-Null
     New-NetFirewallRule -DisplayName 'Adrenalina Discovery LAN (Private)' -Direction Inbound -Action Allow -Protocol UDP -LocalPort 5075 -Profile Private -RemoteAddress LocalSubnet | Out-Null
 }
 

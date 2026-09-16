@@ -1,6 +1,8 @@
 @model MachinesPageViewModel
 @{
     ViewData["Title"] = "Máquinas";
+    var isEditingPairedMachine = Model.Form.Id.HasValue &&
+                                  Model.Form.MachineKey.StartsWith("paired:", StringComparison.OrdinalIgnoreCase);
 }
 
 <section class="page-header">
@@ -55,8 +57,17 @@
         </div>
         <div>
             <label asp-for="Form.MachineKey" class="form-label" title="Identificador secreto e único da máquina. Não é o código de 6 dígitos do pareamento.">Chave</label>
-            <input asp-for="Form.MachineKey" class="form-control" placeholder="pc-01-chave-segura" minlength="16" maxlength="100" required autocomplete="off" title="Use uma chave exclusiva de 16 a 100 caracteres, como pc-01-chave-segura." />
-            <div class="form-hint">Use uma chave exclusiva de 16 a 100 caracteres. Exemplo: <code>pc-01-chave-segura</code>. O código de 6 dígitos do pareamento é gerado depois.</div>
+            @if (isEditingPairedMachine)
+            {
+                <input type="hidden" name="Form.MachineKey" value="" />
+                <input class="form-control" value="Credencial segura do pareamento (protegida)" disabled aria-label="Credencial segura protegida" />
+                <div class="form-hint">Esta máquina já está pareada. Salvar nome, grupo ou observações não altera a credencial. Para trocar a estação, use <strong>Revogar credencial</strong> e inicie uma nova configuração.</div>
+            }
+            else
+            {
+                <input asp-for="Form.MachineKey" class="form-control" placeholder="pc-01-chave-segura" minlength="16" maxlength="100" required autocomplete="off" title="Use uma chave exclusiva de 16 a 100 caracteres, como pc-01-chave-segura." />
+                <div class="form-hint">Use uma chave exclusiva de 16 a 100 caracteres. Exemplo: <code>pc-01-chave-segura</code>. O código de 6 dígitos do pareamento é gerado depois.</div>
+            }
         </div>
         <div>
             <label asp-for="Form.Kind" class="form-label" title="Informe se a estação é um computador ou console.">Tipo</label>

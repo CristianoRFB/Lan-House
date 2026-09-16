@@ -88,6 +88,25 @@ public sealed class ClientIsolationTests
     }
 
     [Fact]
+    public async Task PairingRequiresExactlySixDigitsBeforeAnyNetworkCall()
+    {
+        var gateway = new ClientServerGateway(
+            new ClientConnectionOptions { ServerBaseUrl = "https://admin.local:5076/" },
+            new FixedHttpClientFactory(),
+            new JsonClientRuntimeStore(new LocalClientStoragePaths
+            {
+                StateFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "state.json"),
+                RequestQueueFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "requests.json")
+            }),
+            NullLogger<ClientServerGateway>.Instance);
+
+        var result = await gateway.RequestPairingAsync("12345");
+
+        Assert.False(result.Success);
+        Assert.Contains("6", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CorruptLocalStateIsPreservedAndRecovered()
     {
         var root = Path.Combine(Path.GetTempPath(), "Adrenalina.Tests", Guid.NewGuid().ToString("N"));

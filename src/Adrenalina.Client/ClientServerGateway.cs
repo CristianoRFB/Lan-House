@@ -2,6 +2,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Security.Authentication;
 using System.Text.Json;
 using Adrenalina.Application;
 using Adrenalina.Domain;
@@ -28,9 +29,9 @@ public sealed class ClientServerGateway(
     {
         if (!Uri.TryCreate(options.ServerBaseUrl?.Trim(), UriKind.Absolute, out var serverUri) ||
             (serverUri.Scheme != Uri.UriSchemeHttp && serverUri.Scheme != Uri.UriSchemeHttps) ||
-            code is null || code.Trim().Length is < 4 or > 12)
+            !IsPairingCodeValid(code))
         {
-            return new ClientPairingResponse { Success = false, Message = "Informe uma conexão válida e o código temporário do ADMIN." };
+            return new ClientPairingResponse { Success = false, Message = "Informe uma conexão válida e os 6 números do código temporário do ADMIN." };
         }
 
         try
@@ -55,7 +56,7 @@ public sealed class ClientServerGateway(
         catch (Exception exception)
         {
             logger.LogWarning(exception, "Falha ao solicitar pareamento.");
-            return new ClientPairingResponse { Success = false, Message = "Não foi possível solicitar o pareamento agora." };
+            return new ClientPairingResponse { Success = false, Message = DescribePairingFailure(exception, "solicitar") };
         }
     }
 
@@ -66,9 +67,16 @@ public sealed class ClientServerGateway(
             return new ClientPairingResponse { Success = false, Message = "Inicie o pareamento antes de verificar a aprovação." };
         }
 
+        if (!Uri.TryCreate(options.ServerBaseUrl?.Trim(), UriKind.Absolute, out var serverUri) ||
+            (serverUri.Scheme != Uri.UriSchemeHttp && serverUri.Scheme != Uri.UriSchemeHttps) ||
+            !IsPairingCodeValid(code))
+        {
+            return new ClientPairingResponse { Success = false, Message = "O endereço do ADMIN ou o código de 6 números não é válido." };
+        }
+
         try
         {
-            using var client = new HttpClient { BaseAddress = new Uri(options.ServerBaseUrl), Timeout = TimeSpan.FromSeconds(5) };
+            using var client = new HttpClient { BaseAddress = serverUri, Timeout = TimeSpan.FromSeconds(5) };
             var response = await client.PostAsJsonAsync("api/client/pairing/poll", new ClientPairingPollRequest
             {
                 PairingSessionId = options.PairingSessionId.Value,
@@ -93,8 +101,27 @@ public sealed class ClientServerGateway(
         catch (Exception exception)
         {
             logger.LogWarning(exception, "Falha ao verificar pareamento.");
-            return new ClientPairingResponse { Success = false, Message = "Não foi possível verificar a aprovação agora." };
+            return new ClientPairingResponse { Success = false, Message = DescribePairingFailure(exception, "verificar a aprovação") };
         }
+    }
+
+    private static bool IsPairingCodeValid(string? code) =>
+        code is not null && code.Trim().Length == 6 && code.Trim().All(char.IsDigit);
+
+    private static string DescribePairingFailure(Exception exception, string action)
+    {
+        if (exception is HttpRequestException { InnerException: AuthenticationException } ||
+            exception.InnerException is AuthenticationException)
+        {
+            return "A conexão HTTPS do ADMIN não foi reconhecida. Copie o arquivo .cer de C:\\ProgramData\\Adrenalina\\certs no ADMIN e use INSTALAR CERTIFICADO DO ADMIN nesta tela.";
+        }
+
+        if (exception is TaskCanceledException)
+        {
+            return $"O ADMIN demorou para responder. Confirme o endereço, a rede e tente {action} novamente.";
+        }
+
+        return $"Não foi possível {action} o pareamento. Confirme o endereço HTTPS exibido no ADMIN, a rede e o firewall.";
     }
 
     public async Task SyncOnceAsync(CancellationToken cancellationToken = default)

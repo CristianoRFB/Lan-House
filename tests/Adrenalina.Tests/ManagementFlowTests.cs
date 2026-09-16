@@ -208,6 +208,15 @@ public sealed class ManagementFlowTests
         Assert.True(request.Success);
         Assert.True(request.AwaitingApproval);
 
+        var repeatedRequest = await environment.RunAsync(service => service.RequestMachinePairingAsync(new ClientPairingRequest
+        {
+            Code = started.Code,
+            Hostname = "HOST-PAREAMENTO"
+        }));
+        Assert.True(repeatedRequest.Success);
+        Assert.True(repeatedRequest.AwaitingApproval);
+        Assert.Equal(request.PairingSessionId, repeatedRequest.PairingSessionId);
+
         var beforeApproval = await environment.RunAsync(service => service.PollMachinePairingAsync(new ClientPairingPollRequest
         {
             PairingSessionId = request.PairingSessionId,
@@ -249,6 +258,67 @@ public sealed class ManagementFlowTests
             Code = started.Code
         }));
         Assert.False(replay.Success);
+    }
+
+    [Fact]
+    public async Task EditingAPairedMachineDoesNotRequireOrReplaceItsPairingCredential()
+    {
+        await using var environment = await TestEnvironment.CreateAsync();
+        var adminId = await GetAdminIdAsync(environment);
+        Assert.True((await environment.RunAsync(service => service.UpsertMachineAsync(new MachineUpsertRequest
+        {
+            Name = "PC-EDITAR-PAREADO",
+            MachineKey = "pc-editar-pareado-chave-01",
+            Kind = MachineKind.Pc
+        }, adminId))).Success);
+
+        var machine = (await environment.RunAsync(service => service.GetMachinesAsync())).Single();
+        var started = await environment.RunAsync(service => service.StartMachinePairingAsync(new MachinePairingStartRequest
+        {
+            MachineId = machine.Id
+        }, adminId));
+        Assert.NotNull(started);
+
+        var request = await environment.RunAsync(service => service.RequestMachinePairingAsync(new ClientPairingRequest
+        {
+            Code = started!.Code,
+            Hostname = "HOST-EDITAR-PAREADO"
+        }));
+        Assert.True(request.Success);
+        Assert.True((await environment.RunAsync(service => service.ApproveMachinePairingAsync(request.PairingSessionId, adminId))).Success);
+        var paired = await environment.RunAsync(service => service.PollMachinePairingAsync(new ClientPairingPollRequest
+        {
+            PairingSessionId = request.PairingSessionId,
+            Code = started.Code
+        }));
+        Assert.True(paired.Success);
+
+        var edit = await environment.RunAsync(service => service.UpsertMachineAsync(new MachineUpsertRequest
+        {
+            Id = paired.MachineId,
+            Name = "PC-EDITAR-PAREADO-RENOMEADO",
+            MachineKey = string.Empty,
+            Kind = MachineKind.Pc,
+            GroupName = "Atualizado"
+        }, adminId));
+
+        Assert.True(edit.Success);
+        var updated = Assert.Single(await environment.RunAsync(service => service.GetMachinesAsync()));
+        Assert.Equal(paired.MachineCredentialId, updated.MachineCredentialId);
+        Assert.StartsWith("paired:", updated.MachineKey, StringComparison.Ordinal);
+        Assert.Equal("PC-EDITAR-PAREADO-RENOMEADO", updated.Name);
+
+        Assert.True((await environment.RunAsync(service => service.RevokeMachineAsync(updated.Id, adminId))).Success);
+        var editAfterRevocation = await environment.RunAsync(service => service.UpsertMachineAsync(new MachineUpsertRequest
+        {
+            Id = updated.Id,
+            Name = "PC-EDITAR-PAREADO-REVOGADO",
+            MachineKey = string.Empty,
+            Kind = MachineKind.Pc
+        }, adminId));
+
+        Assert.True(editAfterRevocation.Success);
+        Assert.True(Assert.Single(await environment.RunAsync(service => service.GetMachinesAsync())).IsRevoked);
     }
 
     [Fact]

@@ -444,14 +444,14 @@ public sealed class CafeManagementService(
     {
         var machineKey = TextSanitizer.Normalize(request.MachineKey).ToLowerInvariant();
         var name = TextSanitizer.Normalize(request.Name);
-        if (string.IsNullOrWhiteSpace(machineKey) || string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(name))
         {
-            return new OperationResult(false, "Informe nome e chave da máquina.");
+            return new OperationResult(false, "Informe o nome da máquina.");
         }
 
-        if (machineKey.Length < 16 || machineKey.Length > 100 || name.Length > 100)
+        if (name.Length > 100)
         {
-            return new OperationResult(false, "A chave da máquina deve ter entre 16 e 100 caracteres.");
+            return new OperationResult(false, "O nome da máquina deve ter no máximo 100 caracteres.");
         }
 
         if (!Enum.IsDefined(request.Kind))
@@ -460,9 +460,15 @@ public sealed class CafeManagementService(
         }
 
         var isNew = !request.Id.HasValue || request.Id == Guid.Empty;
+        var preservePairedCredential = false;
         Machine machine;
         if (isNew)
         {
+            if (machineKey.Length < 16 || machineKey.Length > 100)
+            {
+                return new OperationResult(false, "A chave da máquina deve ter entre 16 e 100 caracteres.");
+            }
+
             if (await db.Machines.AnyAsync(entry => entry.MachineKey == machineKey || entry.Name == name, cancellationToken))
             {
                 return new OperationResult(false, "Já existe uma máquina com esse nome ou chave.");
@@ -477,20 +483,34 @@ public sealed class CafeManagementService(
             machine = await db.Machines.FirstOrDefaultAsync(entry => entry.Id == id, cancellationToken)
                 ?? throw new InvalidOperationException("Máquina não encontrada.");
 
-            if (await db.Machines.AnyAsync(entry => entry.Id != id && (entry.MachineKey == machineKey || entry.Name == name), cancellationToken))
+            preservePairedCredential = machine.MachineKey.StartsWith("paired:", StringComparison.OrdinalIgnoreCase);
+            if (!preservePairedCredential && (machineKey.Length < 16 || machineKey.Length > 100))
             {
-                return new OperationResult(false, "Já existe outra máquina com esse nome ou chave.");
+                return new OperationResult(false, "A chave da máquina deve ter entre 16 e 100 caracteres.");
+            }
+
+            var duplicateExists = preservePairedCredential
+                ? await db.Machines.AnyAsync(entry => entry.Id != id && entry.Name == name, cancellationToken)
+                : await db.Machines.AnyAsync(entry => entry.Id != id && (entry.MachineKey == machineKey || entry.Name == name), cancellationToken);
+            if (duplicateExists)
+            {
+                return new OperationResult(false, preservePairedCredential
+                    ? "Já existe outra máquina com esse nome."
+                    : "Já existe outra máquina com esse nome ou chave.");
             }
         }
 
-        machine.MachineKey = machineKey;
-        machine.MachineCredentialHash = MachineAuthentication.DeriveSigningKey(machineKey);
-        if (string.IsNullOrWhiteSpace(machine.MachineCredentialId))
+        if (!preservePairedCredential)
         {
-            machine.MachineCredentialId = Guid.NewGuid().ToString("N");
+            machine.MachineKey = machineKey;
+            machine.MachineCredentialHash = MachineAuthentication.DeriveSigningKey(machineKey);
+            if (string.IsNullOrWhiteSpace(machine.MachineCredentialId))
+            {
+                machine.MachineCredentialId = Guid.NewGuid().ToString("N");
+            }
+            machine.IsRevoked = false;
+            machine.MachineCredentialVersion = Math.Max(1, machine.MachineCredentialVersion);
         }
-        machine.IsRevoked = false;
-        machine.MachineCredentialVersion = Math.Max(1, machine.MachineCredentialVersion);
         machine.ProtocolVersion = ProtocolContract.CurrentVersion;
         machine.Name = name;
         machine.Kind = request.Kind;
@@ -500,7 +520,9 @@ public sealed class CafeManagementService(
 
         await LogAsync("Maquina", isNew ? "Criacao" : "Atualizacao", actorUserId, machine.Id, null, $"Máquina {machine.Name} salva.", cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
-        return new OperationResult(true, isNew ? "Máquina cadastrada." : "Máquina atualizada.");
+        return new OperationResult(true, isNew ? "Máquina cadastrada." : preservePairedCredential
+            ? "Máquina atualizada. A credencial de pareamento foi preservada."
+            : "Máquina atualizada.");
     }
 
     public async Task<MachinePairingSessionDto?> StartMachinePairingAsync(
@@ -645,10 +667,11 @@ public sealed class CafeManagementService(
         {
             return new ClientPairingResponse
             {
-                Success = false,
+                Success = pairing.Status is "REQUESTED" or "APPROVED",
                 AwaitingApproval = pairing.Status is "REQUESTED" or "APPROVED",
                 PairingSessionId = pairing.Id,
-                Message = pairing.Status == "APPROVED" ? "Pareamento aprovado. Verifique novamente para receber a credencial." : "Aguardando aprovação do administrador."
+                ExpiresAtUtc = pairing.ExpiresAtUtc,
+                Message = pairing.Status == "APPROVED" ? "Pareamento aprovado. Verificando a entrega da credencial..." : "Aguardando aprovação do administrador."
             };
         }
 

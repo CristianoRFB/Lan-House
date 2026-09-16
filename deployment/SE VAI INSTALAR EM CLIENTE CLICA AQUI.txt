@@ -15,11 +15,17 @@ SE ESTA E A MAQUINA CLIENTE, LEIA E EXECUTE
 8. Abra o Adrenalina.Launcher.exe pelo atalho.
 9. Escolha CLIENTE.
 10. Informe a URL do ADMIN, se solicitado.
-11. Use PAREAR CONFIGURACAO e informe o codigo mostrado no ADMIN.
-12. Aguarde o administrador aprovar a estacao.
-13. Depois da aprovacao, o proprio Client inicia a instalacao do Agent.
-14. Autorize a janela UAC do Windows quando aparecer.
-15. Nao feche o Client enquanto o pareamento e a instalacao terminam.
+11. Copie exatamente a URL mostrada no ADMIN. Na instalacao padrao ela comeca com
+    https://. Nao use localhost ou 127.0.0.1 no computador CLIENTE.
+12. Se o teste de conexao avisar sobre certificado, copie o arquivo .cer da pasta
+    C:\ProgramData\Adrenalina\certs do ADMIN para esta maquina. No Client, clique
+    em INSTALAR CERTIFICADO DO ADMIN e selecione esse arquivo. Depois teste de novo.
+13. Use PAREAR CONFIGURACAO e informe os 6 numeros mostrados no ADMIN.
+14. Aguarde o administrador aprovar a estacao. O Client verifica automaticamente;
+    nao e necessario clicar em PAREAR uma segunda vez.
+15. Depois da aprovacao, o proprio Client inicia a instalacao do Agent.
+16. Autorize a janela UAC do Windows quando aparecer.
+17. Nao feche o Client enquanto o pareamento e a instalacao terminam.
 
 Se aparecer "Falha na instalacao", leia o log mostrado pelo proprio .bat ou
 abra:
