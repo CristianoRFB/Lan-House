@@ -12,7 +12,20 @@ function Invoke-Dotnet([string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw "dotnet $($Arguments -join ' ') falhou com código $LASTEXITCODE." }
 }
 
-if (Test-Path $OutputRoot) { Remove-Item -LiteralPath $OutputRoot -Recurse -Force }
+if (Test-Path $OutputRoot) {
+    $runningAdrenalina = @(Get-Process -Name 'Adrenalina.Admin', 'Adrenalina.Client', 'Adrenalina.Server', 'Adrenalina.Launcher' -ErrorAction SilentlyContinue)
+    if ($runningAdrenalina.Count -gt 0) {
+        $names = ($runningAdrenalina | Select-Object -ExpandProperty ProcessName -Unique) -join ', '
+        throw "Feche os aplicativos Adrenalina antes de substituir o pacote publicado: $names."
+    }
+
+    try {
+        Remove-Item -LiteralPath $OutputRoot -Recurse -Force
+    }
+    catch {
+        throw "Não foi possível limpar o pacote publicado em $OutputRoot. Feche qualquer aplicativo que esteja usando os arquivos e tente novamente. Detalhe: $($_.Exception.Message)"
+    }
+}
 New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
 $publishRoot = Join-Path $OutputRoot '.publish'
 New-Item -ItemType Directory -Path $publishRoot -Force | Out-Null

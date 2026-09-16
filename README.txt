@@ -140,6 +140,10 @@ e Launcher. O pacote final fica em:
 
    artifacts\release\
 
+Antes de publicar novamente, feche o Admin, Client, Server e Launcher caso
+algum deles esteja usando o pacote anterior. O publicador nao consegue
+substituir arquivos que estao abertos.
+
  Na pasta `ADMIN` devem existir `Adrenalina.Admin.exe` e
  `Adrenalina.Launcher.exe`. Na pasta `CLIENTE` devem existir
  `Adrenalina.Client.exe`, `Adrenalina.Agent.exe` e `Adrenalina.Launcher.exe`.

@@ -12,6 +12,10 @@ Na raiz do repositório:
 .\deployment\Publish-Release.ps1
 ```
 
+Antes de publicar novamente, feche o Admin, Client, Server e Launcher que
+estejam usando o pacote anterior. O publicador agora interrompe com uma
+mensagem clara se encontrar arquivos bloqueados.
+
 O resultado fica em `artifacts\release` com dois pacotes independentes:
 
 - `ADMIN`: Admin, Server, Launcher, dependências e `INSTALAR_ADMIN.bat`;
@@ -22,7 +26,10 @@ funções diferentes.
 
 Os arquivos `.bat` devem ser executados dentro do pacote publicado. A pasta
 `deployment` do repositório contém os modelos dos instaladores; ela não contém
-os executáveis finais até que `Publish-Release.ps1` seja executado.
+os executáveis finais até que `Publish-Release.ps1` seja executado. Se o `.bat`
+for executado diretamente dentro de `deployment` e o .NET 8 SDK estiver
+instalado, ele tenta gerar o pacote automaticamente em `artifacts\release`.
+Sem o SDK, use o pacote publicado completo; não copie somente o `.bat`.
 Em caso de falha, o motivo fica registrado em
 `C:\ProgramData\Adrenalina\logs\Install-ADMIN.latest.log` ou
 `Install-CLIENTE.latest.log`.

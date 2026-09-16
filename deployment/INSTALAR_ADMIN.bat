@@ -3,13 +3,22 @@ setlocal
 title Instalacao automatica - Adrenalina ADMIN
 echo Instalacao do ADMIN Adrenalina
 echo O Windows pode solicitar permissao de Administrador.
-set "ADRENALINA_PACKAGE_ROOT=%~dp0"
-if not exist "%ADRENALINA_PACKAGE_ROOT%Adrenalina.Admin.exe" if exist "%~dp0..\artifacts\release\ADMIN\Adrenalina.Admin.exe" set "ADRENALINA_PACKAGE_ROOT=%~dp0..\artifacts\release\ADMIN\"
-if not exist "%ADRENALINA_PACKAGE_ROOT%Adrenalina.Admin.exe" (
+set "ADRENALINA_PACKAGE_ROOT="
+if exist "%~dp0Adrenalina.Admin.exe" set "ADRENALINA_PACKAGE_ROOT=%~dp0"
+if not defined ADRENALINA_PACKAGE_ROOT if exist "%~dp0..\artifacts\release\ADMIN\Adrenalina.Admin.exe" set "ADRENALINA_PACKAGE_ROOT=%~dp0..\artifacts\release\ADMIN\"
+if not defined ADRENALINA_PACKAGE_ROOT if exist "%~dp0..\Adrenalina.slnx" if exist "%~dp0Publish-Release.ps1" (
+    where dotnet.exe >nul 2>&1
+    if not errorlevel 1 (
+        echo Pacote ADMIN nao encontrado. Preparando o pacote automaticamente...
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Publish-Release.ps1" -OutputRoot "%~dp0..\artifacts\release"
+        if not errorlevel 1 if exist "%~dp0..\artifacts\release\ADMIN\Adrenalina.Admin.exe" set "ADRENALINA_PACKAGE_ROOT=%~dp0..\artifacts\release\ADMIN\"
+    )
+)
+if not defined ADRENALINA_PACKAGE_ROOT (
     echo.
-    echo ERRO: Adrenalina.Admin.exe nao foi encontrado.
-    echo Este arquivo deve ser executado dentro de artifacts\release\ADMIN.
-    echo Se voce esta no repositorio, execute deployment\Publish-Release.ps1 primeiro.
+    echo ERRO: pacote ADMIN nao encontrado.
+    echo Execute este arquivo dentro de artifacts\release\ADMIN.
+    echo Se voce baixou o codigo do GitHub, use o pacote publicado ADMIN ou instale o .NET 8 SDK e execute novamente.
     pause
     exit /b 2
 )
