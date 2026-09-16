@@ -90,7 +90,9 @@ public static class HelpContent
             "Como cadastrar e acompanhar máquinas",
             "A tela Máquinas é o ponto de cadastro e acompanhamento dos computadores e consoles.",
             [
-                "Preencha nome, chave única, tipo, grupo e observações.",
+                "Preencha nome, chave única, tipo, grupo e observações. A chave deve ter de 16 a 100 caracteres; ela não é o código temporário de 6 dígitos.",
+                "Use uma chave como pc-01-chave-segura. O código que vai para o Client aparece somente depois de clicar em INICIAR CONFIGURAÇÃO.",
+                "Para editar, clique em Editar cadastro no cartão da máquina; os dados voltarão para o formulário acima.",
                 "Use o status, hostname, IP e último contato para verificar a conexão.",
                 "Envie um aviso quando precisar falar com uma máquina específica.",
                 "Alternar a exibição do tempo muda apenas o que o Client mostra ao usuário.",

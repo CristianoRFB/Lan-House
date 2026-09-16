@@ -10,7 +10,7 @@
         <p class="text-secondary">Identidade, valores padrão, mensagens do Client e retenção dos backups manuais.</p>
     </div>
     <div class="button-row">
-        <a href="/ajuda#help-configuracoes" class="btn btn-outline-light">Ajuda sobre configurações</a>
+        <a href="/ajuda#help-configuracoes" class="btn btn-outline-light" title="Explica nome, valores, mensagens e backups.">Ajuda sobre configurações</a>
     </div>
 </section>
 
@@ -29,41 +29,41 @@
         <input asp-for="Form.BrandLogoPath" type="hidden" />
         <input asp-for="Form.AlertSoundPath" type="hidden" />
         <div>
-            <label asp-for="Form.CafeName" class="form-label">Nome da lan house</label>
-            <input asp-for="Form.CafeName" class="form-control" />
+            <label asp-for="Form.CafeName" class="form-label" title="Nome exibido no painel e nas telas da operação.">Nome da lan house</label>
+            <input asp-for="Form.CafeName" class="form-control" title="Nome público da operação." />
         </div>
         <div>
-            <label asp-for="Form.BackupRetentionDays" class="form-label">Retenção de backups manuais (dias)</label>
-            <input asp-for="Form.BackupRetentionDays" type="number" min="1" max="3650" class="form-control" />
+            <label asp-for="Form.BackupRetentionDays" class="form-label" title="Quantidade de dias para manter backups manuais.">Retenção de backups manuais (dias)</label>
+            <input asp-for="Form.BackupRetentionDays" type="number" min="1" max="3650" class="form-control" title="Backups mais antigos que esse período podem ser removidos." />
         </div>
         <div class="form-check align-self-end">
             <input asp-for="Form.ShowRemainingTimeByDefault" class="form-check-input" />
-            <label asp-for="Form.ShowRemainingTimeByDefault" class="form-check-label">Exibir tempo restante</label>
+            <label asp-for="Form.ShowRemainingTimeByDefault" class="form-check-label" title="Define se o Client mostra o tempo restante ao usuário.">Exibir tempo restante</label>
         </div>
         <div>
-            <label asp-for="Form.DefaultCommonAnnotationLimit" class="form-label">Limite padrão de anotação</label>
-            <input asp-for="Form.DefaultCommonAnnotationLimit" class="form-control" />
+            <label asp-for="Form.DefaultCommonAnnotationLimit" class="form-label" title="Limite aplicado por padrão aos usuários comuns.">Limite padrão de anotação</label>
+            <input asp-for="Form.DefaultCommonAnnotationLimit" class="form-control" title="Valor máximo padrão de anotação pendente." />
         </div>
         <div>
-            <label asp-for="Form.DefaultPcHourlyRate" class="form-label">Valor/hora PC</label>
-            <input asp-for="Form.DefaultPcHourlyRate" class="form-control" />
+            <label asp-for="Form.DefaultPcHourlyRate" class="form-label" title="Valor usado por padrão nas sessões de PC.">Valor/hora PC</label>
+            <input asp-for="Form.DefaultPcHourlyRate" class="form-control" title="Preço padrão por hora de PC." />
         </div>
         <div>
-            <label asp-for="Form.DefaultConsoleHourlyRate" class="form-label">Valor/hora console</label>
-            <input asp-for="Form.DefaultConsoleHourlyRate" class="form-control" />
+            <label asp-for="Form.DefaultConsoleHourlyRate" class="form-label" title="Valor usado por padrão nas sessões de console.">Valor/hora console</label>
+            <input asp-for="Form.DefaultConsoleHourlyRate" class="form-control" title="Preço padrão por hora de console." />
         </div>
         <div class="full-span">
-            <label asp-for="Form.WelcomeMessage" class="form-label">Mensagem de boas-vindas</label>
-            <input asp-for="Form.WelcomeMessage" class="form-control" />
+            <label asp-for="Form.WelcomeMessage" class="form-label" title="Texto mostrado quando uma sessão começa.">Mensagem de boas-vindas</label>
+            <input asp-for="Form.WelcomeMessage" class="form-control" title="Mensagem enviada ao Client no início da sessão." />
         </div>
         <div class="full-span">
-            <label asp-for="Form.GoodbyeMessage" class="form-label">Mensagem de saída</label>
-            <input asp-for="Form.GoodbyeMessage" class="form-control" />
+            <label asp-for="Form.GoodbyeMessage" class="form-label" title="Texto mostrado quando uma sessão termina.">Mensagem de saída</label>
+            <input asp-for="Form.GoodbyeMessage" class="form-control" title="Mensagem enviada ao Client no final da sessão." />
         </div>
         <div class="full-span">
-            <label asp-for="Form.LockMessage" class="form-label">Mensagem de bloqueio</label>
-            <textarea asp-for="Form.LockMessage" class="form-control" rows="3"></textarea>
+            <label asp-for="Form.LockMessage" class="form-label" title="Texto mostrado enquanto uma estação estiver bloqueada.">Mensagem de bloqueio</label>
+            <textarea asp-for="Form.LockMessage" class="form-control" rows="3" title="Mensagem exibida ao usuário durante o bloqueio."></textarea>
         </div>
-        <button type="submit" class="btn btn-accent">Salvar configurações</button>
+        <button type="submit" class="btn btn-accent" title="Salva as configurações da operação.">Salvar configurações</button>
     </form>
 </section>

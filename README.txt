@@ -277,15 +277,18 @@ No ADMIN:
 
 1. Abra a lista de maquinas.
 2. Cadastre um nome unico para a estacao.
-3. Selecione o tipo e o grupo.
-4. Clique no botao:
+3. Em Chave, informe uma chave exclusiva de 16 a 100 caracteres, por exemplo
+   pc-01-chave-segura. Essa chave e uma compatibilidade do fluxo manual; ela nao
+   e o codigo temporario de seis digitos.
+4. Selecione o tipo e o grupo.
+5. Clique no botao:
 
       INICIAR CONFIGURACAO
 
-5. Anote o codigo de seis digitos e sua expiracao.
-6. Aguarde a solicitacao do computador cliente.
-7. Confira hostname e identidade apresentados.
-8. Aprove somente a estacao correta.
+6. Anote o codigo de seis digitos e sua expiracao.
+7. Aguarde a solicitacao do computador cliente.
+8. Confira hostname e identidade apresentados.
+9. Aprove somente a estacao correta.
 
 No computador cliente:
 

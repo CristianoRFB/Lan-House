@@ -20,7 +20,7 @@ public sealed class ReportsController(ICafeManagementService cafeService) : Cont
 
     [HttpPost("/relatorios/exportar")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Export(ReportFilterRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Export([Bind(Prefix = "Filter")] ReportFilterRequest request, CancellationToken cancellationToken)
     {
         var file = await cafeService.ExportReportAsync(request, cancellationToken);
         if (file is null)

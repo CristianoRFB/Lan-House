@@ -22,7 +22,7 @@ public sealed class SessionsController(ICafeManagementService cafeService) : Con
 
     [HttpPost("/sessoes/iniciar")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Start(SessionStartRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Start([Bind(Prefix = "StartForm")] SessionStartRequest request, CancellationToken cancellationToken)
     {
         var result = await cafeService.StartSessionAsync(request, User.GetActorId(), cancellationToken);
         TempData["StatusMessage"] = result.Message;

@@ -67,7 +67,7 @@ public sealed class MachinesController(ICafeManagementService cafeService) : Con
 
     [HttpPost("/maquinas/salvar")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Save(MachineUpsertRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Save([Bind(Prefix = "Form")] MachineUpsertRequest request, CancellationToken cancellationToken)
     {
         var result = await cafeService.UpsertMachineAsync(request, User.GetActorId(), cancellationToken);
         TempData["StatusMessage"] = result.Message;

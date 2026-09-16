@@ -208,26 +208,27 @@
                                        Text="Informe os dados cadastrados pelo administrador e valide a conexão antes de salvar."
                                        TextWrapping="Wrap" />
 
-                            <TextBlock Text="Servidor do ADMIN" />
-                            <TextBox x:Name="SetupServerUrlTextBox" Margin="0,6,0,14" Padding="10" />
+                            <TextBlock Text="Servidor do ADMIN" ToolTip="Endereço do computador ADMIN na rede local. Exemplo: http://192.168.0.10:5076/" />
+                            <TextBox x:Name="SetupServerUrlTextBox" Margin="0,6,0,14" Padding="10" ToolTip="Digite o endereço do ADMIN. O ADMIN precisa estar ligado e acessível na rede." />
                             <TextBlock Margin="0,-8,0,14"
                                        Foreground="#8FB2D8"
                                        Text="Use o endereço mostrado no app do administrador. Exemplo: http://192.168.0.10:5076/"
                                        TextWrapping="Wrap" />
 
-                            <TextBlock Text="Nome desta máquina" />
-                            <TextBox x:Name="SetupMachineNameTextBox" Margin="0,6,0,14" Padding="10" />
+                            <TextBlock Text="Nome desta máquina" ToolTip="Nome usado pelo ADMIN para identificar este computador." />
+                            <TextBox x:Name="SetupMachineNameTextBox" Margin="0,6,0,14" Padding="10" ToolTip="Use um nome fácil de reconhecer, como PC-01." />
 
-                            <TextBlock Text="Chave da máquina" />
-                            <TextBox x:Name="SetupMachineKeyTextBox" Margin="0,6,0,14" Padding="10" />
+                            <TextBlock Text="Chave manual da máquina (opcional)" ToolTip="Chave antiga de compatibilidade. No pareamento novo, a credencial segura é criada automaticamente." />
+                            <TextBox x:Name="SetupMachineKeyTextBox" Margin="0,6,0,4" Padding="10" ToolTip="Deixe vazio quando usar o código de pareamento. Se usar a configuração manual, informe uma chave única de 16 a 100 caracteres." />
+                            <TextBlock Margin="0,0,0,14" Foreground="#8FB2D8" Text="Se você vai usar o código de 6 dígitos, não precisa preencher esta chave." TextWrapping="Wrap" />
 
                             <Border Margin="0,8,0,18" Padding="16" Background="#18233B" BorderBrush="#2F3D5C" BorderThickness="1" CornerRadius="16">
                                 <StackPanel>
                                     <TextBlock Text="Configuração segura da estação" FontWeight="SemiBold" />
                                     <TextBlock Margin="0,8,0,12" Foreground="#B3C2D9" Text="Prefira o código temporário exibido no ADMIN. A credencial será protegida pelo Windows e nunca será salva em texto puro." TextWrapping="Wrap" />
-                                    <TextBlock Text="Código do ADMIN" />
-                                    <TextBox x:Name="PairingCodeTextBox" Margin="0,6,0,10" Padding="10" MaxLength="12" />
-                                    <Button x:Name="PairingButton" Content="PAREAR CONFIGURAÇÃO" Padding="16,12" Click="PairingButton_Click" />
+                                     <TextBlock Text="Código temporário do ADMIN" ToolTip="Código de 6 dígitos gerado no ADMIN em Máquinas > INICIAR CONFIGURAÇÃO." />
+                                     <TextBox x:Name="PairingCodeTextBox" Margin="0,6,0,10" Padding="10" MaxLength="12" ToolTip="Cole aqui o código de 6 dígitos mostrado no ADMIN." />
+                                     <Button x:Name="PairingButton" Content="PAREAR CONFIGURAÇÃO" Padding="16,12" Click="PairingButton_Click" ToolTip="Envia o código ao ADMIN e inicia o pareamento seguro desta estação." />
                                     <TextBlock x:Name="PairingStatusText" Margin="0,10,0,0" Foreground="#7FD9C7" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
@@ -235,14 +236,17 @@
                             <Button Content="Salvar e iniciar cliente"
                                     Padding="16,12"
                                     Margin="0,0,0,12"
-                                    Click="SaveSetupButton_Click" />
+                                    Click="SaveSetupButton_Click"
+                                    ToolTip="Salva o endereço e a configuração manual. Para o fluxo recomendado, use o código temporário acima." />
                             <Button Content="Testar conexão"
                                     Padding="16,12"
                                     Margin="0,0,0,12"
-                                    Click="TestSetupConnectionButton_Click" />
+                                    Click="TestSetupConnectionButton_Click"
+                                    ToolTip="Verifica se o CLIENTE consegue alcançar o ADMIN." />
                             <Button Content="Fechar"
                                     Padding="16,12"
-                                    Click="CloseSetupButton_Click" />
+                                    Click="CloseSetupButton_Click"
+                                    ToolTip="Fecha esta tela sem alterar a configuração atual." />
                         </StackPanel>
                     </ScrollViewer>
                 </Border>

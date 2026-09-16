@@ -18,6 +18,10 @@ SE ESTA E A MAQUINA ADMIN, LEIA E EXECUTE
 11. Clique em Trocar senha no menu lateral e defina uma senha nova com pelo menos 12 caracteres.
 12. Cadastre as estacoes no painel e use INICIAR CONFIGURACAO.
 
+Na tela Maquinas, o campo Chave aceita de 16 a 100 caracteres. Use, por
+exemplo, pc-01-chave-segura. Essa chave nao e o codigo temporario de 6 digitos;
+o codigo aparece depois que voce clica em INICIAR CONFIGURACAO.
+
 Se aparecer "Falha na instalacao", leia o log mostrado pelo proprio .bat ou
 abra:
 

@@ -21,21 +21,21 @@
         <form asp-action="Login" method="post" class="panel form-grid">
             @Html.AntiForgeryToken()
             <div>
-                <label asp-for="Login" class="form-label">Login</label>
-                <input asp-for="Login" class="form-control" autocomplete="username" maxlength="64" autofocus />
+                <label asp-for="Login" class="form-label" title="Nome de acesso ao painel ADMIN.">Login</label>
+                <input asp-for="Login" class="form-control" autocomplete="username" maxlength="64" autofocus title="Digite seu login do painel." />
                 <span asp-validation-for="Login" class="text-danger small"></span>
             </div>
             <div>
-                <label asp-for="Password" class="form-label">Senha</label>
-                <input asp-for="Password" type="password" class="form-control" autocomplete="current-password" maxlength="256" />
+                <label asp-for="Password" class="form-label" title="Senha do acesso ao painel ADMIN.">Senha</label>
+                <input asp-for="Password" type="password" class="form-control" autocomplete="current-password" maxlength="256" title="Digite sua senha do painel." />
                 <span asp-validation-for="Password" class="text-danger small"></span>
             </div>
             @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
             {
                 <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
             }
-            <button type="submit" class="btn btn-accent">Entrar</button>
-            <a href="/auth/recover" class="btn btn-outline-light">Recuperar acesso</a>
+            <button type="submit" class="btn btn-accent" title="Entra no painel ADMIN.">Entrar</button>
+            <a href="/auth/recover" class="btn btn-outline-light" title="Restaura localmente a senha inicial no computador ADMIN.">Recuperar acesso</a>
             <p class="small text-secondary">No primeiro uso, consulte <code>initial-admin-access.txt</code>. Se ele não existir ou você perdeu a senha, use Recuperar acesso neste computador ADMIN.</p>
         </form>
     </main>

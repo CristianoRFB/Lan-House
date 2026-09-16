@@ -12,7 +12,7 @@
         <p class="text-secondary">Servidor central, clientes por maquina, sessoes de PC e console, historico financeiro e auditoria em portugues.</p>
     </div>
     <div class="button-row">
-        <a href="/ajuda#help-painel" class="btn btn-outline-light">Ajuda do painel</a>
+        <a href="/ajuda#help-painel" class="btn btn-outline-light" title="Explica os indicadores e solicitações mostrados no painel.">Ajuda do painel</a>
     </div>
 </section>
 
@@ -22,16 +22,16 @@
         <h3 class="mb-2">Use o tutorial completo para configurar e operar o sistema sem perder passos.</h3>
         <p class="text-secondary mb-0">O guia dentro do painel explica a ordem recomendada, como informar o IP do ADMIN nos clientes e o que fazer em cada menu do sistema.</p>
     </div>
-    <a asp-controller="Tutorial" asp-action="Index" class="btn btn-accent">Ver tutorial</a>
+    <a asp-controller="Tutorial" asp-action="Index" class="btn btn-accent" title="Abre o guia passo a passo da operação.">Ver tutorial</a>
 </section>
 
 <section class="metric-grid">
-    <article class="metric-card"><span>Maquinas online</span><strong>@Model.Dashboard.OnlineMachines</strong></article>
-    <article class="metric-card"><span>Maquinas em uso</span><strong>@Model.Dashboard.ActiveMachines</strong></article>
-    <article class="metric-card"><span>Sessoes ativas</span><strong>@Model.Dashboard.ActiveSessions</strong></article>
-    <article class="metric-card"><span>Solicitacoes</span><strong>@Model.Dashboard.PendingRequests</strong></article>
-    <article class="metric-card"><span>Anotacoes pendentes</span><strong>R$ @Model.Dashboard.PendingAnnotations.ToString("N2")</strong></article>
-    <article class="metric-card"><span>Promessas</span><strong>R$ @Model.Dashboard.PromisedPayments.ToString("N2")</strong></article>
+    <article class="metric-card" title="Máquinas que enviaram contato recentemente."><span>Maquinas online</span><strong>@Model.Dashboard.OnlineMachines</strong></article>
+    <article class="metric-card" title="Máquinas com uma sessão em andamento."><span>Maquinas em uso</span><strong>@Model.Dashboard.ActiveMachines</strong></article>
+    <article class="metric-card" title="Sessões que ainda não foram encerradas."><span>Sessoes ativas</span><strong>@Model.Dashboard.ActiveSessions</strong></article>
+    <article class="metric-card" title="Pedidos de cadastro ou mais tempo aguardando decisão."><span>Solicitacoes</span><strong>@Model.Dashboard.PendingRequests</strong></article>
+    <article class="metric-card" title="Valores de anotação ainda pendentes de pagamento."><span>Anotacoes pendentes</span><strong>R$ @Model.Dashboard.PendingAnnotations.ToString("N2")</strong></article>
+    <article class="metric-card" title="Valores registrados como promessa de pagamento."><span>Promessas</span><strong>R$ @Model.Dashboard.PromisedPayments.ToString("N2")</strong></article>
 </section>
 
 <section class="two-column">
@@ -85,14 +85,14 @@
                             <input type="hidden" name="RequestId" value="@request.Id" />
                             <input type="hidden" name="Approve" value="true" />
                             <input type="hidden" name="ResponseMessage" value="Solicitacao aprovada pelo administrador." />
-                            <button class="btn btn-success btn-sm">Aprovar</button>
+                            <button class="btn btn-success btn-sm" title="Aceita a solicitação do Client.">Aprovar</button>
                         </form>
                         <form asp-action="ResolveRequest" method="post">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="RequestId" value="@request.Id" />
                             <input type="hidden" name="Approve" value="false" />
                             <input type="hidden" name="ResponseMessage" value="Solicitacao rejeitada pelo administrador." />
-                            <button class="btn btn-outline-warning btn-sm">Rejeitar</button>
+                            <button class="btn btn-outline-warning btn-sm" title="Recusa a solicitação do Client.">Rejeitar</button>
                         </form>
                     </div>
                 </div>

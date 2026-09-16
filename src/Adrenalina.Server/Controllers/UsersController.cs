@@ -35,7 +35,7 @@ public sealed class UsersController(ICafeManagementService cafeService) : Contro
 
     [HttpPost("/usuarios/salvar")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Save(UserUpsertRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Save([Bind(Prefix = "Form")] UserUpsertRequest request, CancellationToken cancellationToken)
     {
         var result = await cafeService.UpsertUserAsync(request, User.GetActorId(), cancellationToken);
         TempData["StatusMessage"] = result.Message;
@@ -44,7 +44,7 @@ public sealed class UsersController(ICafeManagementService cafeService) : Contro
 
     [HttpPost("/usuarios/financeiro")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Ledger(LedgerEntryRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Ledger([Bind(Prefix = "LedgerForm")] LedgerEntryRequest request, CancellationToken cancellationToken)
     {
         var result = await cafeService.AddLedgerEntryAsync(request, User.GetActorId(), cancellationToken);
         TempData["StatusMessage"] = result.Message;

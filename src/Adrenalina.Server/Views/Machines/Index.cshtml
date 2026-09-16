@@ -10,7 +10,7 @@
         <p class="text-secondary">Cadastro e monitoramento seguro de PCs e consoles.</p>
     </div>
     <div class="button-row">
-        <a href="/ajuda#help-maquinas" class="btn btn-outline-light">Ajuda sobre máquinas</a>
+        <a href="/ajuda#help-maquinas" class="btn btn-outline-light" title="Explica o cadastro, a chave, o pareamento e o acompanhamento das máquinas.">Ajuda sobre máquinas</a>
     </div>
 </section>
 
@@ -18,7 +18,7 @@
 {
     <section class="panel mb-4" aria-live="polite">
         <p class="eyebrow">Pareamento seguro</p>
-        <h3>INICIAR CONFIGURAÇÃO · @Model.Pairing.MachineName</h3>
+        <h3 title="Este é o código que deve ser digitado no campo Código do ADMIN, dentro do CLIENTE.">INICIAR CONFIGURAÇÃO · @Model.Pairing.MachineName</h3>
         <p>Use este código temporário no Client. Ele expira em @Model.Pairing.ExpiresAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss").</p>
         @if (Model.Pairing.Status == "WAITING")
         {
@@ -39,37 +39,38 @@
         }
         @if (!string.IsNullOrWhiteSpace(Model.Pairing.Code))
         {
-            <div class="display-4 letter-spacing-wide" aria-label="código de pareamento">@Model.Pairing.Code</div>
+            <div class="display-4 letter-spacing-wide" aria-label="código de pareamento" title="Copie estes 6 números para o campo Código do ADMIN no CLIENTE.">@Model.Pairing.Code</div>
         }
     </section>
 }
 
 <section class="panel mb-4">
-    <h3>Cadastrar ou editar máquina</h3>
+    <h3 title="Cadastre uma estação uma vez. Para alterar uma existente, clique em Editar no cartão da máquina.">Cadastrar ou editar máquina</h3>
     <form asp-action="Save" method="post" class="form-grid compact-grid">
         @Html.AntiForgeryToken()
         <input asp-for="Form.Id" type="hidden" />
         <div>
-            <label asp-for="Form.Name" class="form-label">Nome</label>
-            <input asp-for="Form.Name" class="form-control" placeholder="PC-01" />
+            <label asp-for="Form.Name" class="form-label" title="Nome amigável para você identificar esta máquina, por exemplo PC-01.">Nome</label>
+            <input asp-for="Form.Name" class="form-control" placeholder="PC-01" maxlength="100" required title="Nome amigável da máquina. Exemplo: PC-01." />
         </div>
         <div>
-            <label asp-for="Form.MachineKey" class="form-label">Chave</label>
-            <input asp-for="Form.MachineKey" class="form-control" placeholder="pc-01-chave" />
+            <label asp-for="Form.MachineKey" class="form-label" title="Identificador secreto e único da máquina. Não é o código de 6 dígitos do pareamento.">Chave</label>
+            <input asp-for="Form.MachineKey" class="form-control" placeholder="pc-01-chave-segura" minlength="16" maxlength="100" required autocomplete="off" title="Use uma chave exclusiva de 16 a 100 caracteres, como pc-01-chave-segura." />
+            <div class="form-hint">Use uma chave exclusiva de 16 a 100 caracteres. Exemplo: <code>pc-01-chave-segura</code>. O código de 6 dígitos do pareamento é gerado depois.</div>
         </div>
         <div>
-            <label asp-for="Form.Kind" class="form-label">Tipo</label>
-            <select asp-for="Form.Kind" class="form-select" asp-items="Html.GetEnumSelectList<MachineKind>()"></select>
+            <label asp-for="Form.Kind" class="form-label" title="Informe se a estação é um computador ou console.">Tipo</label>
+            <select asp-for="Form.Kind" class="form-select" asp-items="Html.GetEnumSelectList<MachineKind>()" title="Tipo de estação controlada."></select>
         </div>
         <div>
-            <label asp-for="Form.GroupName" class="form-label">Grupo</label>
-            <input asp-for="Form.GroupName" class="form-control" />
+            <label asp-for="Form.GroupName" class="form-label" title="Agrupa máquinas para facilitar a organização, por exemplo Principal ou VIP.">Grupo</label>
+            <input asp-for="Form.GroupName" class="form-control" title="Grupo organizacional da máquina. Exemplo: Principal." />
         </div>
         <div class="full-span">
-            <label asp-for="Form.Observations" class="form-label">Observações</label>
-            <textarea asp-for="Form.Observations" class="form-control" rows="2"></textarea>
+            <label asp-for="Form.Observations" class="form-label" title="Anotações internas sobre a estação; não alteram a conexão.">Observações</label>
+            <textarea asp-for="Form.Observations" class="form-control" rows="2" title="Anotações internas, como localização ou manutenção."></textarea>
         </div>
-        <button type="submit" class="btn btn-accent">Salvar máquina</button>
+        <button type="submit" class="btn btn-accent" title="Cadastra uma máquina nova ou salva as alterações da máquina selecionada.">Salvar máquina</button>
     </form>
 </section>
 
@@ -96,18 +97,18 @@
             <p class="small">Último contato: @(machine.LastSeenUtc.HasValue ? machine.LastSeenUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") : "ainda não conectado")</p>
             <p class="small">Client: @(string.IsNullOrWhiteSpace(machine.ClientVersion) ? "não informado" : machine.ClientVersion) · Agent: @(string.IsNullOrWhiteSpace(machine.AgentVersion) ? "não informado" : machine.AgentVersion)</p>
             <p class="small">Agent: @(machine.AgentHealthy ? "saudável" : "indisponível ou não validado") · Política: v@machine.PolicyVersion</p>
-            <a asp-action="Index" asp-route-editId="@machine.Id" class="btn btn-outline-light btn-sm mb-3">Editar cadastro</a>
+            <a asp-action="Index" asp-route-editId="@machine.Id" class="btn btn-outline-light btn-sm mb-3" title="Carrega os dados desta máquina no formulário acima para edição.">Editar cadastro</a>
 
             <form asp-action="StartPairing" method="post" class="mb-3">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="machineId" value="@machine.Id" />
-                <button type="submit" class="btn btn-accent btn-sm">INICIAR CONFIGURAÇÃO</button>
+                <button type="submit" class="btn btn-accent btn-sm" title="Gera um código temporário de 6 dígitos para parear esta máquina CLIENTE.">INICIAR CONFIGURAÇÃO</button>
             </form>
 
             <form asp-action="Revoke" method="post" class="mb-3">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="machineId" value="@machine.Id" />
-                <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('Revogar a credencial desta estação?');">Revogar credencial</button>
+                <button type="submit" class="btn btn-outline-danger btn-sm" title="Invalida a credencial desta estação; será necessário parear novamente." onclick="return confirm('Revogar a credencial desta estação?');">Revogar credencial</button>
             </form>
 
             <div class="button-row">

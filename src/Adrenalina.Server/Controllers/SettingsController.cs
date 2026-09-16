@@ -43,7 +43,7 @@ public sealed class SettingsController(ICafeManagementService cafeService) : Con
 
     [HttpPost("/configuracoes/salvar")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Save(SettingsUpdateRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Save([Bind(Prefix = "Form")] SettingsUpdateRequest request, CancellationToken cancellationToken)
     {
         var result = await cafeService.SaveSettingsAsync(request, User.GetActorId(), cancellationToken);
         TempData["StatusMessage"] = result.Message;

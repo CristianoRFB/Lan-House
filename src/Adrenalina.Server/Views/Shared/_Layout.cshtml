@@ -23,21 +23,21 @@
                 <p class="sidebar-copy">Operação local de máquinas, clientes, sessões, financeiro e auditoria.</p>
             </div>
             <nav class="nav-stack" aria-label="Navegação principal">
-                <a class="@NavClass("Dashboard")" asp-controller="Dashboard" asp-action="Index">Painel</a>
-                <a class="@NavClass("Machines")" asp-controller="Machines" asp-action="Index">Máquinas</a>
-                <a class="@NavClass("Sessions")" asp-controller="Sessions" asp-action="Index">Sessões</a>
+                <a class="@NavClass("Dashboard")" asp-controller="Dashboard" asp-action="Index" title="Resumo da operação, máquinas online, sessões e solicitações.">Painel</a>
+                <a class="@NavClass("Machines")" asp-controller="Machines" asp-action="Index" title="Cadastre, pareie, monitore e controle as máquinas.">Máquinas</a>
+                <a class="@NavClass("Sessions")" asp-controller="Sessions" asp-action="Index" title="Inicie, ajuste e encerre sessões de uso.">Sessões</a>
                 @if (User.IsInRole("Admin"))
                 {
-                    <a class="@NavClass("Users")" asp-controller="Users" asp-action="Index">Usuários</a>
-                    <a class="@NavClass("Auth")" asp-controller="Auth" asp-action="ChangePassword">Trocar senha</a>
-                    <a class="@NavClass("Reports")" asp-controller="Reports" asp-action="Index">Relatórios</a>
-                    <a class="@NavClass("Settings")" asp-controller="Settings" asp-action="Index">Configurações</a>
+                    <a class="@NavClass("Users")" asp-controller="Users" asp-action="Index" title="Cadastre usuários, PINs, perfis, saldo e anotações.">Usuários</a>
+                    <a class="@NavClass("Auth")" asp-controller="Auth" asp-action="ChangePassword" title="Troque a senha do administrador.">Trocar senha</a>
+                    <a class="@NavClass("Reports")" asp-controller="Reports" asp-action="Index" title="Exporte relatórios e consulte a auditoria.">Relatórios</a>
+                    <a class="@NavClass("Settings")" asp-controller="Settings" asp-action="Index" title="Ajuste nome, preços, mensagens e backups.">Configurações</a>
                 }
-                <a class="@NavClass("Tutorial")" asp-controller="Tutorial" asp-action="Index">Ajuda</a>
+                <a class="@NavClass("Tutorial")" asp-controller="Tutorial" asp-action="Index" title="Explicações passo a passo sobre todas as áreas do sistema.">Ajuda</a>
             </nav>
             <form asp-controller="Auth" asp-action="Logout" method="post">
                 @Html.AntiForgeryToken()
-                <button type="submit" class="btn btn-outline-light w-100">Sair</button>
+                <button type="submit" class="btn btn-outline-light w-100" title="Encerra sua sessão no painel.">Sair</button>
             </form>
         </aside>
         <main class="app-main" id="conteudo-principal" tabindex="-1">
