@@ -154,8 +154,12 @@ public sealed class ClientServerGateway(
 
         try
         {
+<<<<<<< HEAD
             var (loginTimestamp, loginNonce, loginProof) = CreateMachineProof("login");
             var response = await client.PostAsJsonAsync(
+=======
+            using var response = await client.PostAsJsonAsync(
+>>>>>>> 9be62fb (Fixes)
                 "api/client/login",
                 new ClientLoginRequest
                 {
@@ -179,6 +183,11 @@ public sealed class ClientServerGateway(
                               Message = "O servidor não retornou uma resposta de login válida."
                           };
 
+            if (payload.Success && payload.RuntimeState?.CurrentSessionId is null)
+            {
+                throw new JsonException("O servidor confirmou o login sem uma sessao valida.");
+            }
+
             SetConnectionStatus(true, $"Conectado ao servidor em {options.ServerBaseUrl}");
 
             if (payload.Success)
@@ -194,9 +203,10 @@ public sealed class ClientServerGateway(
 
             return payload;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
             logger.LogWarning(exception, "Login online indisponivel.");
+<<<<<<< HEAD
             SetConnectionStatus(false, "Servidor offline. O login não pode ser validado agora.");
 
             var state = await runtimeStore.LoadStateAsync(cancellationToken);
@@ -217,6 +227,25 @@ public sealed class ClientServerGateway(
             {
                 Success = false,
                 Message = "Servidor offline. Não foi possível validar o login.",
+=======
+            SetConnectionStatus(false, "Servidor indisponivel. Confira o IP do ADMIN e tente novamente.");
+            var state = await runtimeStore.LoadStateAsync(cancellationToken);
+            return new ClientLoginResponse
+            {
+                Success = false,
+                Message = "Servidor indisponivel. Confira o IP do ADMIN e tente novamente.",
+                RuntimeState = state
+            };
+        }
+        catch (JsonException exception)
+        {
+            logger.LogWarning(exception, "Resposta de login invalida.");
+            SetConnectionStatus(false, "O ADMIN retornou uma resposta invalida. Tente novamente.");
+            return new ClientLoginResponse
+            {
+                Success = false,
+                Message = "O ADMIN retornou uma resposta invalida. Tente novamente.",
+>>>>>>> 9be62fb (Fixes)
                 RuntimeState = await runtimeStore.LoadStateAsync(cancellationToken)
             };
         }
@@ -279,6 +308,7 @@ public sealed class ClientServerGateway(
         }
 
         var client = httpClientFactory.CreateClient("adrenalina-server");
+<<<<<<< HEAD
         var queuedRequests = (await runtimeStore.DrainRequestsAsync(cancellationToken))
             .Select(NormalizeRequestId)
             .ToList();
@@ -301,6 +331,10 @@ public sealed class ClientServerGateway(
             }
 
             var (heartbeatTimestamp, heartbeatNonce, heartbeatProof) = CreateMachineProof("heartbeat");
+=======
+        try
+        {
+>>>>>>> 9be62fb (Fixes)
             var heartbeat = new ClientHeartbeatRequest
             {
                 MachineKey = options.MachineKey,
@@ -320,23 +354,53 @@ public sealed class ClientServerGateway(
                 AcknowledgedNotificationIds = _notificationAcknowledgements.ToList()
             };
 
-            var response = await client.PostAsJsonAsync("api/client/heartbeat", heartbeat, JsonDefaults.Options, cancellationToken);
+            using var response = await client.PostAsJsonAsync("api/client/heartbeat", heartbeat, JsonDefaults.Options, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var payload = await response.Content.ReadFromJsonAsync<ClientHeartbeatResponse>(JsonDefaults.Options, cancellationToken)
-                          ?? new ClientHeartbeatResponse();
+            var payload = await response.Content.ReadFromJsonAsync<ClientHeartbeatResponse>(JsonDefaults.Options, cancellationToken);
+            if (payload is null || payload.MachineId == Guid.Empty || payload.RuntimeState is null || payload.Settings is null)
+            {
+                throw new InvalidOperationException("O servidor retornou uma sincronizacao incompleta.");
+            }
 
+<<<<<<< HEAD
             if (!payload.Success)
             {
                 throw new InvalidOperationException(payload.Message);
             }
 
+=======
+            var queuedRequests = await runtimeStore.GetPendingRequestsAsync(cancellationToken);
+            if (queuedRequests.Count > 0)
+            {
+                using var requestResponse = await client.PostAsJsonAsync(
+                    "api/client/requests",
+                    new ClientRequestBatchRequest
+                    {
+                        MachineKey = options.MachineKey,
+                        Requests = queuedRequests
+                    },
+                    JsonDefaults.Options,
+                    cancellationToken);
+                requestResponse.EnsureSuccessStatusCode();
+                var result = await requestResponse.Content.ReadFromJsonAsync<OperationResult>(JsonDefaults.Options, cancellationToken);
+                if (result?.Success != true)
+                {
+                    throw new InvalidOperationException(result?.Message ?? "O servidor nao confirmou as solicitacoes.");
+                }
+
+                await runtimeStore.RemoveRequestsAsync(queuedRequests.Select(item => item.Id).ToArray(), cancellationToken);
+            }
+
+            CurrentBlockedProgramsCsv = payload.Settings.BlockedProgramsCsv ?? string.Empty;
+>>>>>>> 9be62fb (Fixes)
             SetConnectionStatus(true, $"Servidor online em {options.ServerBaseUrl}");
 
             var updatedState = ApplyCommands(payload.RuntimeState, payload.Commands);
             updatedState = AppendNotifications(updatedState, payload.Notifications);
             await runtimeStore.SaveStateAsync(updatedState, cancellationToken);
 
+<<<<<<< HEAD
             _commandAcknowledgements.Clear();
             _notificationAcknowledgements.Clear();
             foreach (var command in payload.Commands)
@@ -348,12 +412,15 @@ public sealed class ClientServerGateway(
                 _notificationAcknowledgements.Add(notification.Id);
             }
 
+=======
+>>>>>>> 9be62fb (Fixes)
         }
         catch (Exception exception)
         {
             logger.LogWarning(exception, "Servidor indisponivel. Cliente seguira no modo offline.");
             SetConnectionStatus(false, "Servidor offline. O Client tentará sincronizar novamente.");
 
+<<<<<<< HEAD
             foreach (var item in queuedRequests)
             {
                 try
@@ -368,6 +435,8 @@ public sealed class ClientServerGateway(
                 }
             }
 
+=======
+>>>>>>> 9be62fb (Fixes)
             var current = await runtimeStore.LoadStateAsync(cancellationToken);
             await runtimeStore.SaveStateAsync(
                 CloneState(current, sessionMessage: "Servidor offline. O Client tentará sincronizar novamente."),
@@ -411,7 +480,47 @@ public sealed class ClientServerGateway(
             : MachineStatus.Idle;
     }
 
+<<<<<<< HEAD
     private ClientRuntimeState ApplyCommands(
+=======
+    private static IReadOnlyList<ProcessDto> CollectProcesses()
+    {
+        try
+        {
+            var snapshots = new List<ProcessDto>();
+            foreach (var process in Process.GetProcesses())
+            {
+                using (process)
+                {
+                    try
+                    {
+                        snapshots.Add(new ProcessDto
+                        {
+                            ProcessName = $"{process.ProcessName}.exe",
+                            WindowTitle = process.MainWindowTitle,
+                            MemoryMb = Math.Round(process.WorkingSet64 / 1024d / 1024d, 2)
+                        });
+                    }
+                    catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+                    {
+                        // Protected or exiting processes are omitted from the snapshot.
+                    }
+                }
+            }
+
+            return snapshots
+                .OrderByDescending(process => process.MemoryMb)
+                .Take(16)
+                .ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private async Task<ClientRuntimeState> ApplyCommandsAsync(
+>>>>>>> 9be62fb (Fixes)
         ClientRuntimeState state,
         IReadOnlyList<RemoteCommandEnvelope> commands)
     {
@@ -467,6 +576,7 @@ public sealed class ClientServerGateway(
         return working;
     }
 
+<<<<<<< HEAD
     private static ClientShellRequest NormalizeRequestId(ClientShellRequest request)
     {
         if (request.RequestId != Guid.Empty)
@@ -488,6 +598,8 @@ public sealed class ClientServerGateway(
         };
     }
 
+=======
+>>>>>>> 9be62fb (Fixes)
     private static bool ParseShowFlag(string payloadJson)
     {
         if (string.IsNullOrWhiteSpace(payloadJson))

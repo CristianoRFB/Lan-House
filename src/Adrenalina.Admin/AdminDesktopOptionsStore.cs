@@ -21,9 +21,19 @@ public static class AdminDesktopOptionsStore
             return defaults;
         }
 
-        var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<AdminDesktopOptions>(json, JsonDefaults.Options)
-               ?? new AdminDesktopOptions();
+        try
+        {
+            var json = File.ReadAllText(path);
+            return JsonSerializer.Deserialize<AdminDesktopOptions>(json, JsonDefaults.Options)
+                   ?? new AdminDesktopOptions();
+        }
+        catch (JsonException)
+        {
+            File.Move(path, path + ".corrupt-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss"));
+            var defaults = new AdminDesktopOptions { ShowTutorialOnNextLaunch = true };
+            Save(defaults);
+            return defaults;
+        }
     }
 
     public static void Save(AdminDesktopOptions options)
@@ -32,7 +42,9 @@ public static class AdminDesktopOptionsStore
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
         var payload = JsonSerializer.Serialize(options, JsonDefaults.Options);
-        File.WriteAllText(path, payload);
+        var temporaryPath = path + ".tmp";
+        File.WriteAllText(temporaryPath, payload);
+        File.Move(temporaryPath, path, true);
     }
 
     public static string GetSettingsPath()

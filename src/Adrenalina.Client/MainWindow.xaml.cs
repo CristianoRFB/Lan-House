@@ -90,6 +90,42 @@ public partial class MainWindow : Window
         LoginTextBox.Focus();
     }
 
+<<<<<<< HEAD
+=======
+    private void HandleClosing(object? sender, CancelEventArgs e)
+    {
+        if (!_options.SetupCompleted)
+        {
+            PrepareIntentionalClose();
+            _kioskManager.ApplyState(new ClientRuntimeState { IsLocked = false }, string.Empty);
+            return;
+        }
+
+        if (_lastKnownState.IsLocked)
+        {
+            e.Cancel = true;
+            MessageBox.Show(
+                "Desbloqueie ou encerre a sessao atual antes de fechar o app do cliente.",
+                "Fechar cliente",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        PrepareIntentionalClose();
+        _kioskManager.ApplyState(new ClientRuntimeState { IsLocked = false }, string.Empty);
+    }
+
+    private void PrepareIntentionalClose()
+    {
+        _refreshTimer.Stop();
+        if (_watchdogStarted)
+        {
+            ClientWatchdogRunner.MarkIntentionalExit(Environment.ProcessId);
+        }
+    }
+
+>>>>>>> 9be62fb (Fixes)
     private async Task RefreshAsync()
     {
         if (!await _refreshGate.WaitAsync(0))
@@ -116,7 +152,11 @@ public partial class MainWindow : Window
             ? "Informe o endereço do ADMIN para conectar esta máquina ao sistema."
             : state.SessionMessage;
         ConnectivityText.Text = setupPending
+<<<<<<< HEAD
             ? "Use o endereço mostrado no app do administrador. Exemplo: https://192.168.0.10:5076/"
+=======
+            ? "Digite o IP do ADMIN ou copie o endereco completo mostrado nele. Exemplo: 192.168.0.10"
+>>>>>>> 9be62fb (Fixes)
             : _gateway.ConnectionStatusText;
         ConnectivityText.Foreground = _gateway.IsServerOnline
             ? new SolidColorBrush(Color.FromRgb(127, 217, 199))
@@ -377,7 +417,6 @@ public partial class MainWindow : Window
             {
                 Type = type,
                 Login = LoginTextBox.Text.Trim(),
-                Pin = PinBox.Password.Trim(),
                 DisplayName = DisplayNameTextBox.Text.Trim(),
                 Message = MessageTextBox.Text.Trim(),
                 Amount = type == ClientRequestType.MoreTime && decimal.TryParse(RequestMinutesTextBox.Text, out var requestedMinutes)
@@ -653,6 +692,19 @@ public partial class MainWindow : Window
         RepeatTutorialCheckBox.IsChecked = _options.ShowTutorialOnNextLaunch;
     }
 
+<<<<<<< HEAD
+=======
+    private void EnsureWatchdogStarted()
+    {
+        if (_watchdogStarted || !_options.SetupCompleted || !_options.LaunchLocalWatchdog)
+        {
+            return;
+        }
+
+        _watchdogStarted = ClientWatchdogRunner.LaunchSidecar(Environment.ProcessId);
+    }
+
+>>>>>>> 9be62fb (Fixes)
     private bool TryApplyOptionsFromControls(
         string serverUrlInput,
         string machineNameInput,
@@ -663,7 +715,11 @@ public partial class MainWindow : Window
     {
         if (!TryNormalizeServerUrl(serverUrlInput, out var serverUrl))
         {
+<<<<<<< HEAD
             message = "Informe uma URL válida para o servidor do ADMIN. Exemplo: https://192.168.0.10:5076/";
+=======
+            message = "Informe o IP do ADMIN ou o endereco completo mostrado no app. Exemplo: 192.168.0.10 ou http://192.168.0.10:5076/";
+>>>>>>> 9be62fb (Fixes)
             return false;
         }
 
@@ -724,14 +780,36 @@ public partial class MainWindow : Window
     {
         normalizedUrl = string.Empty;
         var trimmed = input?.Trim() ?? string.Empty;
+<<<<<<< HEAD
         if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) ||
             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) ||
             !string.IsNullOrEmpty(uri.UserInfo))
+=======
+        if (string.IsNullOrWhiteSpace(trimmed))
+>>>>>>> 9be62fb (Fixes)
         {
             return false;
         }
 
-        normalizedUrl = uri.AbsoluteUri.EndsWith('/') ? uri.AbsoluteUri : $"{uri.AbsoluteUri}/";
+        var candidate = trimmed.Contains("://", StringComparison.Ordinal) ? trimmed : $"http://{trimmed}";
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) ||
+            string.IsNullOrWhiteSpace(uri.Host) ||
+            !string.IsNullOrEmpty(uri.UserInfo) ||
+            uri.AbsolutePath != "/" ||
+            !string.IsNullOrEmpty(uri.Query) ||
+            !string.IsNullOrEmpty(uri.Fragment))
+        {
+            return false;
+        }
+
+        var builder = new UriBuilder(uri);
+        if (uri.Scheme == Uri.UriSchemeHttp && uri.IsDefaultPort)
+        {
+            builder.Port = 5076;
+        }
+
+        normalizedUrl = builder.Uri.AbsoluteUri;
         return true;
     }
 

@@ -1,148 +1,98 @@
 using System.Globalization;
-using System.Text.Json;
 using System.Text;
-using System.Security.Cryptography;
+using System.Text.Json;
 using Adrenalina.Application;
 using Adrenalina.Domain;
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
 
 namespace Adrenalina.Infrastructure;
 
 public sealed class CafeManagementService(
     AdrenalinaDbContext db,
     AdrenalinaStoragePaths storagePaths,
-    AdrenalinaDatabaseInitializer databaseInitializer,
-    AdrenalinaReportExporter reportExporter,
     ILogger<CafeManagementService> logger) : ICafeManagementService, IAdminAuthService
 {
     public async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
     {
-        await databaseInitializer.InitializeAsync(cancellationToken);
+        await db.Database.EnsureCreatedAsync(cancellationToken);
+
+        if (!await db.Settings.AnyAsync(cancellationToken))
+        {
+            db.Settings.Add(new AdminSettings());
+        }
+
+        if (!await db.Users.AnyAsync(cancellationToken))
+        {
+            db.Users.AddRange(
+                new UserAccount
+                {
+                    DisplayName = "Administrador",
+                    Login = "admin",
+                    PinHash = PasswordHasher.Hash("1234"),
+                    PasswordHash = PasswordHasher.Hash("adrenalina123"),
+                    ProfileType = UserProfileType.Admin,
+                    AnnotationLimit = 0m
+                },
+                new UserAccount
+                {
+                    DisplayName = "Ghost Livre",
+                    Login = "ghost",
+                    PinHash = PasswordHasher.Hash("0000"),
+                    PasswordHash = PasswordHasher.Hash("ghost123"),
+                    ProfileType = UserProfileType.Ghost,
+                    AnnotationLimit = 0m
+                },
+                new UserAccount
+                {
+                    DisplayName = "Operador Especial",
+                    Login = "especial",
+                    PinHash = PasswordHasher.Hash("1111"),
+                    PasswordHash = PasswordHasher.Hash("especial123"),
+                    ProfileType = UserProfileType.Special,
+                    AnnotationLimit = 0m
+                },
+                new UserAccount
+                {
+                    DisplayName = "Cliente Comum",
+                    Login = "cliente",
+                    PinHash = PasswordHasher.Hash("2222"),
+                    PasswordHash = PasswordHasher.Hash("cliente123"),
+                    ProfileType = UserProfileType.Common,
+                    AnnotationLimit = 25m
+                });
+        }
+
+        if (!await db.Machines.AnyAsync(cancellationToken))
+        {
+            db.Machines.AddRange(
+                new Machine { Name = "PC-01", Hostname = "PC-01", IpAddress = "192.168.0.101", Kind = MachineKind.Pc, Status = MachineStatus.Idle },
+                new Machine { Name = "PC-02", Hostname = "PC-02", IpAddress = "192.168.0.102", Kind = MachineKind.Pc, Status = MachineStatus.Idle },
+                new Machine { Name = "PS-01", Hostname = "PS-01", IpAddress = "192.168.0.201", Kind = MachineKind.Console, Status = MachineStatus.Idle });
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<AuthenticatedAdmin?> ValidateAsync(string login, string password, CancellationToken cancellationToken = default)
     {
         var normalized = login.Trim().ToLowerInvariant();
         var user = await db.Users
+            .AsNoTracking()
             .FirstOrDefaultAsync(
                 account => account.Login.ToLower() == normalized &&
                            (account.ProfileType == UserProfileType.Admin || account.ProfileType == UserProfileType.Special),
                 cancellationToken);
 
-        if (user is null || user.IsBlocked)
+        if (user is null || !PasswordHasher.Verify(user.PasswordHash, password))
         {
             return null;
         }
-
-        var nowUtc = DateTime.UtcNow;
-        if (user.LockedUntilUtc > nowUtc)
-        {
-            return null;
-        }
-
-        if (!PasswordHasher.Verify(user.PasswordHash, password))
-        {
-            user.FailedLoginAttempts++;
-            if (user.FailedLoginAttempts >= 5)
-            {
-                user.LockedUntilUtc = nowUtc.AddMinutes(10);
-                user.FailedLoginAttempts = 0;
-            }
-
-            await db.SaveChangesAsync(cancellationToken);
-            return null;
-        }
-
-        user.FailedLoginAttempts = 0;
-        user.LockedUntilUtc = null;
-        await db.SaveChangesAsync(cancellationToken);
 
         return new AuthenticatedAdmin(user.Id, user.Login, user.DisplayName, user.ProfileType);
-    }
-
-    public async Task<AdminAccessRecoveryResult?> RecoverAdminAccessAsync(CancellationToken cancellationToken = default)
-    {
-        await databaseInitializer.InitializeAsync(cancellationToken);
-
-        var admin = await db.Users.FirstOrDefaultAsync(
-            account => account.Login == "admin" && account.ProfileType == UserProfileType.Admin,
-            cancellationToken);
-        if (admin is null)
-        {
-            return null;
-        }
-
-        var temporaryPassword = AdrenalinaDatabaseInitializer.DefaultAdminPassword;
-        admin.PasswordHash = PasswordHasher.Hash(temporaryPassword);
-        admin.IsBlocked = false;
-        admin.FailedLoginAttempts = 0;
-        admin.LockedUntilUtc = null;
-        admin.Touch();
-
-        await LogAsync(
-            "Seguranca",
-            "RecuperacaoAcessoAdmin",
-            null,
-            null,
-            admin.Id,
-            "Acesso local do administrador recuperado; uma senha temporária foi gerada.",
-            cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-
-        var root = Path.GetDirectoryName(storagePaths.DatabaseFilePath)
-            ?? throw new InvalidOperationException("A pasta de dados do Admin não está configurada.");
-        Directory.CreateDirectory(root);
-        var accessFilePath = Path.Combine(root, AdrenalinaDatabaseInitializer.InitialAccessFileName);
-        var payload = string.Join(Environment.NewLine,
-        [
-            "ADRENALINA - RECUPERAÇÃO DE ACESSO",
-            "Login: admin",
-            $"Senha: {temporaryPassword}",
-            "",
-            "Esta senha foi gerada pelo botão Recuperar acesso no computador ADMIN.",
-            "Entre no painel e troque a senha imediatamente. Este arquivo será removido após a troca."
-        ]);
-        var temporaryPath = accessFilePath + ".tmp";
-        await File.WriteAllTextAsync(temporaryPath, payload, cancellationToken);
-        File.Move(temporaryPath, accessFilePath, overwrite: true);
-
-        return new AdminAccessRecoveryResult(temporaryPassword, accessFilePath);
-    }
-
-    public async Task<OperationResult> ChangeAdminPasswordAsync(
-        Guid adminId,
-        string newPassword,
-        CancellationToken cancellationToken = default)
-    {
-        if (newPassword.Length is < 12 or > 256)
-        {
-            return new OperationResult(false, "A nova senha precisa ter entre 12 e 256 caracteres.");
-        }
-
-        var admin = await db.Users.FirstOrDefaultAsync(
-            account => account.Id == adminId && account.ProfileType == UserProfileType.Admin,
-            cancellationToken);
-        if (admin is null)
-        {
-            return new OperationResult(false, "A conta admin não foi encontrada.");
-        }
-
-        admin.PasswordHash = PasswordHasher.Hash(newPassword);
-        admin.FailedLoginAttempts = 0;
-        admin.LockedUntilUtc = null;
-        admin.Touch();
-        await LogAsync(
-            "Seguranca",
-            "AlteracaoSenhaAdmin",
-            admin.Id,
-            null,
-            admin.Id,
-            "Senha do administrador alterada pelo fluxo local de segurança.",
-            cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        DeleteInitialAccessFile();
-        return new OperationResult(true, "Senha do administrador alterada.");
     }
 
     public async Task<UserDto?> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -157,9 +107,8 @@ public sealed class CafeManagementService(
         var settings = await GetSettingsEntityAsync(cancellationToken);
         var machines = await db.Machines.AsNoTracking().OrderBy(entry => entry.Name).ToListAsync(cancellationToken);
         var users = await db.Users.AsNoTracking().OrderBy(entry => entry.DisplayName).ToListAsync(cancellationToken);
-        var activeSessionCount = await db.Sessions.CountAsync(entry => entry.Status == SessionStatus.Active, cancellationToken);
-        var pendingRequestCount = await db.ClientRequests.CountAsync(entry => entry.Status == ClientRequestStatus.Pending, cancellationToken);
         var sessions = await db.Sessions.AsNoTracking().OrderByDescending(entry => entry.StartedAtUtc).Take(20).ToListAsync(cancellationToken);
+        var activeSessionCount = await db.Sessions.CountAsync(entry => entry.Status == SessionStatus.Active, cancellationToken);
         var recentUsageSessions = await db.Sessions.AsNoTracking()
             .Where(entry => entry.StartedAtUtc >= nowUtc.AddDays(-30))
             .Select(entry => new
@@ -174,6 +123,7 @@ public sealed class CafeManagementService(
             .OrderByDescending(entry => entry.RequestedAtUtc)
             .Take(10)
             .ToListAsync(cancellationToken);
+        var pendingRequestCount = await db.ClientRequests.CountAsync(entry => entry.Status == ClientRequestStatus.Pending, cancellationToken);
         var logs = (await db.AuditLogs.AsNoTracking()
                 .OrderByDescending(entry => entry.CreatedAtUtc)
                 .Take(12)
@@ -211,7 +161,7 @@ public sealed class CafeManagementService(
             PendingRequests = pendingRequestCount,
             PendingAnnotations = users.Sum(entry => entry.PendingAnnotationAmount),
             PromisedPayments = promisedPayments,
-            Machines = machines.Select(MapMachine).ToList(),
+            Machines = await GetMachinesAsync(cancellationToken),
             Users = users.Take(8).Select(MapUser).ToList(),
             Sessions = sessions.Select(entry => MapSession(entry, machineLookup.TryGetValue(entry.MachineId, out var machine) ? machine.Name : "Desconhecida")).ToList(),
             Requests = requests.Select(entry => MapRequest(entry, machineLookup.TryGetValue(entry.MachineId, out var machine) ? machine.Name : "Desconhecida")).ToList(),
@@ -224,8 +174,38 @@ public sealed class CafeManagementService(
     public async Task<IReadOnlyList<MachineDto>> GetMachinesAsync(CancellationToken cancellationToken = default)
     {
         var machines = await db.Machines.AsNoTracking().OrderBy(entry => entry.Name).ToListAsync(cancellationToken);
+        var snapshots = await db.ProcessSnapshots.AsNoTracking()
+            .OrderByDescending(entry => entry.RecordedAtUtc)
+            .Take(200)
+            .ToListAsync(cancellationToken);
 
-        return machines.Select(MapMachine).ToList();
+        return machines.Select(machine => new MachineDto
+        {
+            Id = machine.Id,
+            MachineKey = machine.MachineKey,
+            Name = machine.Name,
+            Hostname = machine.Hostname,
+            IpAddress = machine.IpAddress,
+            Kind = machine.Kind,
+            Status = IsMachineOnline(machine) ? machine.Status : MachineStatus.Offline,
+            GroupName = machine.GroupName,
+            ServiceProtectionEnabled = machine.ServiceProtectionEnabled,
+            BandwidthLimitEnabled = machine.BandwidthLimitEnabled,
+            BandwidthLimitKbps = machine.BandwidthLimitKbps,
+            LastCommandSummary = machine.LastCommandSummary,
+            Observations = machine.Observations,
+            LastSeenUtc = machine.LastSeenUtc,
+            RecentProcesses = snapshots
+                .Where(entry => entry.MachineId == machine.Id)
+                .Take(6)
+                .Select(entry => new ProcessDto
+                {
+                    ProcessName = entry.ProcessName,
+                    WindowTitle = entry.WindowTitle,
+                    MemoryMb = entry.MemoryMb
+                })
+                .ToList()
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<UserDto>> GetUsersAsync(CancellationToken cancellationToken = default)
@@ -278,27 +258,12 @@ public sealed class CafeManagementService(
 
     public async Task<OperationResult> SaveSettingsAsync(SettingsUpdateRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
     {
-        var cafeName = TextSanitizer.Normalize(request.CafeName);
-        if (string.IsNullOrWhiteSpace(cafeName))
-        {
-            return new OperationResult(false, "Informe o nome da lan house.");
-        }
-
-        if (!Enum.IsDefined(request.DefaultTheme) || !Enum.IsDefined(request.UpdateMode) ||
-            request.BackupRetentionDays is < 1 or > 3650 ||
-            request.DefaultCommonAnnotationLimit is < 0m or > 1_000_000m ||
-            request.DefaultPcHourlyRate is < 0m or > 100_000m ||
-            request.DefaultConsoleHourlyRate is < 0m or > 100_000m)
-        {
-            return new OperationResult(false, "Revise tema, retenção e valores padrão informados.");
-        }
-
         var settings = await GetSettingsEntityAsync(cancellationToken);
-        settings.CafeName = cafeName;
+        settings.CafeName = TextSanitizer.Normalize(request.CafeName);
         settings.DefaultTheme = request.DefaultTheme;
         settings.UpdateMode = request.UpdateMode;
         settings.BackupCutoffLocalTime = request.BackupCutoffLocalTime;
-        settings.BackupRetentionDays = request.BackupRetentionDays;
+        settings.BackupRetentionDays = Math.Max(1, request.BackupRetentionDays);
         settings.WelcomeMessage = TextSanitizer.Normalize(request.WelcomeMessage);
         settings.GoodbyeMessage = TextSanitizer.Normalize(request.GoodbyeMessage);
         settings.LockMessage = TextSanitizer.Normalize(request.LockMessage);
@@ -325,37 +290,7 @@ public sealed class CafeManagementService(
         var login = TextSanitizer.Normalize(request.Login).ToLowerInvariant();
         if (!LoginRules.LooksLikeLetterLogin(login))
         {
-            return new OperationResult(false, "O login deve conter letras e pode conter números, ponto, hífen ou sublinhado, sem espaços.");
-        }
-
-        var displayName = TextSanitizer.Normalize(request.DisplayName);
-        if (string.IsNullOrWhiteSpace(displayName) || displayName.Length > 100)
-        {
-            return new OperationResult(false, "Informe um nome de usuário com até 100 caracteres.");
-        }
-
-        if (!Enum.IsDefined(request.ProfileType)
-            || Math.Abs(request.Balance) > 1_000_000m
-            || request.AnnotationLimit is < 0m or > 1_000_000m)
-        {
-            return new OperationResult(false, "Informe perfil e limites financeiros válidos.");
-        }
-
-        DateTime? temporaryUntilUtc = null;
-        if (request.IsTemporary)
-        {
-            if (!request.TemporaryUntilUtc.HasValue)
-            {
-                return new OperationResult(false, "Informe até quando a conta temporária será válida.");
-            }
-
-            temporaryUntilUtc = request.TemporaryUntilUtc.Value.Kind == DateTimeKind.Utc
-                ? request.TemporaryUntilUtc.Value
-                : request.TemporaryUntilUtc.Value.ToUniversalTime();
-            if (temporaryUntilUtc <= DateTime.UtcNow)
-            {
-                return new OperationResult(false, "A validade da conta temporária precisa estar no futuro.");
-            }
+            return new OperationResult(false, "O login precisa conter apenas letras e separadores simples.");
         }
 
         UserAccount user;
@@ -375,21 +310,16 @@ public sealed class CafeManagementService(
             var requestId = request.Id.GetValueOrDefault();
             user = await db.Users.FirstOrDefaultAsync(entry => entry.Id == requestId, cancellationToken)
                 ?? throw new InvalidOperationException("Usuário não encontrado.");
-            if (await db.Users.AnyAsync(entry => entry.Id != requestId && entry.Login == login, cancellationToken))
-            {
-                return new OperationResult(false, "Já existe um usuário com esse login.");
-            }
         }
 
-        user.DisplayName = displayName;
+        user.DisplayName = TextSanitizer.Normalize(request.DisplayName);
         user.Login = login;
         user.ProfileType = request.ProfileType;
         user.Balance = request.Balance;
         user.AnnotationLimit = request.ProfileType == UserProfileType.Common ? request.AnnotationLimit : 0m;
         user.IsTemporary = request.IsTemporary;
-        user.TemporaryUntilUtc = temporaryUntilUtc;
+        user.TemporaryUntilUtc = request.TemporaryUntilUtc;
         user.Notes = TextSanitizer.Normalize(request.Notes);
-        user.IsBlocked = request.IsBlocked;
         user.CanSeeOwnBalance = true;
         user.CanSeeOwnAnnotations = true;
         user.Touch();
@@ -405,353 +335,21 @@ public sealed class CafeManagementService(
         }
         else if (isNew)
         {
-            return new OperationResult(false, "Informe um PIN de 4 dígitos para o novo usuário.");
+            user.PinHash = PasswordHasher.Hash("1234");
         }
 
-        var removeInitialAccessFileAfterSave = false;
         if (!string.IsNullOrWhiteSpace(request.Password))
         {
-            if (request.Password.Length is < 12 or > 256)
-            {
-                return new OperationResult(false, "A senha do painel deve ter entre 12 e 256 caracteres.");
-            }
-
             user.PasswordHash = PasswordHasher.Hash(request.Password);
-            if (!isNew && user.ProfileType == UserProfileType.Admin)
-            {
-                removeInitialAccessFileAfterSave = true;
-            }
-        }
-        else if (isNew && request.ProfileType is UserProfileType.Admin or UserProfileType.Special)
-        {
-            return new OperationResult(false, "Informe uma senha com pelo menos 12 caracteres para perfis administrativos.");
         }
         else if (isNew)
         {
-            user.PasswordHash = PasswordHasher.Hash(Guid.NewGuid().ToString("N"));
+            user.PasswordHash = PasswordHasher.Hash("adrenalina123");
         }
 
         await LogAsync("Usuario", isNew ? "Criacao" : "Atualizacao", actorUserId, null, user.Id, $"Conta {user.DisplayName} salva com perfil {user.ProfileType}.", cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
-        if (removeInitialAccessFileAfterSave)
-        {
-            DeleteInitialAccessFile();
-        }
         return new OperationResult(true, isNew ? "Usuário criado." : "Usuário atualizado.");
-    }
-
-    public async Task<OperationResult> UpsertMachineAsync(MachineUpsertRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
-    {
-        var machineKey = TextSanitizer.Normalize(request.MachineKey).ToLowerInvariant();
-        var name = TextSanitizer.Normalize(request.Name);
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return new OperationResult(false, "Informe o nome da máquina.");
-        }
-
-        if (name.Length > 100)
-        {
-            return new OperationResult(false, "O nome da máquina deve ter no máximo 100 caracteres.");
-        }
-
-        if (!Enum.IsDefined(request.Kind))
-        {
-            return new OperationResult(false, "Informe um tipo de máquina válido.");
-        }
-
-        var isNew = !request.Id.HasValue || request.Id == Guid.Empty;
-        var preservePairedCredential = false;
-        Machine machine;
-        if (isNew)
-        {
-            if (machineKey.Length < 16 || machineKey.Length > 100)
-            {
-                return new OperationResult(false, "A chave da máquina deve ter entre 16 e 100 caracteres.");
-            }
-
-            if (await db.Machines.AnyAsync(entry => entry.MachineKey == machineKey || entry.Name == name, cancellationToken))
-            {
-                return new OperationResult(false, "Já existe uma máquina com esse nome ou chave.");
-            }
-
-            machine = new Machine { Status = MachineStatus.Offline };
-            db.Machines.Add(machine);
-        }
-        else
-        {
-            var id = request.Id.GetValueOrDefault();
-            machine = await db.Machines.FirstOrDefaultAsync(entry => entry.Id == id, cancellationToken)
-                ?? throw new InvalidOperationException("Máquina não encontrada.");
-
-            preservePairedCredential = machine.MachineKey.StartsWith("paired:", StringComparison.OrdinalIgnoreCase);
-            if (!preservePairedCredential && (machineKey.Length < 16 || machineKey.Length > 100))
-            {
-                return new OperationResult(false, "A chave da máquina deve ter entre 16 e 100 caracteres.");
-            }
-
-            var duplicateExists = preservePairedCredential
-                ? await db.Machines.AnyAsync(entry => entry.Id != id && entry.Name == name, cancellationToken)
-                : await db.Machines.AnyAsync(entry => entry.Id != id && (entry.MachineKey == machineKey || entry.Name == name), cancellationToken);
-            if (duplicateExists)
-            {
-                return new OperationResult(false, preservePairedCredential
-                    ? "Já existe outra máquina com esse nome."
-                    : "Já existe outra máquina com esse nome ou chave.");
-            }
-        }
-
-        if (!preservePairedCredential)
-        {
-            machine.MachineKey = machineKey;
-            machine.MachineCredentialHash = MachineAuthentication.DeriveSigningKey(machineKey);
-            if (string.IsNullOrWhiteSpace(machine.MachineCredentialId))
-            {
-                machine.MachineCredentialId = Guid.NewGuid().ToString("N");
-            }
-            machine.IsRevoked = false;
-            machine.MachineCredentialVersion = Math.Max(1, machine.MachineCredentialVersion);
-        }
-        machine.ProtocolVersion = ProtocolContract.CurrentVersion;
-        machine.Name = name;
-        machine.Kind = request.Kind;
-        machine.GroupName = TextSanitizer.Normalize(request.GroupName);
-        machine.Observations = TextSanitizer.Normalize(request.Observations);
-        machine.Touch();
-
-        await LogAsync("Maquina", isNew ? "Criacao" : "Atualizacao", actorUserId, machine.Id, null, $"Máquina {machine.Name} salva.", cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        return new OperationResult(true, isNew ? "Máquina cadastrada." : preservePairedCredential
-            ? "Máquina atualizada. A credencial de pareamento foi preservada."
-            : "Máquina atualizada.");
-    }
-
-    public async Task<MachinePairingSessionDto?> StartMachinePairingAsync(
-        MachinePairingStartRequest request,
-        Guid actorUserId,
-        CancellationToken cancellationToken = default)
-    {
-        var machine = await db.Machines.FirstOrDefaultAsync(item => item.Id == request.MachineId, cancellationToken);
-        if (machine is null || machine.IsRevoked)
-        {
-            return null;
-        }
-
-        var previous = await db.MachinePairingSessions
-            .Where(item => item.MachineId == machine.Id && (item.Status == "WAITING" || item.Status == "REQUESTED" || item.Status == "APPROVED"))
-            .ToListAsync(cancellationToken);
-        foreach (var item in previous)
-        {
-            item.Status = "CANCELLED";
-            item.Touch();
-        }
-
-        string code;
-        string codeHash;
-        do
-        {
-            code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6", CultureInfo.InvariantCulture);
-            codeHash = HashPairingCode(code);
-        }
-        while (await db.MachinePairingSessions.AnyAsync(item => item.CodeHash == codeHash && item.ExpiresAtUtc > DateTime.UtcNow, cancellationToken));
-
-        var pairing = new MachinePairingSession
-        {
-            MachineId = machine.Id,
-            CodeHash = codeHash,
-            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(10),
-            Status = "WAITING"
-        };
-        db.MachinePairingSessions.Add(pairing);
-        await LogAsync("Pareamento", "Iniciado", actorUserId, machine.Id, null, $"Pareamento iniciado para {machine.Name}.", cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return new MachinePairingSessionDto
-        {
-            Id = pairing.Id,
-            MachineId = machine.Id,
-            MachineName = machine.Name,
-            Code = code,
-            ExpiresAtUtc = pairing.ExpiresAtUtc,
-            Status = pairing.Status
-        };
-    }
-
-    public async Task<OperationResult> RevokeMachineAsync(Guid machineId, Guid actorUserId, CancellationToken cancellationToken = default)
-    {
-        var machine = await db.Machines.FirstOrDefaultAsync(item => item.Id == machineId, cancellationToken);
-        if (machine is null)
-        {
-            return new OperationResult(false, "Máquina não encontrada.");
-        }
-
-        machine.IsRevoked = true;
-        machine.MachineCredentialVersion = Math.Max(1, machine.MachineCredentialVersion + 1);
-        machine.Status = MachineStatus.Locked;
-        machine.CurrentSessionId = null;
-        machine.LastCommandSummary = "Credencial revogada";
-        machine.Touch();
-        await LogAsync("Pareamento", "Revogado", actorUserId, machine.Id, null, $"Credencial da máquina {machine.Name} revogada.", cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        return new OperationResult(true, "Máquina revogada. A credencial anterior não é mais válida.");
-    }
-
-    public async Task<MachinePairingSessionDto?> GetMachinePairingAsync(Guid pairingSessionId, CancellationToken cancellationToken = default)
-    {
-        var pairing = await db.MachinePairingSessions.AsNoTracking().FirstOrDefaultAsync(item => item.Id == pairingSessionId, cancellationToken);
-        if (pairing is null)
-        {
-            return null;
-        }
-
-        if (pairing.ExpiresAtUtc <= DateTime.UtcNow && pairing.Status is "WAITING" or "REQUESTED")
-        {
-            pairing.Status = "EXPIRED";
-        }
-
-        var machineName = await db.Machines.AsNoTracking()
-            .Where(item => item.Id == pairing.MachineId)
-            .Select(item => item.Name)
-            .FirstOrDefaultAsync(cancellationToken) ?? "Desconhecida";
-
-        return new MachinePairingSessionDto
-        {
-            Id = pairing.Id,
-            MachineId = pairing.MachineId,
-            MachineName = machineName,
-            ExpiresAtUtc = pairing.ExpiresAtUtc,
-            RequestedAtUtc = pairing.RequestedAtUtc,
-            Status = pairing.Status,
-            Hostname = pairing.Hostname,
-            MachineFingerprint = pairing.MachineFingerprint
-        };
-    }
-
-    public async Task<OperationResult> ApproveMachinePairingAsync(Guid pairingSessionId, Guid actorUserId, CancellationToken cancellationToken = default)
-    {
-        var pairing = await db.MachinePairingSessions.FirstOrDefaultAsync(item => item.Id == pairingSessionId, cancellationToken);
-        if (pairing is null || pairing.ExpiresAtUtc <= DateTime.UtcNow)
-        {
-            return new OperationResult(false, "O pareamento não existe ou expirou.");
-        }
-
-        if (pairing.Status != "REQUESTED")
-        {
-            return new OperationResult(false, "O pareamento ainda não tem uma solicitação pendente.");
-        }
-
-        pairing.Status = "APPROVED";
-        pairing.ApprovedAtUtc = DateTime.UtcNow;
-        pairing.ApprovedByUserId = actorUserId;
-        pairing.Touch();
-        await LogAsync("Pareamento", "Aprovado", actorUserId, pairing.MachineId, null, "Pareamento aprovado pelo administrador.", cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        return new OperationResult(true, "Pareamento aprovado. O Client receberá a credencial na próxima verificação.");
-    }
-
-    public async Task<ClientPairingResponse> RequestMachinePairingAsync(ClientPairingRequest request, CancellationToken cancellationToken = default)
-    {
-        var requestCode = request.Code?.Trim() ?? string.Empty;
-        if (requestCode.Length != 6 || !requestCode.All(char.IsDigit))
-        {
-            return new ClientPairingResponse { Success = false, Message = "Código de pareamento inválido." };
-        }
-
-        var codeHash = HashPairingCode(requestCode);
-        var pairing = await db.MachinePairingSessions.FirstOrDefaultAsync(item => item.CodeHash == codeHash, cancellationToken);
-        if (pairing is null || pairing.ExpiresAtUtc <= DateTime.UtcNow || pairing.Status is "CANCELLED" or "EXPIRED" or "COMPLETED")
-        {
-            return new ClientPairingResponse { Success = false, Message = "Código inválido, expirado ou já utilizado." };
-        }
-
-        if (pairing.Status != "WAITING")
-        {
-            return new ClientPairingResponse
-            {
-                Success = pairing.Status is "REQUESTED" or "APPROVED",
-                AwaitingApproval = pairing.Status is "REQUESTED" or "APPROVED",
-                PairingSessionId = pairing.Id,
-                ExpiresAtUtc = pairing.ExpiresAtUtc,
-                Message = pairing.Status == "APPROVED" ? "Pareamento aprovado. Verificando a entrega da credencial..." : "Aguardando aprovação do administrador."
-            };
-        }
-
-        pairing.Hostname = TextSanitizer.Normalize(request.Hostname);
-        pairing.MachineFingerprint = TextSanitizer.Normalize(request.MachineFingerprint);
-        pairing.RequestedAtUtc = DateTime.UtcNow;
-        pairing.Status = "REQUESTED";
-        pairing.Touch();
-        await LogAsync("Pareamento", "Solicitado", null, pairing.MachineId, null, "Uma estação solicitou pareamento.", cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        return new ClientPairingResponse
-        {
-            Success = true,
-            AwaitingApproval = true,
-            PairingSessionId = pairing.Id,
-            ExpiresAtUtc = pairing.ExpiresAtUtc,
-            Message = "Aguardando aprovação do administrador."
-        };
-    }
-
-    public async Task<ClientPairingResponse> PollMachinePairingAsync(ClientPairingPollRequest request, CancellationToken cancellationToken = default)
-    {
-        var requestCode = request.Code?.Trim() ?? string.Empty;
-        if (requestCode.Length != 6 || !requestCode.All(char.IsDigit))
-        {
-            return new ClientPairingResponse { Success = false, Message = "Código de pareamento inválido." };
-        }
-
-        var pairing = await db.MachinePairingSessions.FirstOrDefaultAsync(item => item.Id == request.PairingSessionId, cancellationToken);
-        if (pairing is null || pairing.CodeHash != HashPairingCode(requestCode) || pairing.ExpiresAtUtc <= DateTime.UtcNow)
-        {
-            return new ClientPairingResponse { Success = false, Message = "Sessão de pareamento inválida ou expirada." };
-        }
-
-        if (pairing.Status != "APPROVED")
-        {
-            return new ClientPairingResponse
-            {
-                Success = pairing.Status == "REQUESTED",
-                AwaitingApproval = pairing.Status == "REQUESTED",
-                PairingSessionId = pairing.Id,
-                ExpiresAtUtc = pairing.ExpiresAtUtc,
-                Message = pairing.Status == "REQUESTED" ? "Aguardando aprovação do administrador." : "O pareamento ainda não foi aprovado."
-            };
-        }
-
-        var machine = await db.Machines.FirstOrDefaultAsync(item => item.Id == pairing.MachineId, cancellationToken);
-        if (machine is null || machine.IsRevoked)
-        {
-            return new ClientPairingResponse { Success = false, Message = "A estação não está disponível para pareamento." };
-        }
-
-        var secret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-        machine.MachineKey = secret;
-        machine.MachineCredentialHash = MachineAuthentication.DeriveSigningKey(machine.MachineKey);
-        machine.MachineKey = $"paired:{machine.MachineCredentialId}";
-        machine.MachineCredentialVersion = Math.Max(1, machine.MachineCredentialVersion + 1);
-        machine.Status = MachineStatus.Locked;
-        machine.AgentHealthy = false;
-        machine.Touch();
-        pairing.Status = "COMPLETED";
-        pairing.CompletedAtUtc = DateTime.UtcNow;
-        pairing.Touch();
-        await LogAsync("Pareamento", "Concluído", pairing.ApprovedByUserId, machine.Id, null, "Credencial individual criada para a estação.", cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        return new ClientPairingResponse
-        {
-            Success = true,
-            PairingSessionId = pairing.Id,
-            MachineId = machine.Id,
-            MachineCredentialId = machine.MachineCredentialId,
-            MachineSecret = secret,
-            Message = "Pareamento concluído. Credencial protegida recebida pelo Client."
-        };
-    }
-
-    private static string HashPairingCode(string code)
-    {
-        var normalized = new string((code ?? string.Empty).Where(char.IsDigit).Take(12).ToArray());
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
     }
 
     public async Task<OperationResult> AddLedgerEntryAsync(LedgerEntryRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
@@ -763,14 +361,9 @@ public sealed class CafeManagementService(
         }
 
         var amount = Math.Round(request.Amount, 2);
-        if (amount == 0m || Math.Abs(amount) > 1_000_000m || !Enum.IsDefined(request.Type))
+        if (amount == 0m)
         {
-            return new OperationResult(false, "Informe tipo e valor financeiro válidos.");
-        }
-
-        if (request.Type is LedgerEntryType.Credit or LedgerEntryType.Annotation or LedgerEntryType.PaymentPromise && amount < 0m)
-        {
-            return new OperationResult(false, "Use valores positivos para crédito, anotação e promessa de pagamento.");
+            return new OperationResult(false, "Informe um valor diferente de zero.");
         }
 
         if (request.Type == LedgerEntryType.Annotation && !user.HasUnlimitedAnnotations)
@@ -831,15 +424,6 @@ public sealed class CafeManagementService(
         if (request.UserAccountId.HasValue)
         {
             user = await db.Users.FirstOrDefaultAsync(entry => entry.Id == request.UserAccountId.Value, cancellationToken);
-            if (user is null)
-            {
-                return new OperationResult(false, "Usuário não encontrado.");
-            }
-
-            if (user.IsBlocked || user.TemporaryUntilUtc.HasValue && user.TemporaryUntilUtc < DateTime.UtcNow)
-            {
-                return new OperationResult(false, "A conta informada está bloqueada ou expirada.");
-            }
         }
 
         var profile = user?.ProfileType ?? UserProfileType.Ghost;
@@ -847,11 +431,6 @@ public sealed class CafeManagementService(
         if (profile == UserProfileType.Common && !request.IsDemoMode && request.GrantedMinutes <= 0)
         {
             return new OperationResult(false, "Usuários comuns precisam iniciar com tempo maior que zero.");
-        }
-
-        if (request.GrantedMinutes is < 0 or > 43_200 || request.HourlyRate is < 0m or > 100_000m)
-        {
-            return new OperationResult(false, "Minutos ou valor por hora estão fora do limite permitido.");
         }
 
         var settings = await GetSettingsEntityAsync(cancellationToken);
@@ -893,43 +472,16 @@ public sealed class CafeManagementService(
         });
 
         await LogAsync("Sessao", "Inicio", actorUserId, machine.Id, user?.Id, $"Sessão iniciada em {machine.Name} para {session.UserDisplayName}.", cancellationToken);
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-            return new OperationResult(true, "Sessão iniciada.");
-        }
-        catch (DbUpdateException exception)
-        {
-            logger.LogWarning(exception, "Concorrência detectada ao iniciar sessão na máquina {MachineId}.", machine.Id);
-            return new OperationResult(false, "Essa máquina já recebeu outra sessão. Atualize a tela e tente novamente.");
-        }
+        await db.SaveChangesAsync(cancellationToken);
+        return new OperationResult(true, "Sessão iniciada.");
     }
 
     public async Task<OperationResult> AdjustSessionAsync(SessionAdjustRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var session = await db.Sessions.FirstOrDefaultAsync(entry => entry.Id == request.SessionId, cancellationToken);
         if (session is null)
         {
             return new OperationResult(false, "Sessão não encontrada.");
-        }
-
-        if (session.Status != SessionStatus.Active)
-        {
-            return new OperationResult(false, "Somente sessões ativas podem ser ajustadas.");
-        }
-
-        if (request.AdditionalMinutes is < -1_440 or > 43_200 ||
-            Math.Abs(request.AdditionalAnnotationAmount) > 1_000_000m ||
-            request.AdditionalMinutes == 0 && request.AdditionalAnnotationAmount == 0m)
-        {
-            return new OperationResult(false, "Informe um ajuste de tempo ou anotação dentro dos limites permitidos.");
-        }
-
-        if (session.RemainingMinutes + request.AdditionalMinutes < 0 ||
-            session.GrantedMinutes + request.AdditionalMinutes < 0)
-        {
-            return new OperationResult(false, "O ajuste não pode deixar o tempo da sessão negativo.");
         }
 
         session.GrantedMinutes += request.AdditionalMinutes;
@@ -949,14 +501,12 @@ public sealed class CafeManagementService(
 
             if (!ledgerResult.Success)
             {
-                await transaction.RollbackAsync(cancellationToken);
                 return ledgerResult;
             }
         }
 
         await LogAsync("Sessao", "Ajuste", actorUserId, session.MachineId, session.UserAccountId, $"Sessão ajustada com {request.AdditionalMinutes} minutos extras.", cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
         return new OperationResult(true, "Sessão ajustada.");
     }
 
@@ -1003,39 +553,10 @@ public sealed class CafeManagementService(
 
     public async Task<OperationResult> QueueMachineCommandAsync(MachineCommandRequest request, Guid actorUserId, CancellationToken cancellationToken = default)
     {
-        if (request.Type is not (RemoteCommandType.LockScreen or RemoteCommandType.UnlockStation or
-            RemoteCommandType.RestartStation or RemoteCommandType.ShutdownStation or RemoteCommandType.LogoffStation or
-            RemoteCommandType.EnterMaintenance or RemoteCommandType.ExitMaintenance or RemoteCommandType.RefreshConfiguration or
-            RemoteCommandType.ShowMessage or RemoteCommandType.ToggleTimerVisibility))
-        {
-            return new OperationResult(false, "Esse tipo de comando não é permitido pelo cliente seguro.");
-        }
-
         var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.Id == request.MachineId, cancellationToken);
         if (machine is null)
         {
             return new OperationResult(false, "Máquina não encontrada.");
-        }
-
-        var payload = string.Empty;
-        if (request.Type == RemoteCommandType.ToggleTimerVisibility)
-        {
-            try
-            {
-                using var document = JsonDocument.Parse(request.PayloadJson ?? string.Empty);
-                if (document.RootElement.ValueKind != JsonValueKind.Object ||
-                    !document.RootElement.TryGetProperty("show", out var show) ||
-                    show.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
-                {
-                    return new OperationResult(false, "A política do comando de exibição é inválida.");
-                }
-
-                payload = JsonSerializer.Serialize(new { show = show.GetBoolean() }, JsonDefaults.Options);
-            }
-            catch (JsonException)
-            {
-                return new OperationResult(false, "A política do comando é inválida.");
-            }
         }
 
         db.RemoteCommands.Add(new RemoteCommand
@@ -1045,23 +566,14 @@ public sealed class CafeManagementService(
             Type = request.Type,
             Title = TextSanitizer.Normalize(request.Title),
             Message = TextSanitizer.Normalize(request.Message),
-            PayloadJson = payload,
-            RequestedAtUtc = DateTime.UtcNow,
-            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+            PayloadJson = request.PayloadJson ?? string.Empty,
+            RequestedAtUtc = DateTime.UtcNow
         });
 
         machine.LastCommandSummary = $"{request.Type} às {DateTime.Now:HH:mm}";
-        if (request.Type is RemoteCommandType.LockScreen or RemoteCommandType.ShutdownStation or RemoteCommandType.LogoffStation)
+        if (request.Type == RemoteCommandType.LockScreen)
         {
             machine.Status = MachineStatus.Locked;
-        }
-        else if (request.Type == RemoteCommandType.UnlockStation)
-        {
-            machine.Status = MachineStatus.Idle;
-        }
-        else if (request.Type == RemoteCommandType.EnterMaintenance)
-        {
-            machine.Status = MachineStatus.Maintenance;
         }
 
         await LogAsync("Maquina", request.Type.ToString(), actorUserId, machine.Id, null, $"Comando {request.Type} enviado para {machine.Name}.", cancellationToken);
@@ -1077,66 +589,11 @@ public sealed class CafeManagementService(
             return new OperationResult(false, "Solicitação não encontrada.");
         }
 
-        if (entry.Status != ClientRequestStatus.Pending)
-        {
-            return new OperationResult(false, "Essa solicitação já foi processada.");
-        }
-
         entry.Status = request.Approve ? ClientRequestStatus.Approved : ClientRequestStatus.Rejected;
         entry.ResolvedAtUtc = DateTime.UtcNow;
         entry.ResolvedByUserId = actorUserId;
         entry.AdminResponse = TextSanitizer.Normalize(request.ResponseMessage);
         entry.Touch();
-
-        if (request.Approve && entry.Type == ClientRequestType.Registration)
-        {
-            var login = entry.RequestedLogin.Trim().ToLowerInvariant();
-            if (!LoginRules.LooksLikeLetterLogin(login) || await db.Users.AnyAsync(user => user.Login == login, cancellationToken))
-            {
-                return new OperationResult(false, "O login solicitado é inválido ou já está em uso.");
-            }
-
-            using var payload = JsonDocument.Parse(entry.PayloadJson);
-            var pinHash = payload.RootElement.TryGetProperty("pinHash", out var pinHashProperty)
-                ? pinHashProperty.GetString() ?? string.Empty
-                : string.Empty;
-            if (string.IsNullOrWhiteSpace(pinHash))
-            {
-                return new OperationResult(false, "A solicitação não contém um PIN válido.");
-            }
-
-            var settings = await GetSettingsEntityAsync(cancellationToken);
-            var user = new UserAccount
-            {
-                DisplayName = string.IsNullOrWhiteSpace(entry.RequestedDisplayName) ? login : entry.RequestedDisplayName,
-                Login = login,
-                PinHash = pinHash,
-                PasswordHash = PasswordHasher.Hash(Guid.NewGuid().ToString("N")),
-                ProfileType = UserProfileType.Common,
-                AnnotationLimit = settings.DefaultCommonAnnotationLimit
-            };
-            db.Users.Add(user);
-            entry.UserAccountId = user.Id;
-        }
-        else if (request.Approve && entry.Type == ClientRequestType.MoreTime)
-        {
-            var session = await db.Sessions
-                .FirstOrDefaultAsync(item => item.MachineId == entry.MachineId && item.Status == SessionStatus.Active, cancellationToken);
-            if (session is null)
-            {
-                return new OperationResult(false, "Não há sessão ativa nessa máquina para adicionar tempo.");
-            }
-
-            using var payload = JsonDocument.Parse(entry.PayloadJson);
-            var requestedMinutes = payload.RootElement.TryGetProperty("amount", out var amountProperty) && amountProperty.TryGetDecimal(out var amount)
-                ? (int)Math.Round(amount)
-                : 0;
-            var additionalMinutes = Math.Clamp(requestedMinutes <= 0 ? 30 : requestedMinutes, 1, 720);
-            session.GrantedMinutes += additionalMinutes;
-            session.RemainingMinutes += additionalMinutes;
-            session.Touch();
-            entry.UserAccountId = session.UserAccountId;
-        }
 
         db.Notifications.Add(new NotificationRecord
         {
@@ -1160,7 +617,7 @@ public sealed class CafeManagementService(
         await EnsureInitializedAsync(cancellationToken);
 
         var settings = await GetSettingsEntityAsync(cancellationToken);
-        var snapshot = await CreateBackupSnapshotAsync(settings, actorUserId, cancellationToken);
+        var snapshot = await CreateBackupSnapshotAsync(settings, true, actorUserId, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         return new OperationResult(
@@ -1168,79 +625,6 @@ public sealed class CafeManagementService(
             snapshot.Succeeded
                 ? $"Backup manual concluído em {snapshot.FolderPath}."
                 : $"Falha ao gerar backup manual: {snapshot.Summary}");
-    }
-
-    public async Task<DatabaseIntegrityResult> CheckDatabaseIntegrityAsync(CancellationToken cancellationToken = default)
-    {
-        var connection = db.Database.GetDbConnection();
-        var shouldClose = connection.State != System.Data.ConnectionState.Open;
-        if (shouldClose)
-        {
-            await connection.OpenAsync(cancellationToken);
-        }
-
-        try
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = "PRAGMA integrity_check;";
-            var detail = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken)) ?? "";
-            return new DatabaseIntegrityResult(
-                string.Equals(detail, "ok", StringComparison.OrdinalIgnoreCase),
-                detail,
-                DateTime.UtcNow);
-        }
-        finally
-        {
-            if (shouldClose)
-            {
-                await connection.CloseAsync();
-            }
-        }
-    }
-
-    public async Task<BackupValidationResult> ValidateBackupAsync(string backupPath, CancellationToken cancellationToken = default)
-    {
-        var backupRoot = Path.GetFullPath(storagePaths.BackupDirectory) + Path.DirectorySeparatorChar;
-        var candidate = Path.GetFullPath(backupPath ?? string.Empty);
-        if (!candidate.StartsWith(backupRoot, StringComparison.OrdinalIgnoreCase) ||
-            !candidate.EndsWith(".db", StringComparison.OrdinalIgnoreCase) || !File.Exists(candidate))
-        {
-            return new BackupValidationResult(false, "O arquivo de backup não está em uma localização permitida.", DateTime.UtcNow);
-        }
-
-        try
-        {
-            await using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={candidate};Mode=ReadOnly;Cache=Private;Pooling=False");
-            await connection.OpenAsync(cancellationToken);
-            await using var command = connection.CreateCommand();
-            command.CommandText = "PRAGMA integrity_check;";
-            var detail = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken)) ?? "";
-            if (!string.Equals(detail, "ok", StringComparison.OrdinalIgnoreCase))
-            {
-                return new BackupValidationResult(false, detail, DateTime.UtcNow);
-            }
-
-            var recordedChecksum = await db.Backups.AsNoTracking()
-                .Where(snapshot => snapshot.FolderPath == candidate && snapshot.Sha256 != null && snapshot.Sha256 != "")
-                .OrderByDescending(snapshot => snapshot.CreatedAtUtc)
-                .Select(snapshot => snapshot.Sha256)
-                .FirstOrDefaultAsync(cancellationToken);
-            if (!string.IsNullOrWhiteSpace(recordedChecksum))
-            {
-                await using var backupStream = File.OpenRead(candidate);
-                var actualChecksum = Convert.ToHexString(await SHA256.HashDataAsync(backupStream, cancellationToken));
-                if (!string.Equals(recordedChecksum, actualChecksum, StringComparison.OrdinalIgnoreCase))
-                {
-                    return new BackupValidationResult(false, "O checksum do backup não corresponde ao registro salvo.", DateTime.UtcNow);
-                }
-            }
-
-            return new BackupValidationResult(true, detail, DateTime.UtcNow);
-        }
-        catch (Exception exception) when (exception is Microsoft.Data.Sqlite.SqliteException or IOException)
-        {
-            return new BackupValidationResult(false, "Não foi possível abrir ou validar o backup.", DateTime.UtcNow);
-        }
     }
 
     public async Task<FileExportResult?> ExportReportAsync(ReportFilterRequest request, CancellationToken cancellationToken = default)
@@ -1258,7 +642,24 @@ public sealed class CafeManagementService(
         var users = await db.Users.AsNoTracking().ToDictionaryAsync(entry => entry.Id, cancellationToken);
         var settings = await GetSettingsEntityAsync(cancellationToken);
 
-        return reportExporter.Export(settings.CafeName, request, sessions, ledger, machines, users);
+        var summaryLines = BuildSummaryLines(settings.CafeName, request, sessions, ledger, machines, users);
+
+        return request.Format switch
+        {
+            ReportExportFormat.Txt => new FileExportResult(
+                $"relatorio-{request.StartDate:yyyyMMdd}-{request.EndDate:yyyyMMdd}.txt",
+                "text/plain",
+                Encoding.UTF8.GetBytes(string.Join(Environment.NewLine, summaryLines))),
+            ReportExportFormat.Excel => new FileExportResult(
+                $"relatorio-{request.StartDate:yyyyMMdd}-{request.EndDate:yyyyMMdd}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                BuildExcel(summaryLines, sessions, ledger, machines, users)),
+            ReportExportFormat.Pdf => new FileExportResult(
+                $"relatorio-{request.StartDate:yyyyMMdd}-{request.EndDate:yyyyMMdd}.pdf",
+                "application/pdf",
+                BuildPdf(summaryLines, sessions, ledger, machines, users)),
+            _ => null
+        };
     }
 
     public async Task<ClientLoginResponse> LoginClientAsync(ClientLoginRequest request, CancellationToken cancellationToken = default)
@@ -1267,15 +668,7 @@ public sealed class CafeManagementService(
         var login = TextSanitizer.Normalize(request.Login).ToLowerInvariant();
         var pin = TextSanitizer.Normalize(request.Pin);
 
-        if (machineKey.Length > 100)
-        {
-            return new ClientLoginResponse { Success = false, Message = "Identificação da máquina inválida." };
-        }
-
-        var machine = request.MachineId.HasValue && !string.IsNullOrWhiteSpace(request.MachineCredentialId)
-            ? await db.Machines.FirstOrDefaultAsync(entry => entry.Id == request.MachineId.Value &&
-                entry.MachineCredentialId == request.MachineCredentialId && !entry.IsRevoked, cancellationToken)
-            : await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey && !entry.IsRevoked, cancellationToken);
+        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey, cancellationToken);
         if (machine is null)
         {
             return new ClientLoginResponse
@@ -1314,7 +707,7 @@ public sealed class CafeManagementService(
         }
 
         var user = await db.Users.FirstOrDefaultAsync(entry => entry.Login == login, cancellationToken);
-        if (user is null || user.IsBlocked || !PasswordHasher.Verify(user.PinHash, pin))
+        if (user is null || !PasswordHasher.Verify(user.PinHash, pin))
         {
             await LogAsync("Cliente", "LoginNegado", null, machine.Id, user?.Id, $"Falha de login no cliente para {login}.", cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
@@ -1394,73 +787,40 @@ public sealed class CafeManagementService(
 
     public async Task<ClientHeartbeatResponse> SyncClientHeartbeatAsync(ClientHeartbeatRequest request, CancellationToken cancellationToken = default)
     {
-        var machineKey = TextSanitizer.Normalize(request.MachineKey).ToLowerInvariant();
-        if (machineKey.Length > 100 || !Enum.IsDefined(request.Status))
-        {
-            return new ClientHeartbeatResponse { Success = false, Message = "Heartbeat inválido." };
-        }
-
-        var machine = request.MachineId.HasValue && !string.IsNullOrWhiteSpace(request.MachineCredentialId)
-            ? await db.Machines.FirstOrDefaultAsync(entry => entry.Id == request.MachineId.Value &&
-                entry.MachineCredentialId == request.MachineCredentialId && !entry.IsRevoked, cancellationToken)
-            : await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey && !entry.IsRevoked, cancellationToken);
+        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == request.MachineKey, cancellationToken);
         if (machine is null)
         {
-            return new ClientHeartbeatResponse
+            machine = new Machine
             {
-                Success = false,
-                Message = "Máquina não cadastrada. Cadastre no painel ADMIN usando a mesma chave."
+                MachineKey = request.MachineKey,
+                Name = request.MachineName,
+                Hostname = request.Hostname,
+                IpAddress = request.IpAddress,
+                Kind = request.Kind
             };
+
+            db.Machines.Add(machine);
         }
 
-        var hostname = TextSanitizer.Normalize(request.Hostname);
-        var ipAddress = TextSanitizer.Normalize(request.IpAddress);
-        machine.Hostname = hostname[..Math.Min(100, hostname.Length)];
-        machine.IpAddress = ipAddress[..Math.Min(64, ipAddress.Length)];
+        machine.Name = string.IsNullOrWhiteSpace(request.MachineName) ? machine.Name : request.MachineName;
+        machine.Hostname = request.Hostname;
+        machine.IpAddress = request.IpAddress;
+        machine.Kind = request.Kind;
         machine.Status = request.Status;
         machine.LastSeenUtc = DateTime.UtcNow;
-        var clientVersion = TextSanitizer.Normalize(request.ClientVersion);
-        var agentVersion = TextSanitizer.Normalize(request.AgentVersion);
-        machine.ClientVersion = clientVersion[..Math.Min(32, clientVersion.Length)];
-        machine.AgentVersion = agentVersion[..Math.Min(32, agentVersion.Length)];
-        machine.AgentHealthy = request.AgentHealthy;
-        machine.LastAgentSeenUtc = request.AgentHealthy ? DateTime.UtcNow : machine.LastAgentSeenUtc;
-        machine.PolicyVersion = Math.Max(1, request.PolicyVersion);
-        machine.ProtocolVersion = request.ProtocolVersion;
         machine.Touch();
 
-        var acknowledgedCommandIds = request.AcknowledgedCommandIds.Take(100).ToList();
-        if (acknowledgedCommandIds.Count > 0)
+        var oldSnapshots = db.ProcessSnapshots.Where(entry => entry.MachineId == machine.Id);
+        db.ProcessSnapshots.RemoveRange(oldSnapshots);
+        foreach (var process in request.Processes.Take(20))
         {
-            var acknowledgedCommands = await db.RemoteCommands
-                .Where(entry => entry.MachineId == machine.Id && acknowledgedCommandIds.Contains(entry.Id) &&
-                                (!entry.ExpiresAtUtc.HasValue || entry.ExpiresAtUtc > DateTime.UtcNow))
-                .ToListAsync(cancellationToken);
-            foreach (var command in acknowledgedCommands)
+            db.ProcessSnapshots.Add(new MachineProcessSnapshot
             {
-                command.Status = RemoteCommandStatus.Completed;
-                command.ExecutedAtUtc = DateTime.UtcNow;
-                command.ResultSummary = "Confirmado pelo Client.";
-                command.Touch();
-            }
-        }
-
-        var acknowledgedNotificationIds = request.AcknowledgedNotificationIds.Take(100).ToList();
-        if (acknowledgedNotificationIds.Count > 0)
-        {
-            var acknowledgedNotifications = await db.Notifications
-                .Where(entry => entry.MachineId == machine.Id && acknowledgedNotificationIds.Contains(entry.Id))
-                .ToListAsync(cancellationToken);
-            foreach (var notification in acknowledgedNotifications)
-            {
-                notification.IsReadByClient = true;
-                notification.Touch();
-            }
-        }
-
-        if (acknowledgedCommandIds.Count > 0 || acknowledgedNotificationIds.Count > 0)
-        {
-            await db.SaveChangesAsync(cancellationToken);
+                MachineId = machine.Id,
+                ProcessName = process.ProcessName,
+                WindowTitle = process.WindowTitle,
+                MemoryMb = process.MemoryMb
+            });
         }
 
         var settings = await GetSettingsEntityAsync(cancellationToken);
@@ -1479,23 +839,8 @@ public sealed class CafeManagementService(
                 ? MachineStatus.Locked
                 : request.Status;
 
-        var now = DateTime.UtcNow;
-        var expiredCommands = await db.RemoteCommands
-            .Where(entry => entry.MachineId == machine.Id &&
-                            (entry.Status == RemoteCommandStatus.Pending || entry.Status == RemoteCommandStatus.Delivered) &&
-                            entry.ExpiresAtUtc.HasValue && entry.ExpiresAtUtc <= now)
-            .ToListAsync(cancellationToken);
-        foreach (var command in expiredCommands)
-        {
-            command.Status = RemoteCommandStatus.Failed;
-            command.ResultSummary = "Expirado antes da execução.";
-            command.Touch();
-        }
-
         var commands = await db.RemoteCommands
-            .Where(entry => entry.MachineId == machine.Id &&
-                            (entry.Status == RemoteCommandStatus.Pending || entry.Status == RemoteCommandStatus.Delivered) &&
-                            (!entry.ExpiresAtUtc.HasValue || entry.ExpiresAtUtc > now))
+            .Where(entry => entry.MachineId == machine.Id && entry.Status == RemoteCommandStatus.Pending)
             .OrderBy(entry => entry.RequestedAtUtc)
             .ToListAsync(cancellationToken);
 
@@ -1510,132 +855,75 @@ public sealed class CafeManagementService(
             .OrderBy(entry => entry.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
+        foreach (var notification in notifications)
+        {
+            notification.IsReadByClient = true;
+            notification.Touch();
+        }
+
         await db.SaveChangesAsync(cancellationToken);
 
         return new ClientHeartbeatResponse
         {
-            Success = true,
-            Message = "Sincronização concluída.",
             MachineId = machine.Id,
             Settings = MapSettings(settings),
             RuntimeState = BuildRuntimeState(settings, machine, session, user, notifications),
-            Commands = commands.Select(entry => new RemoteCommandEnvelope(entry.Id, entry.Type, entry.Title, entry.Message, entry.PayloadJson, entry.ExpiresAtUtc)).ToList(),
+            Commands = commands.Select(entry => new RemoteCommandEnvelope(entry.Id, entry.Type, entry.Title, entry.Message, entry.PayloadJson)).ToList(),
             Notifications = notifications.Select(entry => new NotificationEnvelope(entry.Id, entry.Title, entry.Message, entry.Severity, entry.PlaySound)).ToList()
         };
     }
 
     public async Task<OperationResult> SubmitClientRequestsAsync(ClientRequestBatchRequest request, CancellationToken cancellationToken = default)
     {
-        var machineKey = TextSanitizer.Normalize(request.MachineKey).ToLowerInvariant();
-        if (machineKey.Length > 100)
-        {
-            return new OperationResult(false, "Identificação da máquina inválida.");
-        }
-
-        var machine = request.MachineId.HasValue && !string.IsNullOrWhiteSpace(request.MachineCredentialId)
-            ? await db.Machines.FirstOrDefaultAsync(entry => entry.Id == request.MachineId.Value &&
-                entry.MachineCredentialId == request.MachineCredentialId && !entry.IsRevoked, cancellationToken)
-            : await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == machineKey && !entry.IsRevoked, cancellationToken);
+        var machine = await db.Machines.FirstOrDefaultAsync(entry => entry.MachineKey == request.MachineKey, cancellationToken);
         if (machine is null)
         {
             return new OperationResult(false, "Máquina não registrada.");
         }
 
-        if (request.Requests.Count > 20)
-        {
-            return new OperationResult(false, "Envie no máximo 20 solicitações por lote.");
-        }
-
-        var normalizedRequests = request.Requests
-            .Select(item => new { Item = item, Id = item.RequestId == Guid.Empty ? Guid.NewGuid() : item.RequestId })
-            .ToList();
-        if (normalizedRequests.Select(item => item.Id).Distinct().Count() != normalizedRequests.Count)
-        {
-            return new OperationResult(false, "O lote contém identificadores de solicitação duplicados.");
-        }
-
-        var requestIds = normalizedRequests.Select(item => item.Id).ToList();
-        var existingRequestIds = (await db.ClientRequests.AsNoTracking()
-            .Where(item => requestIds.Contains(item.Id))
-            .Select(item => item.Id)
-            .ToListAsync(cancellationToken))
+        var requestIds = request.Requests.Select(item => item.Id).Where(id => id != Guid.Empty).ToList();
+        var existingIds = (await db.ClientRequests
+                .Where(entry => requestIds.Contains(entry.Id))
+                .Select(entry => entry.Id)
+                .ToListAsync(cancellationToken))
             .ToHashSet();
-        var logins = normalizedRequests
-            .Select(item => TextSanitizer.Normalize(item.Item.Login).ToLowerInvariant())
-            .Where(login => !string.IsNullOrWhiteSpace(login))
-            .Distinct()
-            .ToList();
-        var userIdsByLogin = await db.Users.AsNoTracking()
-            .Where(user => logins.Contains(user.Login))
-            .ToDictionaryAsync(user => user.Login, user => user.Id, cancellationToken);
-        var addedCount = 0;
+        var receivedCount = 0;
 
-        foreach (var requestItem in normalizedRequests)
+        foreach (var item in request.Requests)
         {
-            if (existingRequestIds.Contains(requestItem.Id))
+            var id = item.Id == Guid.Empty ? Guid.NewGuid() : item.Id;
+            if (!existingIds.Add(id))
             {
                 continue;
             }
 
-            var item = requestItem.Item;
-            if (!Enum.IsDefined(item.Type) || Math.Abs(item.Amount) > 43_200m)
-            {
-                return new OperationResult(false, "A solicitação contém tipo ou valor inválido.");
-            }
-
-            var login = TextSanitizer.Normalize(item.Login).ToLowerInvariant();
-            var displayName = TextSanitizer.Normalize(item.DisplayName);
-            if (item.Type == ClientRequestType.Registration &&
-                (!LoginRules.LooksLikeLetterLogin(login) ||
-                 (!LoginRules.LooksLikeFourDigitPin(item.Pin) && string.IsNullOrWhiteSpace(item.PinHash)) ||
-                 string.IsNullOrWhiteSpace(displayName)))
-            {
-                return new OperationResult(false, "Cadastro requer nome, login válido e PIN de 4 dígitos.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(item.PinHash) && !PasswordHasher.IsHashFormatValid(item.PinHash))
-            {
-                return new OperationResult(false, "O hash do PIN informado é inválido.");
-            }
-
-            var existingUserId = userIdsByLogin.TryGetValue(login, out var userId) ? userId : (Guid?)null;
-            var safePayload = JsonSerializer.Serialize(new
-            {
-                message = TextSanitizer.Normalize(item.Message),
-                amount = item.Amount,
-                pinHash = !string.IsNullOrWhiteSpace(item.PinHash)
-                    ? item.PinHash
-                    : LoginRules.LooksLikeFourDigitPin(item.Pin) ? PasswordHasher.Hash(item.Pin) : string.Empty
-            }, JsonDefaults.Options);
-
             db.ClientRequests.Add(new ClientRequestRecord
             {
-                Id = requestItem.Id,
+                Id = id,
                 MachineId = machine.Id,
-                UserAccountId = existingUserId,
                 Type = item.Type,
-                RequestedLogin = login,
-                RequestedDisplayName = displayName,
-                PayloadJson = safePayload,
-                RequestedAtUtc = item.OccurredAtUtc < DateTime.UtcNow.AddDays(-30) || item.OccurredAtUtc > DateTime.UtcNow.AddMinutes(5)
-                    ? DateTime.UtcNow
-                    : item.OccurredAtUtc
+                RequestedLogin = TextSanitizer.Normalize(item.Login),
+                RequestedDisplayName = TextSanitizer.Normalize(item.DisplayName),
+                PayloadJson = JsonSerializer.Serialize(item, JsonDefaults.Options),
+                RequestedAtUtc = item.OccurredAtUtc
             });
-            addedCount++;
+            receivedCount++;
         }
 
-        if (addedCount > 0)
+        if (receivedCount > 0)
         {
-            await LogAsync("Cliente", "Solicitacao", null, machine.Id, null, $"{addedCount} solicitações novas recebidas de {machine.Name}.", cancellationToken);
+            await LogAsync("Cliente", "Solicitacao", null, machine.Id, null, $"{receivedCount} solicitações recebidas de {machine.Name}.", cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        return new OperationResult(true, addedCount == 0 ? "Solicitações já sincronizadas anteriormente." : "Solicitações sincronizadas.");
+        return new OperationResult(true, "Solicitações sincronizadas.");
     }
 
     public async Task RunMaintenanceTickAsync(CancellationToken cancellationToken = default)
     {
+        await EnsureInitializedAsync(cancellationToken);
         await UpdateSessionsAsync(cancellationToken);
+        await RunBackupIfNecessaryAsync(cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
     }
 
@@ -1704,8 +992,7 @@ public sealed class CafeManagementService(
                             Status = RemoteCommandStatus.Pending,
                             Title = "Tempo encerrado",
                             Message = settings.LockMessage,
-                            RequestedAtUtc = DateTime.UtcNow,
-                            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(5)
+                            RequestedAtUtc = DateTime.UtcNow
                         });
                     }
 
@@ -1731,8 +1018,32 @@ public sealed class CafeManagementService(
         }
     }
 
+    private async Task RunBackupIfNecessaryAsync(CancellationToken cancellationToken)
+    {
+        var settings = await GetSettingsEntityAsync(cancellationToken);
+        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TimeZoneInfo.Local);
+        if (nowLocal.TimeOfDay < settings.BackupCutoffLocalTime.ToTimeSpan())
+        {
+            return;
+        }
+
+        var localStart = nowLocal.Date;
+        var localEnd = localStart.AddDays(1);
+        var utcStart = TimeZoneInfo.ConvertTimeToUtc(localStart, TimeZoneInfo.Local);
+        var utcEnd = TimeZoneInfo.ConvertTimeToUtc(localEnd, TimeZoneInfo.Local);
+        var alreadyDone = await db.Backups.AsNoTracking()
+            .AnyAsync(entry => entry.Succeeded && entry.ExecutedAtUtc >= utcStart && entry.ExecutedAtUtc < utcEnd, cancellationToken);
+        if (alreadyDone)
+        {
+            return;
+        }
+
+        await CreateBackupSnapshotAsync(settings, false, null, cancellationToken);
+    }
+
     private async Task<BackupSnapshot> CreateBackupSnapshotAsync(
         AdminSettings settings,
+        bool isManual,
         Guid? actorUserId,
         CancellationToken cancellationToken)
     {
@@ -1751,36 +1062,31 @@ public sealed class CafeManagementService(
             }
 
             await db.Database.ExecuteSqlInterpolatedAsync($"VACUUM INTO {destination}", cancellationToken);
-            var fileInfo = new FileInfo(destination);
-            await using var backupStream = File.OpenRead(destination);
-            var checksum = Convert.ToHexString(await SHA256.HashDataAsync(backupStream, cancellationToken));
             CleanupOldBackups(settings.BackupRetentionDays);
 
             var snapshot = new BackupSnapshot
             {
                 FolderPath = destination,
-                Sha256 = checksum,
-                SizeBytes = fileInfo.Length,
                 Succeeded = true,
-                Summary = "Backup manual concluído.",
+                Summary = isManual ? "Backup manual concluído." : "Backup automático diário concluído.",
                 ExecutedAtUtc = DateTime.UtcNow
             };
 
             db.Backups.Add(snapshot);
             await LogAsync(
                 "Backup",
-                "Manual",
+                isManual ? "Manual" : "Automatico",
                 actorUserId,
                 null,
                 null,
-                $"Backup manual gerado em {destination}.",
+                $"{(isManual ? "Backup manual" : "Backup automático")} gerado em {destination}.",
                 cancellationToken);
 
             return snapshot;
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Falha ao gerar backup manual.");
+            logger.LogError(exception, "Falha ao gerar backup {BackupMode}.", isManual ? "manual" : "automatico");
 
             var snapshot = new BackupSnapshot
             {
@@ -1805,21 +1111,6 @@ public sealed class CafeManagementService(
             {
                 File.Delete(file);
             }
-        }
-    }
-
-    private void DeleteInitialAccessFile()
-    {
-        var root = Path.GetDirectoryName(storagePaths.DatabaseFilePath);
-        if (string.IsNullOrWhiteSpace(root))
-        {
-            return;
-        }
-
-        var path = Path.Combine(root, AdrenalinaDatabaseInitializer.InitialAccessFileName);
-        if (File.Exists(path))
-        {
-            File.Delete(path);
         }
     }
 
@@ -1944,33 +1235,6 @@ public sealed class CafeManagementService(
     private static bool IsMachineOnline(Machine machine) =>
         machine.LastSeenUtc.HasValue && machine.LastSeenUtc.Value >= DateTime.UtcNow.AddMinutes(-2);
 
-    private static MachineDto MapMachine(Machine machine) => new()
-    {
-        Id = machine.Id,
-        MachineKey = machine.MachineKey,
-        Name = machine.Name,
-        Hostname = machine.Hostname,
-        IpAddress = machine.IpAddress,
-        Kind = machine.Kind,
-        Status = IsMachineOnline(machine) ? machine.Status : MachineStatus.Offline,
-        GroupName = machine.GroupName,
-        ServiceProtectionEnabled = machine.ServiceProtectionEnabled,
-        BandwidthLimitEnabled = machine.BandwidthLimitEnabled,
-        BandwidthLimitKbps = machine.BandwidthLimitKbps,
-        LastCommandSummary = machine.LastCommandSummary,
-        Observations = machine.Observations,
-        LastSeenUtc = machine.LastSeenUtc,
-        MachineCredentialId = machine.MachineCredentialId,
-        MachineCredentialVersion = machine.MachineCredentialVersion,
-        IsRevoked = machine.IsRevoked,
-        ClientVersion = machine.ClientVersion,
-        AgentVersion = machine.AgentVersion,
-        ProtocolVersion = machine.ProtocolVersion,
-        AgentHealthy = machine.AgentHealthy,
-        LastAgentSeenUtc = machine.LastAgentSeenUtc,
-        PolicyVersion = machine.PolicyVersion
-    };
-
     private static UserDto MapUser(UserAccount entry) => new()
     {
         Id = entry.Id,
@@ -1982,8 +1246,7 @@ public sealed class CafeManagementService(
         AnnotationLimit = entry.AnnotationLimit,
         IsTemporary = entry.IsTemporary,
         TemporaryUntilUtc = entry.TemporaryUntilUtc,
-        Notes = entry.Notes,
-        IsBlocked = entry.IsBlocked
+        Notes = entry.Notes
     };
 
     private static SessionDto MapSession(SessionRecord entry, string machineName) => new()
@@ -2088,4 +1351,146 @@ public sealed class CafeManagementService(
         };
     }
 
+    private static IReadOnlyList<string> BuildSummaryLines(
+        string cafeName,
+        ReportFilterRequest request,
+        IReadOnlyList<SessionRecord> sessions,
+        IReadOnlyList<LedgerEntry> ledger,
+        IReadOnlyDictionary<Guid, Machine> machines,
+        IReadOnlyDictionary<Guid, UserAccount> users)
+    {
+        var pcSessions = sessions.Where(entry => entry.MachineKind == MachineKind.Pc).ToList();
+        var consoleSessions = sessions.Where(entry => entry.MachineKind == MachineKind.Console).ToList();
+
+        return
+        [
+            cafeName,
+            $"Período: {request.StartDate:dd/MM/yyyy} a {request.EndDate:dd/MM/yyyy}",
+            $"Sessões de PC: {pcSessions.Count}",
+            $"Sessões de console: {consoleSessions.Count}",
+            $"Tempo total PCs: {pcSessions.Sum(entry => entry.ConsumedMinutes)} min",
+            $"Tempo total consoles: {consoleSessions.Sum(entry => entry.ConsumedMinutes)} min",
+            $"Valor anotado: R$ {ledger.Where(entry => entry.Type == LedgerEntryType.Annotation).Sum(entry => entry.Amount):N2}",
+            $"Pagamentos prometidos: R$ {ledger.Where(entry => entry.Type == LedgerEntryType.PaymentPromise).Sum(entry => entry.Amount):N2}",
+            $"Usuários atendidos: {sessions.Select(entry => entry.UserAccountId).Where(entry => entry.HasValue).Distinct().Count()}",
+            "",
+            "Sessões",
+            .. sessions.Select(entry =>
+            {
+                var machineName = machines.TryGetValue(entry.MachineId, out var machine) ? machine.Name : "Desconhecida";
+                var userName = entry.UserAccountId.HasValue && users.TryGetValue(entry.UserAccountId.Value, out var user)
+                    ? user.DisplayName
+                    : entry.UserDisplayName;
+                return $"- {machineName} | {userName} | {entry.MachineKind} | {entry.ConsumedMinutes} min | R$ {entry.TotalSpent:N2}";
+            }),
+            "",
+            "Financeiro",
+            .. ledger.Select(entry =>
+            {
+                var userName = users.TryGetValue(entry.UserAccountId, out var user) ? user.DisplayName : "Desconhecido";
+                var dueDate = entry.PromisedPaymentDateUtc.HasValue ? $" | vence {entry.PromisedPaymentDateUtc.Value:dd/MM/yyyy}" : string.Empty;
+                return $"- {entry.Type} | {userName} | R$ {entry.Amount:N2}{dueDate} | {entry.Description}";
+            })
+        ];
+    }
+
+    private static byte[] BuildExcel(
+        IReadOnlyList<string> summaryLines,
+        IReadOnlyList<SessionRecord> sessions,
+        IReadOnlyList<LedgerEntry> ledger,
+        IReadOnlyDictionary<Guid, Machine> machines,
+        IReadOnlyDictionary<Guid, UserAccount> users)
+    {
+        using var workbook = new XLWorkbook();
+
+        var summary = workbook.Worksheets.Add("Resumo");
+        for (var index = 0; index < summaryLines.Count; index++)
+        {
+            summary.Cell(index + 1, 1).Value = summaryLines[index];
+        }
+
+        var sessionsSheet = workbook.Worksheets.Add("Sessoes");
+        sessionsSheet.Cell(1, 1).Value = "Máquina";
+        sessionsSheet.Cell(1, 2).Value = "Usuário";
+        sessionsSheet.Cell(1, 3).Value = "Tipo";
+        sessionsSheet.Cell(1, 4).Value = "Minutos";
+        sessionsSheet.Cell(1, 5).Value = "Valor";
+
+        for (var row = 0; row < sessions.Count; row++)
+        {
+            var session = sessions[row];
+            sessionsSheet.Cell(row + 2, 1).Value = machines.TryGetValue(session.MachineId, out var machine) ? machine.Name : "Desconhecida";
+            sessionsSheet.Cell(row + 2, 2).Value = session.UserAccountId.HasValue && users.TryGetValue(session.UserAccountId.Value, out var user) ? user.DisplayName : session.UserDisplayName;
+            sessionsSheet.Cell(row + 2, 3).Value = session.MachineKind.ToString();
+            sessionsSheet.Cell(row + 2, 4).Value = session.ConsumedMinutes;
+            sessionsSheet.Cell(row + 2, 5).Value = session.TotalSpent;
+        }
+
+        var ledgerSheet = workbook.Worksheets.Add("Financeiro");
+        ledgerSheet.Cell(1, 1).Value = "Usuário";
+        ledgerSheet.Cell(1, 2).Value = "Tipo";
+        ledgerSheet.Cell(1, 3).Value = "Valor";
+        ledgerSheet.Cell(1, 4).Value = "Descrição";
+        ledgerSheet.Cell(1, 5).Value = "Promessa";
+
+        for (var row = 0; row < ledger.Count; row++)
+        {
+            var item = ledger[row];
+            ledgerSheet.Cell(row + 2, 1).Value = users.TryGetValue(item.UserAccountId, out var user) ? user.DisplayName : "Desconhecido";
+            ledgerSheet.Cell(row + 2, 2).Value = item.Type.ToString();
+            ledgerSheet.Cell(row + 2, 3).Value = item.Amount;
+            ledgerSheet.Cell(row + 2, 4).Value = item.Description;
+            ledgerSheet.Cell(row + 2, 5).Value = item.PromisedPaymentDateUtc?.ToString("dd/MM/yyyy") ?? string.Empty;
+        }
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    private static byte[] BuildPdf(
+        IReadOnlyList<string> summaryLines,
+        IReadOnlyList<SessionRecord> sessions,
+        IReadOnlyList<LedgerEntry> ledger,
+        IReadOnlyDictionary<Guid, Machine> machines,
+        IReadOnlyDictionary<Guid, UserAccount> users)
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        return Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Margin(20);
+                page.DefaultTextStyle(text => text.FontSize(10));
+                page.Header().Text("Relatório Adrenalina").SemiBold().FontSize(18);
+                page.Content().Column(column =>
+                {
+                    column.Spacing(10);
+                    column.Item().Text(string.Join(Environment.NewLine, summaryLines.Take(10)));
+                    column.Item().Text("Sessões").SemiBold();
+                    foreach (var session in sessions.Take(12))
+                    {
+                        var machine = machines.TryGetValue(session.MachineId, out var machineEntry) ? machineEntry.Name : "Desconhecida";
+                        var user = session.UserAccountId.HasValue && users.TryGetValue(session.UserAccountId.Value, out var userEntry)
+                            ? userEntry.DisplayName
+                            : session.UserDisplayName;
+                        column.Item().Text($"{machine} | {user} | {session.ConsumedMinutes} min | R$ {session.TotalSpent:N2}");
+                    }
+
+                    column.Item().Text("Financeiro").SemiBold();
+                    foreach (var item in ledger.Take(12))
+                    {
+                        var user = users.TryGetValue(item.UserAccountId, out var userEntry) ? userEntry.DisplayName : "Desconhecido";
+                        column.Item().Text($"{item.Type} | {user} | R$ {item.Amount:N2} | {item.Description}");
+                    }
+                });
+                page.Footer().AlignRight().Text(text =>
+                {
+                    text.Span("Página ");
+                    text.CurrentPageNumber();
+                });
+            });
+        }).GeneratePdf();
+    }
 }

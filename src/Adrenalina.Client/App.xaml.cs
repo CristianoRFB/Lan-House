@@ -16,6 +16,7 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(System.Windows.StartupEventArgs e)
     {
         base.OnStartup(e);
+<<<<<<< HEAD
         DispatcherUnhandledException += (_, eventArgs) =>
         {
             var logPath = Path.Combine(AdrenalinaPaths.GetClientSettingsRoot(), "logs", "Client.log");
@@ -27,6 +28,50 @@ public partial class App : System.Windows.Application
                 MessageBoxImage.Error);
             eventArgs.Handled = true;
         };
+=======
+
+        try
+        {
+            await StartCoreAsync(e.Args);
+        }
+        catch (Exception exception)
+        {
+            if (e.Args.Contains("--watchdog", StringComparer.OrdinalIgnoreCase) ||
+                e.Args.Contains("--service", StringComparer.OrdinalIgnoreCase))
+            {
+                System.Diagnostics.Debug.WriteLine($"Falha no processo auxiliar do CLIENTE: {exception}");
+            }
+            else
+            {
+                System.Windows.MessageBox.Show(
+                    $"Nao foi possivel iniciar o CLIENTE.\n\n{exception.Message}",
+                    "Adrenalina CLIENTE",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
+            Shutdown();
+        }
+    }
+
+    private async Task StartCoreAsync(string[] args)
+    {
+        if (args.Contains("--watchdog", StringComparer.OrdinalIgnoreCase))
+        {
+            ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
+            await ClientWatchdogRunner.RunAsync(args);
+            Shutdown();
+            return;
+        }
+
+        if (args.Contains("--service", StringComparer.OrdinalIgnoreCase))
+        {
+            ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
+            using var serviceHost = ClientHostFactory.BuildServiceHost(args);
+            await serviceHost.RunAsync();
+            Shutdown();
+            return;
+        }
+>>>>>>> 9be62fb (Fixes)
 
         _singleInstance = SingleInstanceGuard.TryAcquire("Global\\Adrenalina.Client.UI");
         if (_singleInstance is null)
@@ -35,9 +80,13 @@ public partial class App : System.Windows.Application
             return;
         }
 
+<<<<<<< HEAD
         await DiscoverServerAsync();
 
         _interactiveHost = ClientHostFactory.BuildInteractiveHost(e.Args);
+=======
+        _interactiveHost = ClientHostFactory.BuildInteractiveHost(args);
+>>>>>>> 9be62fb (Fixes)
         await _interactiveHost.StartAsync();
 
         var mainWindow = _interactiveHost.Services.GetRequiredService<MainWindow>();
@@ -45,6 +94,7 @@ public partial class App : System.Windows.Application
         mainWindow.Show();
     }
 
+<<<<<<< HEAD
     private static async Task DiscoverServerAsync()
     {
         var options = ClientOptionsStore.LoadOrCreate();
@@ -71,14 +121,32 @@ public partial class App : System.Windows.Application
     }
 
     protected override async void OnExit(System.Windows.ExitEventArgs e)
+=======
+    protected override void OnExit(System.Windows.ExitEventArgs e)
+>>>>>>> 9be62fb (Fixes)
     {
-        if (_interactiveHost is not null)
+        try
         {
-            await _interactiveHost.StopAsync();
-            _interactiveHost.Dispose();
+            if (_interactiveHost is not null)
+            {
+                try
+                {
+                    Task.Run(async () => await _interactiveHost.StopAsync()).GetAwaiter().GetResult();
+                }
+                catch (Exception exception)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Falha ao encerrar CLIENTE: {exception}");
+                }
+                finally
+                {
+                    _interactiveHost.Dispose();
+                }
+            }
         }
-
-        _singleInstance?.Dispose();
-        base.OnExit(e);
+        finally
+        {
+            _singleInstance?.Dispose();
+            base.OnExit(e);
+        }
     }
 }

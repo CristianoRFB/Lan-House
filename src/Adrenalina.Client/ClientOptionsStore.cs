@@ -31,6 +31,7 @@ public static class ClientOptionsStore
         }
         catch (JsonException)
         {
+<<<<<<< HEAD
             File.Move(path, $"{path}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmssfff}");
             options = new ClientConnectionOptions
             {
@@ -38,6 +39,11 @@ public static class ClientOptionsStore
                 ShowTutorialOnNextLaunch = true
             };
             Save(options, path);
+=======
+            File.Move(path, path + ".corrupt-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss"));
+            options = new ClientConnectionOptions { ShowTutorialOnNextLaunch = true };
+            Save(options);
+>>>>>>> 9be62fb (Fixes)
         }
 
         NormalizeForInteractiveSetup(options);
@@ -52,7 +58,11 @@ public static class ClientOptionsStore
         var payload = JsonSerializer.Serialize(options, Adrenalina.Application.JsonDefaults.Options);
         var temporaryPath = path + ".tmp";
         File.WriteAllText(temporaryPath, payload);
+<<<<<<< HEAD
         File.Move(temporaryPath, path, overwrite: true);
+=======
+        File.Move(temporaryPath, path, true);
+>>>>>>> 9be62fb (Fixes)
     }
 
     public static string GetSettingsPath()

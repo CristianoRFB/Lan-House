@@ -41,6 +41,7 @@ public sealed class MainForm : Form
     private bool _webViewReady;
     private bool _panelWasOpened;
     private bool _fallbackModeActive;
+    private bool _refreshInProgress;
 
     public MainForm()
     {
@@ -103,10 +104,18 @@ public sealed class MainForm : Form
         }
     }
 
-    protected override async void OnFormClosed(FormClosedEventArgs e)
+    protected override void OnFormClosed(FormClosedEventArgs e)
     {
         _webView.Dispose();
-        await _server.DisposeAsync();
+        try
+        {
+            // Complete shutdown before the WinForms message loop exits.
+            Task.Run(async () => await _server.DisposeAsync()).GetAwaiter().GetResult();
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Falha ao encerrar servidor local: {exception}");
+        }
         _trayIcon.Dispose();
         _refreshTimer.Dispose();
         base.OnFormClosed(e);
@@ -492,7 +501,10 @@ public sealed class MainForm : Form
 
         try
         {
-            await _webView.EnsureCoreWebView2Async();
+            var browserDataPath = Path.Combine(Adrenalina.Application.AdrenalinaPaths.GetAdminDataRoot(), "webview2");
+            Directory.CreateDirectory(browserDataPath);
+            var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: browserDataPath);
+            await _webView.EnsureCoreWebView2Async(environment);
             _webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
             _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
@@ -526,6 +538,10 @@ public sealed class MainForm : Form
 
             await RefreshDashboardAsync();
         }
+        catch (Exception exception)
+        {
+            MessageBox.Show($"Nao foi possivel alterar o servidor.\n\n{exception.Message}", "Adrenalina ADMIN", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
         finally
         {
             _serverToggleButton.Enabled = true;
@@ -550,6 +566,10 @@ public sealed class MainForm : Form
                 MessageBoxButtons.OK,
                 result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
         }
+        catch (Exception exception)
+        {
+            MessageBox.Show($"Nao foi possivel criar o backup.\n\n{exception.Message}", "Backup manual", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
         finally
         {
             _backupButton.Enabled = true;
@@ -558,6 +578,24 @@ public sealed class MainForm : Form
     }
 
     private async Task RefreshDashboardAsync()
+    {
+        if (_refreshInProgress || IsDisposed)
+        {
+            return;
+        }
+
+        _refreshInProgress = true;
+        try
+        {
+            await RefreshDashboardCoreAsync();
+        }
+        finally
+        {
+            _refreshInProgress = false;
+        }
+    }
+
+    private async Task RefreshDashboardCoreAsync()
     {
         UpdateConnectionHints();
 
@@ -793,6 +831,16 @@ public sealed class MainForm : Form
             _allowExit = true;
             BeginInvoke(new Action(Close));
         }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                $"Houve uma falha durante o encerramento. O aplicativo sera fechado e o servidor local sera liberado.\n\n{exception.Message}",
+                "Fechar sistema",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            _allowExit = true;
+            BeginInvoke(new Action(Close));
+        }
         finally
         {
             _closeRequestInProgress = false;
@@ -805,14 +853,17 @@ public sealed class MainForm : Form
 
         if (shutdownForToday && _server.IsRunning)
         {
-            var backupResult = await _server.CreateManualBackupAsync();
-            if (!backupResult.Success)
+            try
             {
-                MessageBox.Show(
-                    $"Nao foi possivel gerar o backup final antes de encerrar.\n\n{backupResult.Message}\n\nO sistema sera fechado mesmo assim.",
-                    "Encerrar sistema",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+                var backupResult = await _server.CreateManualBackupAsync();
+                if (!backupResult.Success)
+                {
+                    MessageBox.Show($"Nao foi possivel gerar o backup final.\n\n{backupResult.Message}\n\nO sistema sera fechado mesmo assim.", "Encerrar sistema", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show($"Nao foi possivel gerar o backup final.\n\n{exception.Message}\n\nO sistema sera fechado mesmo assim.", "Encerrar sistema", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

@@ -212,7 +212,11 @@
                             <TextBox x:Name="SetupServerUrlTextBox" Margin="0,6,0,14" Padding="10" ToolTip="Digite o endereço do ADMIN. O ADMIN precisa estar ligado e acessível na rede." />
                             <TextBlock Margin="0,-8,0,14"
                                        Foreground="#8FB2D8"
+<<<<<<< HEAD
                                        Text="Copie o endereço mostrado no app ADMIN. Na instalação padrão: https://192.168.0.10:5076/"
+=======
+                                       Text="Digite o IP do ADMIN ou copie o endereco completo mostrado nele. Exemplo: 192.168.0.10"
+>>>>>>> 9be62fb (Fixes)
                                        TextWrapping="Wrap" />
                             <TextBlock Margin="0,-8,0,6" Foreground="#8FB2D8" Text="Se o teste avisar sobre certificado, copie o arquivo .cer da pasta C:\ProgramData\Adrenalina\certs do ADMIN e use o botão abaixo." TextWrapping="Wrap" />
                             <Button Content="INSTALAR CERTIFICADO DO ADMIN..." Padding="12,8" Margin="0,0,0,14" Click="InstallAdminCertificateButton_Click" ToolTip="Instala o arquivo .cer criado pelo seu ADMIN para que esta estação reconheça a conexão HTTPS segura." />

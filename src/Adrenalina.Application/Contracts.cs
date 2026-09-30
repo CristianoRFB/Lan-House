@@ -5,59 +5,9 @@ using Adrenalina.Domain;
 
 namespace Adrenalina.Application;
 
-public static class ProtocolContract
-{
-    public const int CurrentVersion = 2;
-    public const int MinimumSupportedVersion = 1;
-}
-
-public static class MachineAuthentication
-{
-    public static string DeriveSigningKey(string machineSecret) =>
-        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(machineSecret)));
-
-    public static string CreateProof(string machineKey, DateTime timestampUtc, string nonce, string operation)
-        => CreateProofWithSigningKey(DeriveSigningKey(machineKey), timestampUtc, nonce, operation);
-
-    public static string CreateProofWithSigningKey(string signingKey, DateTime timestampUtc, string nonce, string operation)
-    {
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(signingKey));
-        var payload = $"{operation}\n{timestampUtc.Ticks}\n{nonce}";
-        return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
-    }
-
-    public static bool VerifyProof(string machineKey, DateTime timestampUtc, string nonce, string operation, string proof)
-        => VerifyProofWithSigningKey(DeriveSigningKey(machineKey), timestampUtc, nonce, operation, proof);
-
-    public static bool VerifyProofWithSigningKey(string signingKey, DateTime timestampUtc, string nonce, string operation, string proof)
-    {
-        if (string.IsNullOrWhiteSpace(signingKey) || string.IsNullOrWhiteSpace(nonce) ||
-            string.IsNullOrWhiteSpace(proof) || nonce.Length > 100 || proof.Length > 200 ||
-            timestampUtc.Kind != DateTimeKind.Utc || Math.Abs((DateTime.UtcNow - timestampUtc).TotalMinutes) > 2)
-        {
-            return false;
-        }
-
-        try
-        {
-            var expected = Convert.FromBase64String(CreateProofWithSigningKey(signingKey, timestampUtc, nonce, operation));
-            var supplied = Convert.FromBase64String(proof);
-            return CryptographicOperations.FixedTimeEquals(expected, supplied);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-    }
-}
-
 public sealed record OperationResult(bool Success, string Message);
 
-public sealed record DatabaseIntegrityResult(bool Healthy, string Detail, DateTime CheckedAtUtc);
-public sealed record BackupValidationResult(bool Valid, string Detail, DateTime CheckedAtUtc);
-
 public sealed record AuthenticatedAdmin(Guid Id, string Login, string DisplayName, UserProfileType ProfileType);
-public sealed record AdminAccessRecoveryResult(string TemporaryPassword, string AccessFilePath);
 
 public sealed class DashboardDto
 {
@@ -95,15 +45,14 @@ public sealed class MachineDto
     public string LastCommandSummary { get; init; } = string.Empty;
     public string Observations { get; init; } = string.Empty;
     public DateTime? LastSeenUtc { get; init; }
-    public string MachineCredentialId { get; init; } = string.Empty;
-    public int MachineCredentialVersion { get; init; }
-    public bool IsRevoked { get; init; }
-    public string ClientVersion { get; init; } = string.Empty;
-    public string AgentVersion { get; init; } = string.Empty;
-    public int ProtocolVersion { get; init; }
-    public bool AgentHealthy { get; init; }
-    public DateTime? LastAgentSeenUtc { get; init; }
-    public int PolicyVersion { get; init; }
+    public IReadOnlyList<ProcessDto> RecentProcesses { get; init; } = [];
+}
+
+public sealed class ProcessDto
+{
+    public string ProcessName { get; init; } = string.Empty;
+    public string WindowTitle { get; init; } = string.Empty;
+    public double MemoryMb { get; init; }
 }
 
 public sealed class UserDto
@@ -118,7 +67,6 @@ public sealed class UserDto
     public bool IsTemporary { get; init; }
     public DateTime? TemporaryUntilUtc { get; init; }
     public string Notes { get; init; } = string.Empty;
-    public bool IsBlocked { get; init; }
 }
 
 public sealed class SessionDto
@@ -205,62 +153,6 @@ public sealed class UserUpsertRequest
     public bool IsTemporary { get; init; }
     public DateTime? TemporaryUntilUtc { get; init; }
     public string Notes { get; init; } = string.Empty;
-    public bool IsBlocked { get; init; }
-}
-
-public sealed class MachineUpsertRequest
-{
-    public Guid? Id { get; init; }
-    public string MachineKey { get; init; } = string.Empty;
-    public string Name { get; init; } = string.Empty;
-    public MachineKind Kind { get; init; } = MachineKind.Pc;
-    public string GroupName { get; init; } = "Principal";
-    public string Observations { get; init; } = string.Empty;
-}
-
-public sealed class MachinePairingStartRequest
-{
-    public Guid MachineId { get; init; }
-}
-
-public sealed class MachinePairingSessionDto
-{
-    public Guid Id { get; init; }
-    public Guid MachineId { get; init; }
-    public string MachineName { get; init; } = string.Empty;
-    public string Code { get; set; } = string.Empty;
-    public DateTime ExpiresAtUtc { get; init; }
-    public DateTime? RequestedAtUtc { get; init; }
-    public string Status { get; init; } = string.Empty;
-    public string Hostname { get; init; } = string.Empty;
-    public string MachineFingerprint { get; init; } = string.Empty;
-}
-
-public sealed class ClientPairingRequest
-{
-    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
-    public string Code { get; init; } = string.Empty;
-    public string Hostname { get; init; } = string.Empty;
-    public string MachineFingerprint { get; init; } = string.Empty;
-}
-
-public sealed class ClientPairingPollRequest
-{
-    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
-    public Guid PairingSessionId { get; init; }
-    public string Code { get; init; } = string.Empty;
-}
-
-public sealed class ClientPairingResponse
-{
-    public bool Success { get; init; }
-    public bool AwaitingApproval { get; init; }
-    public string Message { get; init; } = string.Empty;
-    public Guid PairingSessionId { get; init; }
-    public Guid MachineId { get; init; }
-    public string MachineCredentialId { get; init; } = string.Empty;
-    public string MachineSecret { get; init; } = string.Empty;
-    public DateTime? ExpiresAtUtc { get; init; }
 }
 
 public sealed class LedgerEntryRequest
@@ -342,29 +234,17 @@ public sealed record FileExportResult(string FileName, string ContentType, byte[
 
 public sealed class ClientHeartbeatRequest
 {
-    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
-    public Guid? MachineId { get; init; }
-    public string MachineCredentialId { get; init; } = string.Empty;
-    public DateTime RequestTimestampUtc { get; init; }
-    public string Nonce { get; init; } = string.Empty;
-    public string MachineProof { get; init; } = string.Empty;
+    public string MachineName { get; init; } = string.Empty;
     public string Hostname { get; init; } = string.Empty;
     public string IpAddress { get; init; } = string.Empty;
-    public string ClientVersion { get; init; } = string.Empty;
-    public string AgentVersion { get; init; } = string.Empty;
-    public bool AgentHealthy { get; init; }
-    public int PolicyVersion { get; init; }
+    public MachineKind Kind { get; init; } = MachineKind.Pc;
     public MachineStatus Status { get; init; } = MachineStatus.Offline;
-    public IReadOnlyList<Guid> AcknowledgedCommandIds { get; init; } = [];
-    public IReadOnlyList<Guid> AcknowledgedNotificationIds { get; init; } = [];
+    public IReadOnlyList<ProcessDto> Processes { get; init; } = [];
 }
 
 public sealed class ClientHeartbeatResponse
 {
-    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
-    public bool Success { get; init; } = true;
-    public string Message { get; init; } = string.Empty;
     public Guid MachineId { get; init; }
     public SettingsDto Settings { get; init; } = new();
     public ClientRuntimeState RuntimeState { get; init; } = new();
@@ -374,20 +254,13 @@ public sealed class ClientHeartbeatResponse
 
 public sealed class ClientLoginRequest
 {
-    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
-    public Guid? MachineId { get; init; }
-    public string MachineCredentialId { get; init; } = string.Empty;
-    public DateTime RequestTimestampUtc { get; init; }
-    public string Nonce { get; init; } = string.Empty;
-    public string MachineProof { get; init; } = string.Empty;
     public string Login { get; init; } = string.Empty;
     public string Pin { get; init; } = string.Empty;
 }
 
 public sealed class ClientLoginResponse
 {
-    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public bool Success { get; init; }
     public string Message { get; init; } = string.Empty;
     public ClientRuntimeState RuntimeState { get; init; } = new();
@@ -395,23 +268,16 @@ public sealed class ClientLoginResponse
 
 public sealed class ClientRequestBatchRequest
 {
-    public int ProtocolVersion { get; init; } = ProtocolContract.CurrentVersion;
     public string MachineKey { get; init; } = string.Empty;
-    public Guid? MachineId { get; init; }
-    public string MachineCredentialId { get; init; } = string.Empty;
-    public DateTime RequestTimestampUtc { get; init; }
-    public string Nonce { get; init; } = string.Empty;
-    public string MachineProof { get; init; } = string.Empty;
     public IReadOnlyList<ClientShellRequest> Requests { get; init; } = [];
 }
 
 public sealed class ClientShellRequest
 {
-    public Guid RequestId { get; init; } = Guid.NewGuid();
+    public Guid Id { get; init; } = Guid.NewGuid();
     public ClientRequestType Type { get; init; }
     public string Login { get; init; } = string.Empty;
     public string Pin { get; init; } = string.Empty;
-    public string PinHash { get; init; } = string.Empty;
     public string DisplayName { get; init; } = string.Empty;
     public string Message { get; init; } = string.Empty;
     public decimal Amount { get; init; }
@@ -441,28 +307,9 @@ public sealed class ClientRuntimeState
     public IReadOnlyList<NotificationEnvelope> Notifications { get; init; } = [];
 }
 
-public sealed record RemoteCommandEnvelope(Guid Id, RemoteCommandType Type, string Title, string Message, string PayloadJson, DateTime? ExpiresAtUtc = null);
+public sealed record RemoteCommandEnvelope(Guid Id, RemoteCommandType Type, string Title, string Message, string PayloadJson);
 
 public sealed record NotificationEnvelope(Guid Id, string Title, string Message, NotificationSeverity Severity, bool PlaySound);
-
-public static class StationAgentProtocol
-{
-    public const string PipeName = "Adrenalina.Agent";
-    public const string Version = "v1";
-}
-
-public sealed class StationAgentRequest
-{
-    public string Protocol { get; init; } = StationAgentProtocol.Version;
-    public string Action { get; init; } = string.Empty;
-    public Guid? MachineId { get; init; }
-    public bool SessionActive { get; init; }
-    public DateTime IssuedAtUtc { get; init; }
-    public string Nonce { get; init; } = string.Empty;
-    public string Proof { get; init; } = string.Empty;
-}
-
-public sealed record StationAgentResponse(bool Success, bool Healthy, string Message);
 
 public sealed class LocalClientStoragePaths
 {
@@ -474,6 +321,8 @@ public interface IClientRuntimeStore
 {
     Task<ClientRuntimeState> LoadStateAsync(CancellationToken cancellationToken = default);
     Task SaveStateAsync(ClientRuntimeState state, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ClientShellRequest>> GetPendingRequestsAsync(CancellationToken cancellationToken = default);
+    Task RemoveRequestsAsync(IReadOnlyCollection<Guid> requestIds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ClientShellRequest>> DrainRequestsAsync(CancellationToken cancellationToken = default);
     Task EnqueueRequestAsync(ClientShellRequest request, CancellationToken cancellationToken = default);
 }
@@ -481,8 +330,6 @@ public interface IClientRuntimeStore
 public interface IAdminAuthService
 {
     Task<AuthenticatedAdmin?> ValidateAsync(string login, string password, CancellationToken cancellationToken = default);
-    Task<AdminAccessRecoveryResult?> RecoverAdminAccessAsync(CancellationToken cancellationToken = default);
-    Task<OperationResult> ChangeAdminPasswordAsync(Guid adminId, string newPassword, CancellationToken cancellationToken = default);
     Task<UserDto?> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default);
 }
 
@@ -498,13 +345,6 @@ public interface ICafeManagementService
     Task<SettingsDto> GetSettingsAsync(CancellationToken cancellationToken = default);
     Task<OperationResult> SaveSettingsAsync(SettingsUpdateRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> UpsertUserAsync(UserUpsertRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
-    Task<OperationResult> UpsertMachineAsync(MachineUpsertRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
-    Task<OperationResult> RevokeMachineAsync(Guid machineId, Guid actorUserId, CancellationToken cancellationToken = default);
-    Task<MachinePairingSessionDto?> StartMachinePairingAsync(MachinePairingStartRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
-    Task<MachinePairingSessionDto?> GetMachinePairingAsync(Guid pairingSessionId, CancellationToken cancellationToken = default);
-    Task<OperationResult> ApproveMachinePairingAsync(Guid pairingSessionId, Guid actorUserId, CancellationToken cancellationToken = default);
-    Task<ClientPairingResponse> RequestMachinePairingAsync(ClientPairingRequest request, CancellationToken cancellationToken = default);
-    Task<ClientPairingResponse> PollMachinePairingAsync(ClientPairingPollRequest request, CancellationToken cancellationToken = default);
     Task<OperationResult> AddLedgerEntryAsync(LedgerEntryRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> StartSessionAsync(SessionStartRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
     Task<OperationResult> AdjustSessionAsync(SessionAdjustRequest request, Guid actorUserId, CancellationToken cancellationToken = default);
@@ -516,8 +356,6 @@ public interface ICafeManagementService
     Task<ClientHeartbeatResponse> SyncClientHeartbeatAsync(ClientHeartbeatRequest request, CancellationToken cancellationToken = default);
     Task<ClientLoginResponse> LoginClientAsync(ClientLoginRequest request, CancellationToken cancellationToken = default);
     Task<OperationResult> SubmitClientRequestsAsync(ClientRequestBatchRequest request, CancellationToken cancellationToken = default);
-    Task<DatabaseIntegrityResult> CheckDatabaseIntegrityAsync(CancellationToken cancellationToken = default);
-    Task<BackupValidationResult> ValidateBackupAsync(string backupPath, CancellationToken cancellationToken = default);
     Task RunMaintenanceTickAsync(CancellationToken cancellationToken = default);
 }
 
@@ -526,7 +364,6 @@ public static class PasswordHasher
     private const int SaltSize = 16;
     private const int KeySize = 32;
     private const int Iterations = 100_000;
-    private const int MaximumAcceptedIterations = 1_000_000;
 
     public static string Hash(string rawValue)
     {
@@ -537,39 +374,21 @@ public static class PasswordHasher
 
     public static bool Verify(string hashedValue, string rawValue)
     {
-        if (!IsHashFormatValid(hashedValue) || string.IsNullOrWhiteSpace(rawValue))
+        if (string.IsNullOrWhiteSpace(hashedValue) || string.IsNullOrWhiteSpace(rawValue))
         {
             return false;
         }
 
         var parts = hashedValue.Split('.', 3);
-        var iterations = int.Parse(parts[0]);
+        if (parts.Length != 3 || !int.TryParse(parts[0], out var iterations))
+        {
+            return false;
+        }
+
         var salt = Convert.FromBase64String(parts[1]);
         var expected = Convert.FromBase64String(parts[2]);
         var actual = Rfc2898DeriveBytes.Pbkdf2(rawValue, salt, iterations, HashAlgorithmName.SHA512, expected.Length);
         return CryptographicOperations.FixedTimeEquals(actual, expected);
-    }
-
-    public static bool IsHashFormatValid(string hashedValue)
-    {
-        if (string.IsNullOrWhiteSpace(hashedValue))
-        {
-            return false;
-        }
-
-        try
-        {
-            var parts = hashedValue.Split('.', 3);
-            return parts.Length == 3 &&
-                   int.TryParse(parts[0], out var iterations) &&
-                   iterations is >= 10_000 and <= MaximumAcceptedIterations &&
-                   Convert.FromBase64String(parts[1]).Length is >= 16 and <= 64 &&
-                   Convert.FromBase64String(parts[2]).Length is >= 32 and <= 64;
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
     }
 }
 
@@ -584,36 +403,11 @@ public static class JsonDefaults
 
 public static class LoginRules
 {
-    public static bool LooksLikeFourDigitPin(string pin) =>
-        pin is { Length: 4 } && pin.All(character => character is >= '0' and <= '9');
+    public static bool LooksLikeFourDigitPin(string pin) => pin.Length == 4 && pin.All(char.IsDigit);
 
-    public static bool LooksLikeLetterLogin(string login)
-    {
-        if (string.IsNullOrWhiteSpace(login) || login.Length > 64 || !login.Any(char.IsLetter))
-        {
-            return false;
-        }
-
-        var previousWasSeparator = false;
-        for (var index = 0; index < login.Length; index++)
-        {
-            var character = login[index];
-            if (char.IsLetterOrDigit(character))
-            {
-                previousWasSeparator = false;
-                continue;
-            }
-
-            if (character is not ('.' or '_' or '-') || index == 0 || index == login.Length - 1 || previousWasSeparator)
-            {
-                return false;
-            }
-
-            previousWasSeparator = true;
-        }
-
-        return true;
-    }
+    public static bool LooksLikeLetterLogin(string login) =>
+        !string.IsNullOrWhiteSpace(login) &&
+        login.All(character => char.IsLetter(character) || character is '.' or '_' or '-');
 }
 
 public static class TextSanitizer
@@ -621,8 +415,5 @@ public static class TextSanitizer
     public static string Normalize(string value) =>
         string.IsNullOrWhiteSpace(value)
             ? string.Empty
-            : new string(value.Trim()
-                .Where(character => !char.IsControl(character) || character is '\r' or '\n' or '\t')
-                .Take(1_000)
-                .ToArray());
+            : Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(value.Trim()));
 }

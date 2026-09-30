@@ -3,8 +3,6 @@ using Adrenalina.Domain;
 using Adrenalina.Server;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
-using System.Net;
-using System.Net.Sockets;
 
 namespace Adrenalina.Admin;
 
@@ -15,33 +13,18 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly string _contentRootPath;
     private readonly string _dataRootPath;
-    private readonly bool _listenOnLocalNetwork;
-    private readonly AdminServerDeploymentOptions _deploymentOptions;
-    private UdpClient? _discoverySocket;
-    private CancellationTokenSource? _discoveryCancellation;
-    private Task? _discoveryTask;
     private WebApplication? _app;
     private int _currentPort = DefaultPort;
 
-    public EmbeddedAdminServer(bool listenOnLocalNetwork = false)
+    public EmbeddedAdminServer()
     {
         _contentRootPath = Path.Combine(AppContext.BaseDirectory, "ServerContent");
         _dataRootPath = AdrenalinaPaths.GetAdminDataRoot();
-        _deploymentOptions = AdminServerDeploymentOptionsStore.Load();
-        _listenOnLocalNetwork = listenOnLocalNetwork || _deploymentOptions.ListenOnLocalNetwork;
     }
 
-    private string Scheme => _listenOnLocalNetwork && _deploymentOptions.UseHttps ? "https" : "http";
+    public Uri BaseAddress => new($"http://127.0.0.1:{_currentPort}/");
 
-    public string ConnectionScheme => Scheme;
-
-    public Uri BaseAddress => new($"{Scheme}://127.0.0.1:{_currentPort}/");
-
-    public string ListenUrl => _listenOnLocalNetwork
-        ? $"{Scheme}://0.0.0.0:{_currentPort}"
-        : $"{Scheme}://127.0.0.1:{_currentPort}";
-
-    public bool ListenOnLocalNetwork => _listenOnLocalNetwork;
+    public string ListenUrl => $"http://0.0.0.0:{_currentPort}";
 
     public int Port => BaseAddress.Port;
 
@@ -84,7 +67,6 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
                     WebRootPath = Path.Combine(_contentRootPath, "wwwroot"),
                     DataRootPath = _dataRootPath,
                     Urls = ListenUrl,
-                    CertificateThumbprint = _deploymentOptions.CertificateThumbprint,
                     UseHttpsRedirection = false
                 });
 
@@ -94,20 +76,10 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
                     await app.StartAsync(cancellationToken);
 
                     _app = app;
-                    if (_listenOnLocalNetwork)
-                    {
-                        StartDiscoveryResponder();
-                    }
                     UsedFallbackPort = candidatePort != DefaultPort;
                     StartupMessage = UsedFallbackPort
                         ? $"A porta {DefaultPort} estava ocupada. O ADMIN iniciou na porta {_currentPort} nesta execucao."
                         : $"Servidor local iniciado na porta {_currentPort}.";
-                    if (_listenOnLocalNetwork)
-                    {
-                        StartupMessage += Scheme == "https"
-                            ? " LAN ativa com HTTPS."
-                            : " LAN local ativa sem HTTPS porque o ambiente foi marcado como Development.";
-                    }
                     return;
                 }
                 catch (Exception exception) when (AdminPortResolver.IsAddressInUse(exception))
@@ -142,13 +114,19 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
                 return;
             }
 
-            await _app.StopAsync(cancellationToken);
-            await StopDiscoveryResponderAsync();
-            await _app.DisposeAsync();
-            _app = null;
-            _currentPort = DefaultPort;
-            UsedFallbackPort = false;
-            StartupMessage = "Servidor local parado.";
+            var app = _app;
+            try
+            {
+                await app.StopAsync(cancellationToken);
+            }
+            finally
+            {
+                await app.DisposeAsync();
+                _app = null;
+                _currentPort = DefaultPort;
+                UsedFallbackPort = false;
+                StartupMessage = "Servidor local parado.";
+            }
         }
         finally
         {
@@ -198,46 +176,6 @@ public sealed class EmbeddedAdminServer : IAsyncDisposable
     {
         await StopAsync();
         _lifecycleGate.Dispose();
-    }
-
-    private void StartDiscoveryResponder()
-    {
-        _discoveryCancellation = new CancellationTokenSource();
-        _discoverySocket = new UdpClient(new IPEndPoint(IPAddress.Any, LanDiscoveryProtocol.Port));
-        _discoveryTask = RespondToDiscoveryAsync(_discoverySocket, _discoveryCancellation.Token);
-    }
-
-    private async Task RespondToDiscoveryAsync(UdpClient socket, CancellationToken cancellationToken)
-    {
-        var announcement = LanDiscoveryProtocol.CreateAnnouncement(_currentPort, Scheme == "https");
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var request = await socket.ReceiveAsync(cancellationToken);
-                if (LanDiscoveryProtocol.IsDiscoveryRequest(request.Buffer))
-                {
-                    await socket.SendAsync(announcement, request.RemoteEndPoint);
-                }
-            }
-        }
-        catch (OperationCanceledException) { }
-        catch (ObjectDisposedException) { }
-    }
-
-    private async Task StopDiscoveryResponderAsync()
-    {
-        _discoveryCancellation?.Cancel();
-        _discoverySocket?.Dispose();
-        if (_discoveryTask is not null)
-        {
-            await _discoveryTask;
-        }
-
-        _discoveryTask = null;
-        _discoverySocket = null;
-        _discoveryCancellation?.Dispose();
-        _discoveryCancellation = null;
     }
 
     private void EnsureAdminDataMigrated()

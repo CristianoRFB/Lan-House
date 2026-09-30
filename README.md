@@ -63,7 +63,13 @@ Client:
 
 O servidor aceita `Adrenalina:RootDirectory` para testes ou ambientes controlados. A suíte automatizada usa somente diretórios temporários e bancos descartáveis.
 
+<<<<<<< HEAD
 ## Funcionalidades do Admin
+=======
+Feche o ADMIN antes de recompilar a mesma saida `Debug`. Um aplicativo Windows em execucao mantem suas DLLs abertas; o build nao encerra aplicativos automaticamente nem apaga dados. Depois de fechar o ADMIN, a porta e liberada e o build pode ser repetido.
+
+## Como executar em desenvolvimento
+>>>>>>> 9be62fb (Fixes)
 
 - instância única sem privilégios administrativos;
 - servidor ASP.NET Core embutido com encerramento por ciclo de vida/cancellation token;
@@ -218,8 +224,17 @@ Não é necessário instalar WebView2 para usar o Admin: o navegador padrão é 
 
 ## Prévia visual
 
+<<<<<<< HEAD
 As imagens abaixo são prévias ilustrativas geradas a partir do layout atual do
 produto. Elas não são capturas reais de uma execução:
+=======
+1. Abra `Adrenalina.Admin.exe`.
+2. Clique em `Iniciar servidor e abrir painel`.
+3. Veja no topo do app o endereco que os clientes devem usar na rede.
+   - Se o Windows perguntar sobre acesso a rede, permita em redes privadas para que os clientes consigam conectar.
+4. Use o botao principal para abrir ou atualizar o painel.
+5. Entre com suas credenciais no painel.
+>>>>>>> 9be62fb (Fixes)
 
 ![Menu inicial do Adrenalina](docs/previews/launcher-preview.svg)
 
@@ -227,7 +242,13 @@ produto. Elas não são capturas reais de uma execução:
 
 ![Tela do Adrenalina Client](docs/previews/client-preview.svg)
 
+<<<<<<< HEAD
 ![Todas as telas web do Adrenalina ADMIN](docs/previews/admin-pages-preview.svg)
+=======
+Troque a senha e os PINs iniciais antes de usar em uma rede com pessoas nao confiaveis. Use o painel e a API dos clientes apenas em uma rede local confiavel; nao exponha a porta diretamente na internet.
+
+### Onde ficam as opcoes principais
+>>>>>>> 9be62fb (Fixes)
 
 ![Estados e telas do Adrenalina Client](docs/previews/client-states-preview.svg)
 
@@ -243,7 +264,159 @@ produto. Elas não são capturas reais de uma execução:
 - arquivos gerados antigos (`bin`, `obj`, logs e banco de demonstração) ainda podem existir em históricos anteriores do repositório, embora `.gitignore` impeça novas inclusões comuns;
 Não execute instaladores ou ferramentas externas de controle da estação em computadores institucionais.
 
+<<<<<<< HEAD
 Consulte também [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md),
 [OPERATIONS.md](OPERATIONS.md), [docs/INSTALLATION.md](docs/INSTALLATION.md),
 [docs/FIELD_TEST.md](docs/FIELD_TEST.md), [AUDIT_REPORT.md](AUDIT_REPORT.md),
 [ROADMAP.md](ROADMAP.md) e [CHANGELOG.md](CHANGELOG.md).
+=======
+Quando o ADMIN desktop e usado:
+
+- banco SQLite: `%LocalAppData%\Adrenalina\Admin\adrenalina.db`
+- backups: `%LocalAppData%\Adrenalina\Admin\backups`
+- preferencias locais do app: `%LocalAppData%\Adrenalina\Admin\admin-app.json`
+
+Se existir base antiga em `%ProgramData%\Adrenalina\admin-data`, o ADMIN tenta migrar os dados automaticamente para o caminho novo no primeiro start.
+
+## Como usar o CLIENTE
+
+### Primeiro uso
+
+No primeiro uso, o CLIENTE abre a tela `Preparar cliente`.
+
+Nela basta informar:
+
+- URL/IP do servidor do ADMIN
+- nome da maquina
+- chave da maquina
+- tipo da maquina
+
+Depois clique em:
+
+- `Salvar e iniciar cliente`
+
+Pode informar apenas o IP, por exemplo `192.168.0.10`; nesse caso o CLIENTE usa a porta padrao `5076`. Se o ADMIN mostrar outra porta, informe o endereco completo exibido nele, por exemplo `http://192.168.0.10:5077/`.
+
+Com isso:
+
+- a configuracao fica salva localmente
+- o cliente comeca a sincronizar sozinho
+- o tutorial inicial pode ser exibido logo em seguida
+
+### Fluxo normal do cliente
+
+1. Abra `Adrenalina.Client.exe`.
+2. Se for o primeiro uso, informe o IP mostrado no app do administrador e conclua a preparacao inicial.
+3. Para liberar a maquina, informe usuario e PIN.
+4. Se precisar, use `Outras opcoes` para:
+   - solicitar cadastro
+   - pedir mais tempo
+
+O login precisa de conexao com o ADMIN: se a rede estiver indisponivel, confira o IP e tente novamente. Pedidos de cadastro e de mais tempo ficam em fila local ate o servidor confirma-los; reenviar o mesmo pedido nao cria duplicatas. O PIN de login nao e guardado nessa fila.
+
+Quando a tela do CLIENTE esta bloqueada, a lista negra de programas do ADMIN se aplica apenas aos programas nela indicados e na mesma sessao do Windows. O sistema nao encerra o Explorer nem altera politicas do Windows. Se o watchdog opcional estiver ativo, um fechamento normal do CLIENTE nao o reabre.
+
+### Onde ficam as configuracoes do CLIENTE
+
+Arquivo principal:
+
+- `%LocalAppData%\Adrenalina\Client\clientsettings.json`
+
+Campos mais importantes:
+
+- `ServerBaseUrl`
+- `MachineKey`
+- `MachineName`
+- `MachineKind`
+- `SyncIntervalSeconds`
+- `SetupCompleted`
+- `ShowTutorialOnNextLaunch`
+
+### Runtime do CLIENTE
+
+- `%LocalAppData%\Adrenalina\Runtime\<NOME-DA-MAQUINA>\client-state.json`
+- `%LocalAppData%\Adrenalina\Runtime\<NOME-DA-MAQUINA>\client-requests.json`
+
+Se existirem arquivos antigos em `%ProgramData%\Adrenalina`, o CLIENTE tenta reaproveitar esses dados automaticamente.
+
+## Como funciona o tutorial inicial
+
+### ADMIN
+
+O tutorial do ADMIN:
+
+- aparece uma vez no primeiro uso
+- explica o fluxo de abrir o app, iniciar o servidor e entrar no painel
+- cobre as funcoes do app desktop e o uso do painel web
+- explica o fallback para navegador quando o modo embutido nao estiver disponivel
+- agora tambem existe no painel web pelo menu `Tutorial`
+
+### CLIENTE
+
+O tutorial do CLIENTE:
+
+- aparece uma vez no primeiro uso
+- explica como entrar na maquina
+- explica onde pedir cadastro ou mais tempo
+- explica onde encontrar as configuracoes e como reabrir o proprio tutorial
+
+## Como reexibir o tutorial
+
+### No ADMIN
+
+Abra:
+
+- `Configuracoes`
+
+Depois:
+
+- marque a opcao para mostrar o tutorial novamente na proxima abertura
+
+Ou:
+
+- clique em `Abrir tutorial agora`
+
+### No CLIENTE
+
+Abra:
+
+- `Configuracoes`
+
+Depois:
+
+- marque a opcao para mostrar o tutorial novamente na proxima abertura
+
+Ou:
+
+- clique em `Abrir tutorial agora`
+
+## Instalacao avancada do CLIENTE (opcional)
+
+Os scripts abaixo continuam existindo para cenarios mais travados de quiosque, servico e tarefa agendada:
+
+- `scripts/install-client.ps1`
+- `scripts/uninstall-client.ps1`
+
+Esses scripts sao opcionais.
+
+O fluxo principal do projeto nao depende deles para:
+
+- abrir o app
+- preparar o cliente
+- fazer login
+- usar o tutorial
+
+## Validacao feita
+
+Validacoes executadas neste ajuste:
+
+- `dotnet build Adrenalina.slnx -m:1 /p:UseSharedCompilation=false`
+- `dotnet publish src/Adrenalina.Admin -c Release -r win-x64 --self-contained true -m:1 /p:UseSharedCompilation=false`
+- `dotnet publish src/Adrenalina.Client -c Release -r win-x64 --self-contained true -m:1 /p:UseSharedCompilation=false`
+
+Observacao:
+
+- os executaveis `Release` de ADMIN e CLIENTE foram publicados com sucesso em modo self-contained
+- o app agora possui fallback para navegador, entao o uso do ADMIN nao fica preso ao `WebView2`
+- o repositorio passou a ignorar `bin`, `obj`, `artifacts` e cache do Visual Studio para reduzir ruido estrutural
+>>>>>>> 9be62fb (Fixes)
